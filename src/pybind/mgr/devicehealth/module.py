@@ -273,6 +273,11 @@ class Module(MgrModule):
         self.event.set()
 
     def open_connection(self, create_if_missing=True):
+        osdmap = self.get("osd_map")
+        assert osdmap is not None
+        # do not create pool if cluster has 0 osd
+        if len(osdmap['osds']) == 0:
+            return None
         pools = self.rados.list_pools()
         is_pool = False
         for pool in pools:
