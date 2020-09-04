@@ -273,6 +273,10 @@ class Module(MgrModule):
         self.event.set()
 
     def open_connection(self, create_if_missing=True):
+        osdmap = self.get("osd_map")
+        assert osdmap is not None
+        if len(osdmap['osds']) == 0:
+            return None
         pools = self.rados.list_pools()
         is_pool = False
         for pool in pools:
@@ -311,6 +315,8 @@ class Module(MgrModule):
 
     def scrape_daemon(self, daemon_type, daemon_id):
         ioctx = self.open_connection()
+        if not ioctx:
+            return 0, "", ""
         raw_smart_data = self.do_scrape_daemon(daemon_type, daemon_id)
         if raw_smart_data:
             for device, raw_data in raw_smart_data.items():
@@ -324,6 +330,8 @@ class Module(MgrModule):
         osdmap = self.get("osd_map")
         assert osdmap is not None
         ioctx = self.open_connection()
+        if not ioctx:
+            return 0, "", ""
         did_device = {}
         ids = []
         for osd in osdmap['osds']:
@@ -356,6 +364,8 @@ class Module(MgrModule):
                     'device ' + devid + ' not claimed by any active daemons')
         (daemon_type, daemon_id) = daemons[0].split('.')
         ioctx = self.open_connection()
+        if not ioctx:
+            return 0, "", ""
         raw_smart_data = self.do_scrape_daemon(daemon_type, daemon_id,
                                                devid=devid)
         if raw_smart_data:
