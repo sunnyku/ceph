@@ -22,7 +22,6 @@
 #include <seastar/core/sharded.hh>
 #include <seastar/core/shared_future.hh>
 
-#include "crimson/net/chained_dispatchers.h"
 #include "Messenger.h"
 #include "SocketConnection.h"
 
@@ -35,18 +34,9 @@ class SocketMessenger final : public Messenger {
   seastar::promise<> shutdown_promise;
 
   FixedCPUServerSocket* listener = nullptr;
-  // as we want to unregister a dispatcher from the messengers when stopping
-  // that dispatcher, we have to use intrusive slist which, when used with
-  // "boost::intrusive::linear<true>", can tolerate ongoing iteration of the
-  // list when removing an element. However, the downside of this is that an
-  // element can only be attached to one slist. So, as we need to make multiple
-  // messenger reference the same set of dispatchers, we have to make them share
-  // the same ChainedDispatchers, which means registering/unregistering an element
-  // to one messenger will affect other messengers that share the same ChainedDispatchers.
-  ChainedDispatchersRef dispatchers;
+  Dispatcher *dispatcher = nullptr;
   std::map<entity_addr_t, SocketConnectionRef> connections;
   std::set<SocketConnectionRef> accepting_conns;
-  std::vector<SocketConnectionRef> closing_conns;
   ceph::net::PolicySet<Throttle> policy_set;
   // Distinguish messengers with meaningful names for debugging
   const std::string logic_name;
@@ -73,10 +63,7 @@ class SocketMessenger final : public Messenger {
   seastar::future<> try_bind(const entity_addrvec_t& addr,
                              uint32_t min_port, uint32_t max_port) override;
 
-  seastar::future<> start(ChainedDispatchersRef dispatchers) override;
-  void add_dispatcher(Dispatcher& disp) {
-    dispatchers->push_back(disp);
-  }
+  seastar::future<> start(Dispatcher *dispatcher) override;
 
   ConnectionRef connect(const entity_addr_t& peer_addr,
                         const entity_name_t& peer_name) override;
@@ -86,12 +73,6 @@ class SocketMessenger final : public Messenger {
     return shutdown_promise.get_future();
   }
 
-  void remove_dispatcher(Dispatcher& disp) override {
-    dispatchers->erase(disp);
-  }
-  bool dispatcher_chain_empty() const override {
-    return !dispatchers || dispatchers->empty();
-  }
   seastar::future<> shutdown() override;
 
   void print(ostream& out) const override {
@@ -120,8 +101,6 @@ class SocketMessenger final : public Messenger {
   void unaccept_conn(SocketConnectionRef);
   void register_conn(SocketConnectionRef);
   void unregister_conn(SocketConnectionRef);
-  void closing_conn(SocketConnectionRef);
-  void closed_conn(SocketConnectionRef);
   seastar::shard_id shard_id() const {
     assert(seastar::this_shard_id() == master_sid);
     return master_sid;

@@ -4,6 +4,7 @@
 #ifndef CEPH_CACHE_SESSION_H
 #define CEPH_CACHE_SESSION_H
 
+#include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/error.hpp>
 
@@ -35,15 +36,10 @@ class CacheSession : public std::enable_shared_from_this<CacheSession> {
   void fault(const boost::system::error_code& ec);
   void send(ObjectCacheRequest* msg);
 
-  void set_client_version(const std::string &version);
-  const std::string &client_version() const;
-
  private:
   stream_protocol::socket m_dm_socket;
   ProcessMsg m_server_process_msg;
   CephContext* m_cct;
-
-  std::string m_client_version;
 
   bufferptr m_bp_header;
 };

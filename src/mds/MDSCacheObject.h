@@ -113,7 +113,7 @@ class MDSCacheObject {
   // --------------------------------------------
   // authority
   virtual mds_authority_t authority() const = 0;
-  virtual bool is_ambiguous_auth() const {
+  bool is_ambiguous_auth() const {
     return authority().second != CDIR_AUTH_UNKNOWN;
   }
 

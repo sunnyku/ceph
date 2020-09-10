@@ -9,11 +9,10 @@
 #include "include/Context.h"
 #include "include/rados/librados.hpp"
 #include "common/ceph_mutex.h"
+#include "common/WorkQueue.h"
 #include <list>
 
 namespace librbd {
-
-namespace asio { struct ContextWQ; }
 
 namespace watcher {
 
@@ -23,7 +22,7 @@ class Notifier {
 public:
   static const uint64_t NOTIFY_TIMEOUT;
 
-  Notifier(asio::ContextWQ *work_queue, librados::IoCtx &ioctx,
+  Notifier(ContextWQ *work_queue, librados::IoCtx &ioctx,
            const std::string &oid);
   ~Notifier();
 
@@ -45,7 +44,7 @@ private:
     void finish(int r) override;
   };
 
-  asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
   librados::IoCtx &m_ioctx;
   CephContext *m_cct;
   std::string m_oid;

@@ -11,6 +11,7 @@
 #include "common/Formatter.h"
 #include "common/ceph_json.h"
 #include "common/ceph_time.h"
+#include "rgw_rados.h"
 #include "auth/Crypto.h"
 #include "include/ceph_fs.h"
 #include "common/iso_8601.h"
@@ -26,7 +27,6 @@
 #include "rgw_iam_policy.h"
 #include "rgw_sts.h"
 #include "rgw_sal.h"
-#include "rgw_sal_rados.h"
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -44,8 +44,6 @@ int Credentials::generateCredentials(CephContext* cct,
                           const uint64_t& duration,
                           const boost::optional<string>& policy,
                           const boost::optional<string>& roleId,
-                          const boost::optional<string>& role_session,
-                          const boost::optional<std::vector<string>> token_claims,
                           boost::optional<rgw_user> user,
                           rgw::auth::Identity* identity)
 {
@@ -109,10 +107,6 @@ int Credentials::generateCredentials(CephContext* cct,
     token.user = u;
   }
 
-  if (token_claims) {
-    token.token_claims = std::move(*token_claims);
-  }
-
   if (identity) {
     token.acct_name = identity->get_acct_name();
     token.perm_mask = identity->get_perm_mask();
@@ -123,7 +117,6 @@ int Credentials::generateCredentials(CephContext* cct,
     token.perm_mask = 0;
     token.is_admin = 0;
     token.acct_type = TYPE_ROLE;
-    token.role_session = role_session.get();
   }
 
   buffer::list input, enc_output;
@@ -300,17 +293,12 @@ AssumeRoleWithWebIdentityResponse STSService::assumeRoleWithWebIdentity(AssumeRo
 {
   AssumeRoleWithWebIdentityResponse response;
   response.assumeRoleResp.packedPolicySize = 0;
-  std::vector<string> token_claims;
 
   if (req.getProviderId().empty()) {
     response.providerId = req.getIss();
   }
   response.aud = req.getAud();
   response.sub = req.getSub();
-
-  token_claims.emplace_back(string("iss") + ":" + req.getIss());
-  token_claims.emplace_back(string("aud") + ":" + req.getAud());
-  token_claims.emplace_back(string("sub") + ":" + req.getSub());
 
   //Get the role info which is being assumed
   boost::optional<rgw::ARN> r_arn = rgw::ARN::parse(req.getRoleARN());
@@ -347,8 +335,6 @@ AssumeRoleWithWebIdentityResponse STSService::assumeRoleWithWebIdentity(AssumeRo
   //Role and Policy provide the authorization info, user id and applier info are not needed
   response.assumeRoleResp.retCode = response.assumeRoleResp.creds.generateCredentials(cct, req.getDuration(),
                                                                                       req.getPolicy(), roleId,
-                                                                                      req.getRoleSessionName(),
-                                                                                      token_claims,
                                                                                       user_id, nullptr);
   if (response.assumeRoleResp.retCode < 0) {
     return response;
@@ -394,8 +380,6 @@ AssumeRoleResponse STSService::assumeRole(AssumeRoleRequest& req)
   //Role and Policy provide the authorization info, user id and applier info are not needed
   response.retCode = response.creds.generateCredentials(cct, req.getDuration(),
                                               req.getPolicy(), roleId,
-                                              req.getRoleSessionName(),
-                                              boost::none,
                                               user_id, nullptr);
   if (response.retCode < 0) {
     return response;
@@ -431,8 +415,6 @@ GetSessionTokenResponse STSService::getSessionToken(GetSessionTokenRequest& req)
   //Generate Credentials
   if (ret = cred.generateCredentials(cct,
                                       req.getDuration(),
-                                      boost::none,
-                                      boost::none,
                                       boost::none,
                                       boost::none,
                                       user_id,

@@ -35,7 +35,6 @@ public:
 
     bufferlist data;
     time_t mtime;
-    uint64_t objver;
 
     uint64_t snap_id;
     std::vector<uint64_t> snaps;
@@ -91,8 +90,8 @@ public:
   void allocate_client(uint32_t *nonce, uint64_t *global_id);
   void deallocate_client(uint32_t nonce);
 
-  bool is_blocklisted(uint32_t nonce) const;
-  void blocklist(uint32_t nonce);
+  bool is_blacklisted(uint32_t nonce) const;
+  void blacklist(uint32_t nonce);
 
   void transaction_start(const ObjectLocator& locator);
   void transaction_finish(const ObjectLocator& locator);
@@ -100,7 +99,7 @@ public:
 private:
 
   typedef std::map<std::string, Pool*>		Pools;
-  typedef std::set<uint32_t> Blocklist;
+  typedef std::set<uint32_t> Blacklist;
 
   mutable ceph::mutex m_lock =
     ceph::make_mutex("TestMemCluster::m_lock");
@@ -111,7 +110,7 @@ private:
   uint32_t m_next_nonce;
   uint64_t m_next_global_id = 1234;
 
-  Blocklist m_blocklist;
+  Blacklist m_blacklist;
 
   ceph::condition_variable m_transaction_cond;
   std::set<ObjectLocator> m_transactions;

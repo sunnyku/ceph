@@ -1,8 +1,4 @@
 from __future__ import absolute_import
-import os
-
-if 'UNITTEST' in os.environ:
-    import tests
 
 from .module import OrchestratorCli
 
@@ -14,6 +10,5 @@ from ._interface import \
     OrchestratorValidationError, OrchestratorError, NoOrchestrator, \
     ServiceDescription, InventoryFilter, HostSpec, \
     DaemonDescription, \
-    OrchestratorEvent, set_exception_subject, \
     InventoryHost, DeviceLightLoc, \
     UpgradeStatusSpec

@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 
 import { RgwDaemonService } from '../../../shared/api/rgw-daemon.service';
 import { Permission } from '../../../shared/models/permissions';

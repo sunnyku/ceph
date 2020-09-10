@@ -3,14 +3,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbActiveModal, NgbTypeaheadModule } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
-import { of } from 'rxjs';
+import { BsModalRef } from 'ngx-bootstrap/modal';
+import { TypeaheadModule } from 'ngx-bootstrap/typeahead';
 
 import {
   configureTestBed,
   FixtureHelper,
   FormHelper,
+  i18nProviders,
   PrometheusHelper
 } from '../../../../../testing/unit-test-helper';
 import { SharedModule } from '../../../../shared/shared.module';
@@ -29,11 +29,11 @@ describe('SilenceMatcherModalComponent', () => {
     imports: [
       HttpClientTestingModule,
       SharedModule,
-      NgbTypeaheadModule,
+      TypeaheadModule.forRoot(),
       RouterTestingModule,
       ReactiveFormsModule
     ],
-    providers: [NgbActiveModal]
+    providers: [BsModalRef, i18nProviders]
   });
 
   beforeEach(() => {
@@ -159,51 +159,5 @@ describe('SilenceMatcherModalComponent', () => {
       done();
     });
     component.onSubmit();
-  });
-
-  describe('typeahead', () => {
-    let equality: { [key: string]: boolean };
-    let expectations: { [key: string]: string[] };
-
-    const search = (s: string) => {
-      Object.keys(expectations).forEach((key) => {
-        formH.setValue('name', key);
-        component.search(of(s)).subscribe((result) => {
-          // Expect won't fail the test inside subscribe
-          equality[key] = _.isEqual(result, expectations[key]);
-        });
-        expect(equality[key]).toBeTruthy();
-      });
-    };
-
-    beforeEach(() => {
-      equality = {
-        alertname: false,
-        instance: false,
-        job: false,
-        severity: false
-      };
-      expectations = {
-        alertname: ['alert0', 'alert1'],
-        instance: ['someInstance'],
-        job: ['someJob'],
-        severity: ['someSeverity']
-      };
-    });
-
-    it('should show all values on name switch', () => {
-      search('');
-    });
-
-    it('should search for "some"', () => {
-      expectations['alertname'] = [];
-      search('some');
-    });
-
-    it('should search for "er"', () => {
-      expectations['instance'] = [];
-      expectations['job'] = [];
-      search('er');
-    });
   });
 });

@@ -104,6 +104,7 @@ public:
     switch (o) {
     case ownership::none:
       return;
+      break;
     case ownership::unique:
       m->unlock();
       break;

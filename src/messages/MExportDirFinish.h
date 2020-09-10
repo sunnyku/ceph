@@ -15,12 +15,12 @@
 #ifndef CEPH_MEXPORTDIRFINISH_H
 #define CEPH_MEXPORTDIRFINISH_H
 
-#include "messages/MMDSOp.h"
+#include "msg/Message.h"
 
-class MExportDirFinish : public MMDSOp {
+class MExportDirFinish : public SafeMessage {
 private:
-  static constexpr int HEAD_VERSION = 1;
-  static constexpr int COMPAT_VERSION = 1;
+  static const int HEAD_VERSION = 1;
+  static const int COMPAT_VERSION = 1;
 
   dirfrag_t dirfrag;
   bool last;
@@ -31,9 +31,9 @@ private:
   
 protected:
   MExportDirFinish() :
-    MMDSOp{MSG_MDS_EXPORTDIRFINISH, HEAD_VERSION, COMPAT_VERSION}, last(false) {}
+    SafeMessage{MSG_MDS_EXPORTDIRFINISH, HEAD_VERSION, COMPAT_VERSION}, last(false) {}
   MExportDirFinish(dirfrag_t df, bool l, uint64_t tid) :
-    MMDSOp{MSG_MDS_EXPORTDIRFINISH, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), last(l) {
+    SafeMessage{MSG_MDS_EXPORTDIRFINISH, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), last(l) {
     set_tid(tid);
   }
   ~MExportDirFinish() override {}

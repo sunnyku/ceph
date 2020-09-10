@@ -20,7 +20,7 @@ using librbd::util::create_rados_callback;
 
 template <typename I>
 MirrorStatusWatcher<I>::MirrorStatusWatcher(librados::IoCtx &io_ctx,
-                                            librbd::asio::ContextWQ *work_queue)
+                                            ContextWQ *work_queue)
   : Watcher(io_ctx, work_queue, RBD_MIRRORING) {
 }
 

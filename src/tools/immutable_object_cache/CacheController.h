@@ -23,15 +23,15 @@ class CacheController {
 
   void handle_signal(int sinnum);
 
-  int run();
+  void run();
 
   void handle_request(CacheSession* session, ObjectCacheRequest* msg);
 
  private:
-  CacheServer *m_cache_server = nullptr;
+  CacheServer *m_cache_server;
   std::vector<const char*> m_args;
   CephContext *m_cct;
-  ObjectCacheStore *m_object_cache_store = nullptr;
+  ObjectCacheStore *m_object_cache_store;
 };
 
 }  // namespace immutable_obj_cache

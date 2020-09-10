@@ -89,30 +89,30 @@ do that using its unique ID, or various other attributes to identify it:
     ceph tell mds.0 client evict client_metadata.=4305
 
 
-Advanced: Un-blocklisting a client
+Advanced: Un-blacklisting a client
 ==================================
 
-Ordinarily, a blocklisted client may not reconnect to the servers: it
+Ordinarily, a blacklisted client may not reconnect to the servers: it
 must be unmounted and then mounted anew.
 
 However, in some situations it may be useful to permit a client that
 was evicted to attempt to reconnect.
 
-Because CephFS uses the RADOS OSD blocklist to control client eviction,
+Because CephFS uses the RADOS OSD blacklist to control client eviction,
 CephFS clients can be permitted to reconnect by removing them from
-the blocklist:
+the blacklist:
 
 ::
 
-    $ ceph osd blocklist ls
+    $ ceph osd blacklist ls
     listed 1 entries
     127.0.0.1:0/3710147553 2018-03-19 11:32:24.716146
-    $ ceph osd blocklist rm 127.0.0.1:0/3710147553
-    un-blocklisting 127.0.0.1:0/3710147553
+    $ ceph osd blacklist rm 127.0.0.1:0/3710147553
+    un-blacklisting 127.0.0.1:0/3710147553
 
 
 Doing this may put data integrity at risk if other clients have accessed
-files that the blocklisted client was doing buffered IO to.  It is also not
+files that the blacklisted client was doing buffered IO to.  It is also not
 guaranteed to result in a fully functional client -- the best way to get
 a fully healthy client back after an eviction is to unmount the client
 and do a fresh mount.
@@ -121,7 +121,7 @@ If you are trying to reconnect clients in this way, you may also
 find it useful to set ``client_reconnect_stale`` to true in the
 FUSE client, to prompt the client to try to reconnect.
 
-Advanced: Configuring blocklisting
+Advanced: Configuring blacklisting
 ==================================
 
 If you are experiencing frequent client evictions, due to slow
@@ -131,27 +131,27 @@ issue, then you may want to ask the MDS to be less strict.
 It is possible to respond to slow clients by simply dropping their
 MDS sessions, but permit them to re-open sessions and permit them
 to continue talking to OSDs.  To enable this mode, set
-``mds_session_blocklist_on_timeout`` to false on your MDS nodes.
+``mds_session_blacklist_on_timeout`` to false on your MDS nodes.
 
 For the equivalent behaviour on manual evictions, set
-``mds_session_blocklist_on_evict`` to false.
+``mds_session_blacklist_on_evict`` to false.
 
-Note that if blocklisting is disabled, then evicting a client will
+Note that if blacklisting is disabled, then evicting a client will
 only have an effect on the MDS you send the command to.  On a system
 with multiple active MDS daemons, you would need to send an
-eviction command to each active daemon.  When blocklisting is enabled 
+eviction command to each active daemon.  When blacklisting is enabled 
 (the default), sending an eviction command to just a single
-MDS is sufficient, because the blocklist propagates it to the others.
+MDS is sufficient, because the blacklist propagates it to the others.
 
-.. _background_blocklisting_and_osd_epoch_barrier:
+.. _background_blacklisting_and_osd_epoch_barrier:
 
-Background: Blocklisting and OSD epoch barrier
+Background: Blacklisting and OSD epoch barrier
 ==============================================
 
-After a client is blocklisted, it is necessary to make sure that
+After a client is blacklisted, it is necessary to make sure that
 other clients and MDS daemons have the latest OSDMap (including
-the blocklist entry) before they try to access any data objects
-that the blocklisted client might have been accessing.
+the blacklist entry) before they try to access any data objects
+that the blacklisted client might have been accessing.
 
 This is ensured using an internal "osdmap epoch barrier" mechanism.
 
@@ -159,12 +159,12 @@ The purpose of the barrier is to ensure that when we hand out any
 capabilities which might allow touching the same RADOS objects, the
 clients we hand out the capabilities to must have a sufficiently recent
 OSD map to not race with cancelled operations (from ENOSPC) or
-blocklisted clients (from evictions).
+blacklisted clients (from evictions).
 
 More specifically, the cases where an epoch barrier is set are:
 
- * Client eviction (where the client is blocklisted and other clients
-   must wait for a post-blocklist epoch to touch the same objects).
+ * Client eviction (where the client is blacklisted and other clients
+   must wait for a post-blacklist epoch to touch the same objects).
  * OSD map full flag handling in the client (where the client may
    cancel some OSD ops from a pre-full epoch, so other clients must
    wait until the full epoch or later before touching the same objects).

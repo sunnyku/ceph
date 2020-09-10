@@ -1,6 +1,7 @@
 import { Component, Input, OnChanges, OnInit } from '@angular/core';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
 
 import { CellTemplate } from '../../../shared/enum/cell-template.enum';
 import { CdTableColumn } from '../../../shared/models/cd-table-column';
@@ -20,37 +21,39 @@ export class RoleDetailsComponent implements OnChanges, OnInit {
   columns: CdTableColumn[];
   scopes_permissions: Array<any> = [];
 
+  constructor(private i18n: I18n) {}
+
   ngOnInit() {
     this.columns = [
       {
         prop: 'scope',
-        name: $localize`Scope`,
+        name: this.i18n('Scope'),
         flexGrow: 2
       },
       {
         prop: 'read',
-        name: $localize`Read`,
+        name: this.i18n('Read'),
         flexGrow: 1,
         cellClass: 'text-center',
         cellTransformation: CellTemplate.checkIcon
       },
       {
         prop: 'create',
-        name: $localize`Create`,
+        name: this.i18n('Create'),
         flexGrow: 1,
         cellClass: 'text-center',
         cellTransformation: CellTemplate.checkIcon
       },
       {
         prop: 'update',
-        name: $localize`Update`,
+        name: this.i18n('Update'),
         flexGrow: 1,
         cellClass: 'text-center',
         cellTransformation: CellTemplate.checkIcon
       },
       {
         prop: 'delete',
-        name: $localize`Delete`,
+        name: this.i18n('Delete'),
         flexGrow: 1,
         cellClass: 'text-center',
         cellTransformation: CellTemplate.checkIcon

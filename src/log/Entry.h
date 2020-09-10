@@ -41,6 +41,7 @@ public:
   pthread_t m_thread;
   short m_prio, m_subsys;
 
+private:
   static log_clock& clock() {
     static log_clock clock;
     return clock;

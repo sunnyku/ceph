@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { of as observableOf } from 'rxjs';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { SettingsService } from '../api/settings.service';
 import { SharedModule } from '../shared.module';
 import { PasswordPolicyService } from './password-policy.service';
@@ -33,12 +33,13 @@ describe('PasswordPolicyService', () => {
   };
 
   configureTestBed({
-    imports: [HttpClientTestingModule, SharedModule]
+    imports: [HttpClientTestingModule, SharedModule],
+    providers: [i18nProviders]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(PasswordPolicyService);
-    settingsService = TestBed.inject(SettingsService);
+    service = TestBed.get(PasswordPolicyService);
+    settingsService = TestBed.get(SettingsService);
     settingsService['settings'] = {};
   });
 

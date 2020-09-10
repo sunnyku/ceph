@@ -665,10 +665,6 @@ protected:
 
   int32_t _allocate_osd_id(int32_t* existing_id);
 
-  int get_grace_interval_threshold();
-  bool grace_interval_threshold_exceeded(int last_failed);
-  void set_default_laggy_params(int target_osd);
-
 public:
   OSDMonitor(CephContext *cct, Monitor *mn, Paxos *p, const std::string& service_name);
 
@@ -748,8 +744,8 @@ public:
   int get_inc(version_t ver, OSDMap::Incremental& inc);
   int get_full_from_pinned_map(version_t ver, ceph::buffer::list& bl);
 
-  epoch_t blocklist(const entity_addrvec_t& av, utime_t until);
-  epoch_t blocklist(entity_addr_t a, utime_t until);
+  epoch_t blacklist(const entity_addrvec_t& av, utime_t until);
+  epoch_t blacklist(entity_addr_t a, utime_t until);
 
   void dump_info(ceph::Formatter *f);
   int dump_osd_metadata(int osd, ceph::Formatter *f, std::ostream *err);

@@ -62,18 +62,16 @@ namespace PriorityCache
                    uint64_t min,
                    uint64_t max,
                    uint64_t target,
-                   bool reserve_extra,
-		   const std::string& name) :
+                   bool reserve_extra) :
       cct(c),
       caches{},
       min_mem(min),
       max_mem(max),
       target_mem(target),
       tuned_mem(min),
-      reserve_extra(reserve_extra),
-      name(name.empty() ? "prioritycache" : name)
+      reserve_extra(reserve_extra)
   {
-    PerfCountersBuilder b(cct, name,
+    PerfCountersBuilder b(cct, "prioritycache", 
                           MallocStats::M_FIRST, MallocStats::M_LAST);
 
     b.add_u64(MallocStats::M_TARGET_BYTES, "target_bytes",
@@ -172,7 +170,7 @@ namespace PriorityCache
     ceph_assert(end < PERF_COUNTER_MAX_BOUND);
     indexes.emplace(name, std::vector<int>(Extra::E_LAST + 1));
 
-    PerfCountersBuilder b(cct, this->name + ":" + name, start, end);
+    PerfCountersBuilder b(cct, "prioritycache:" + name, start, end);
 
     b.add_u64(cur_index + Priority::PRI0, "pri0_bytes",
               "bytes allocated to pri0", "p0",

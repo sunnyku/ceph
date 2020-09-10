@@ -2,7 +2,7 @@ import logging
 import json
 import time
 
-from io import StringIO
+from six import StringIO
 
 from teuthology import misc as teuthology
 

@@ -6,6 +6,8 @@ import {
   ViewContainerRef
 } from '@angular/core';
 
+import { I18n } from '@ngx-translate/i18n-polyfill';
+
 import { AlertPanelComponent } from '../components/alert-panel/alert-panel.component';
 import { LoadingPanelComponent } from '../components/loading-panel/loading-panel.component';
 import { LoadingStatus } from '../forms/cd-form';
@@ -17,7 +19,8 @@ export class FormLoadingDirective {
   constructor(
     private templateRef: TemplateRef<any>,
     private viewContainer: ViewContainerRef,
-    private componentFactoryResolver: ComponentFactoryResolver
+    private componentFactoryResolver: ComponentFactoryResolver,
+    private i18n: I18n
   ) {}
 
   @Input('cdFormLoading') set cdFormLoading(condition: LoadingStatus) {
@@ -29,7 +32,7 @@ export class FormLoadingDirective {
     switch (condition) {
       case LoadingStatus.Loading:
         factory = this.componentFactoryResolver.resolveComponentFactory(LoadingPanelComponent);
-        content = this.resolveNgContent($localize`Loading form data...`);
+        content = this.resolveNgContent(this.i18n(`Loading form data...`));
         this.viewContainer.createComponent(factory, null, null, content);
         break;
       case LoadingStatus.Ready:
@@ -37,7 +40,7 @@ export class FormLoadingDirective {
         break;
       case LoadingStatus.Error:
         factory = this.componentFactoryResolver.resolveComponentFactory(AlertPanelComponent);
-        content = this.resolveNgContent($localize`Form data could not be loaded.`);
+        content = this.resolveNgContent(this.i18n(`Form data could not be loaded.`));
         const componentRef = this.viewContainer.createComponent(factory, null, null, content);
         (<AlertPanelComponent>componentRef.instance).type = 'error';
         break;

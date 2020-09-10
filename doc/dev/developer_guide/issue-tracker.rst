@@ -1,5 +1,3 @@
-.. _issue-tracker:
-
 Issue Tracker
 =============
 

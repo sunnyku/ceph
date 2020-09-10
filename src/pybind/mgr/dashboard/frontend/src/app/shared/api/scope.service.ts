@@ -1,8 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
+import { ApiModule } from './api.module';
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class ScopeService {
   constructor(private http: HttpClient) {}

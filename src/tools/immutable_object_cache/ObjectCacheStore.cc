@@ -60,19 +60,17 @@ int ObjectCacheStore::init(bool reset) {
 
   // TODO(dehao): fsck and reuse existing cache objects
   if (reset) {
-    try {
-      if (efs::exists(m_cache_root_dir)) {
-        // remove all sub folders
-        for (auto& p : efs::directory_iterator(m_cache_root_dir)) {
-          efs::remove_all(p.path());
-        }
-      } else {
-        efs::create_directories(m_cache_root_dir);
+    std::error_code ec;
+    if (efs::exists(m_cache_root_dir)) {
+      // remove all sub folders
+      for (auto& p : efs::directory_iterator(m_cache_root_dir)) {
+        efs::remove_all(p.path());
       }
-    } catch (const efs::filesystem_error& e) {
-      lderr(m_cct) << "failed to initialize cache store directory: "
-                   << e.what() << dendl;
-      return -e.code().value();
+    } else {
+      if (!efs::create_directories(m_cache_root_dir, ec)) {
+        lderr(m_cct) << "fail to create cache store dir: " << ec << dendl;
+        return ec.value();
+      }
     }
   }
   return 0;
@@ -142,34 +140,33 @@ int ObjectCacheStore::handle_promote_callback(int ret, bufferlist* read_buf,
     return ret;
   }
 
-  auto state = OBJ_CACHE_PROMOTED;
   if (ret == -ENOENT) {
     // object is empty
-    state = OBJ_CACHE_DNE;
     ret = 0;
-  } else {
-    std::string cache_file_path = get_cache_file_path(cache_file_name, true);
-    if (cache_file_path == "") {
-      lderr(m_cct) << "fail to write cache file" << dendl;
-      m_policy->update_status(cache_file_name, OBJ_CACHE_NONE);
-      delete read_buf;
-      return -ENOSPC;
-    }
+  }
 
-    ret = read_buf->write_file(cache_file_path.c_str());
-    if (ret < 0) {
-      lderr(m_cct) << "fail to write cache file" << dendl;
+  std::string cache_file_path = get_cache_file_path(cache_file_name, true);
 
-      m_policy->update_status(cache_file_name, OBJ_CACHE_NONE);
-      delete read_buf;
-      return ret;
-    }
+  if (cache_file_path == "") {
+    lderr(m_cct) << "fail to write cache file" << dendl;
+    m_policy->update_status(cache_file_name, OBJ_CACHE_NONE);
+    delete read_buf;
+    return -ENOSPC;
+  }
+
+  ret = read_buf->write_file(cache_file_path.c_str());
+  if (ret < 0) {
+    lderr(m_cct) << "fail to write cache file" << dendl;
+
+    m_policy->update_status(cache_file_name, OBJ_CACHE_NONE);
+    delete read_buf;
+    return ret;
   }
 
   // update metadata
   ceph_assert(OBJ_CACHE_SKIP == m_policy->get_status(cache_file_name));
-  m_policy->update_status(cache_file_name, state, read_buf->length());
-  ceph_assert(state == m_policy->get_status(cache_file_name));
+  m_policy->update_status(cache_file_name, OBJ_CACHE_PROMOTED, read_buf->length());
+  ceph_assert(OBJ_CACHE_PROMOTED == m_policy->get_status(cache_file_name));
 
   delete read_buf;
 
@@ -181,7 +178,6 @@ int ObjectCacheStore::handle_promote_callback(int ret, bufferlist* read_buf,
 int ObjectCacheStore::lookup_object(std::string pool_nspace,
                                     uint64_t pool_id, uint64_t snap_id,
                                     std::string object_name,
-                                    bool return_dne_path,
                                     std::string& target_cache_file_path) {
   ldout(m_cct, 20) << "object name = " << object_name
                    << " in pool ID : " << pool_id << dendl;
@@ -201,11 +197,6 @@ int ObjectCacheStore::lookup_object(std::string pool_nspace,
     }
     case OBJ_CACHE_PROMOTED:
       target_cache_file_path = get_cache_file_path(cache_file_name);
-      return ret;
-    case OBJ_CACHE_DNE:
-      if (return_dne_path) {
-        target_cache_file_path = get_cache_file_path(cache_file_name);
-      }
       return ret;
     case OBJ_CACHE_SKIP:
       return ret;

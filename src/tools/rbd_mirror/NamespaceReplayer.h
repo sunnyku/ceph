@@ -5,6 +5,7 @@
 #define CEPH_RBD_MIRROR_NAMESPACE_REPLAYER_H
 
 #include "common/AsyncOpTracker.h"
+#include "common/WorkQueue.h"
 #include "common/ceph_mutex.h"
 #include "include/rados/librados.hpp"
 
@@ -78,7 +79,7 @@ public:
   NamespaceReplayer(const NamespaceReplayer&) = delete;
   NamespaceReplayer& operator=(const NamespaceReplayer&) = delete;
 
-  bool is_blocklisted() const;
+  bool is_blacklisted() const;
 
   void init(Context *on_finish);
   void shut_down(Context *on_finish);

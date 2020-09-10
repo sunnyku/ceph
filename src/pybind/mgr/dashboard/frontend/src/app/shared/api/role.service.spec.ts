@@ -14,8 +14,8 @@ describe('RoleService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(RoleService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(RoleService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

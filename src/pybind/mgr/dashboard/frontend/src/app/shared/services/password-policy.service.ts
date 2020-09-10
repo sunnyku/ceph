@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -11,7 +12,7 @@ import { CdPwdPolicySettings } from '../models/cd-pwd-policy-settings';
   providedIn: 'root'
 })
 export class PasswordPolicyService {
-  constructor(private settingsService: SettingsService) {}
+  constructor(private i18n: I18n, private settingsService: SettingsService) {}
 
   getHelpText(): Observable<string> {
     return this.settingsService.getStandardSettings().pipe(
@@ -19,19 +20,27 @@ export class PasswordPolicyService {
         const settings = new CdPwdPolicySettings(resp);
         let helpText: string[] = [];
         if (settings.pwdPolicyEnabled) {
-          helpText.push($localize`Required rules for passwords:`);
+          helpText.push(this.i18n('Required rules for passwords:'));
           const i18nHelp: { [key: string]: string } = {
-            pwdPolicyCheckLengthEnabled: $localize`Must contain at least ${settings.pwdPolicyMinLength} characters`,
-            pwdPolicyCheckOldpwdEnabled: $localize`Must not be the same as the previous one`,
-            pwdPolicyCheckUsernameEnabled: $localize`Cannot contain the username`,
-            pwdPolicyCheckExclusionListEnabled: $localize`Cannot contain any configured keyword`,
-            pwdPolicyCheckRepetitiveCharsEnabled: $localize`Cannot contain any repetitive characters e.g. "aaa"`,
-            pwdPolicyCheckSequentialCharsEnabled: $localize`Cannot contain any sequential characters e.g. "abc"`,
-            pwdPolicyCheckComplexityEnabled: $localize`Must consist of characters from the following groups:
+            pwdPolicyCheckLengthEnabled: this.i18n('Must contain at least {{length}} characters', {
+              length: settings.pwdPolicyMinLength
+            }),
+            pwdPolicyCheckOldpwdEnabled: this.i18n('Must not be the same as the previous one'),
+            pwdPolicyCheckUsernameEnabled: this.i18n('Cannot contain the username'),
+            pwdPolicyCheckExclusionListEnabled: this.i18n('Cannot contain any configured keyword'),
+            pwdPolicyCheckRepetitiveCharsEnabled: this.i18n(
+              'Cannot contain any repetitive characters e.g. "aaa"'
+            ),
+            pwdPolicyCheckSequentialCharsEnabled: this.i18n(
+              'Cannot contain any sequential characters e.g. "abc"'
+            ),
+            pwdPolicyCheckComplexityEnabled: this.i18n(
+              `Must consist of characters from the following groups:
   * Alphabetic a-z, A-Z
   * Numbers 0-9
   * Special chars: !"#$%& '()*+,-./:;<=>?@[\\]^_\`{{|}}~
   * Any other characters (signs)`
+            )
           };
           helpText = helpText.concat(
             _.keys(i18nHelp)

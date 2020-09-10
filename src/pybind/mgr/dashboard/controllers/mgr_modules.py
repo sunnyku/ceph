@@ -1,43 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-from . import ApiController, RESTController, \
-    allow_empty_body, ControllerDoc, EndpointDoc
+from . import ApiController, RESTController
 from .. import mgr
 from ..security import Scope
 from ..services.ceph_service import CephService
 from ..services.exception import handle_send_command_error
 from ..tools import find_object_in_list, str_to_bool
 
-MGR_MODULE_SCHEMA = ([{
-    "name": (str, "Module Name"),
-    "enabled": (bool, "Is Module Enabled"),
-    "always_on": (bool, "Is it an always on module?"),
-    "options": ({
-        "Option_name": ({
-            "name": (str, "Name of the option"),
-            "type": (str, "Type of the option"),
-            "level": (str, "Option level"),
-            "flags": (int, "List of flags associated"),
-            "default_value": (int, "Default value for the option"),
-            "min": (str, "Minimum value"),
-            "max": (str, "Maximum value"),
-            "enum_allowed": ([str], ""),
-            "desc": (str, "Description of the option"),
-            "long_desc": (str, "Elaborated description"),
-            "tags": ([str], "Tags associated with the option"),
-            "see_also": ([str], "Related options")
-        }, "Options")
-    }, "Module Options")
-}])
-
 
 @ApiController('/mgr/module', Scope.CONFIG_OPT)
-@ControllerDoc("Get details of MGR Module", "MgrModule")
 class MgrModules(RESTController):
     ignore_modules = ['selftest']
-    @EndpointDoc("List Mgr modules",
-                 responses={200: MGR_MODULE_SCHEMA})
+
     def list(self):
         """
         Get the list of managed modules.
@@ -94,7 +69,6 @@ class MgrModules(RESTController):
 
     @RESTController.Resource('POST')
     @handle_send_command_error('mgr_modules')
-    @allow_empty_body
     def enable(self, module_name):
         """
         Enable the specified Ceph Mgr module.
@@ -107,7 +81,6 @@ class MgrModules(RESTController):
 
     @RESTController.Resource('POST')
     @handle_send_command_error('mgr_modules')
-    @allow_empty_body
     def disable(self, module_name):
         """
         Disable the specified Ceph Mgr module.
@@ -185,13 +158,12 @@ class MgrModules(RESTController):
                 else:
                     option['default_value'] = str_to_bool(
                         option['default_value'])
-            elif option['type'] in ['float', 'uint', 'int', 'size', 'secs']:
-                cls = {
-                    'float': float
-                }.get(option['type'], int)
+            elif option['type'] == 'float':
                 for name in ['default_value', 'min', 'max']:
-                    if option[name] == 'None':  # This is Python None
-                        option[name] = None
-                    elif option[name]:  # Skip empty entries
-                        option[name] = cls(option[name])
+                    if option[name]:  # Skip empty entries
+                        option[name] = float(option[name])
+            elif option['type'] in ['uint', 'int', 'size', 'secs']:
+                for name in ['default_value', 'min', 'max']:
+                    if option[name]:  # Skip empty entries
+                        option[name] = int(option[name])
         return options

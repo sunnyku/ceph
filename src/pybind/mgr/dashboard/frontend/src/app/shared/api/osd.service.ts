@@ -1,15 +1,17 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
 import { map } from 'rxjs/operators';
 
+import * as _ from 'lodash';
 import { CdDevice } from '../models/devices';
 import { SmartDataResponseV1 } from '../models/smart';
 import { DeviceService } from '../services/device.service';
+import { ApiModule } from './api.module';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class OsdService {
   private path = 'api/osd';
@@ -18,7 +20,7 @@ export class OsdService {
     KNOWN_PRIORITIES: [
       {
         name: null,
-        text: $localize`-- Select the priority --`,
+        text: this.i18n('-- Select the priority --'),
         values: {
           osd_max_backfills: null,
           osd_recovery_max_active: null,
@@ -28,7 +30,7 @@ export class OsdService {
       },
       {
         name: 'low',
-        text: $localize`Low`,
+        text: this.i18n('Low'),
         values: {
           osd_max_backfills: 1,
           osd_recovery_max_active: 1,
@@ -38,7 +40,7 @@ export class OsdService {
       },
       {
         name: 'default',
-        text: $localize`Default`,
+        text: this.i18n('Default'),
         values: {
           osd_max_backfills: 1,
           osd_recovery_max_active: 3,
@@ -48,7 +50,7 @@ export class OsdService {
       },
       {
         name: 'high',
-        text: $localize`High`,
+        text: this.i18n('High'),
         values: {
           osd_max_backfills: 4,
           osd_recovery_max_active: 4,
@@ -59,7 +61,7 @@ export class OsdService {
     ]
   };
 
-  constructor(private http: HttpClient, private deviceService: DeviceService) {}
+  constructor(private http: HttpClient, private i18n: I18n, private deviceService: DeviceService) {}
 
   create(driveGroups: Object[]) {
     const request = {
@@ -78,6 +80,7 @@ export class OsdService {
     interface OsdData {
       osd_map: { [key: string]: any };
       osd_metadata: { [key: string]: any };
+      histogram: { [key: string]: object };
       smart: { [device_identifier: string]: any };
     }
     return this.http.get<OsdData>(`${this.path}/${id}`);
@@ -134,12 +137,10 @@ export class OsdService {
     return this.http.post(`${this.path}/${id}/destroy`, null);
   }
 
-  delete(id: number, preserveId?: boolean, force?: boolean) {
-    const params = {
-      preserve_id: preserveId ? 'true' : 'false',
-      force: force ? 'true' : 'false'
-    };
-    return this.http.delete(`${this.path}/${id}`, { observe: 'response', params: params });
+  delete(id: number, force?: boolean) {
+    const options = force ? { params: new HttpParams().set('force', 'true') } : {};
+    options['observe'] = 'response';
+    return this.http.delete(`${this.path}/${id}`, options);
   }
 
   safeToDestroy(ids: string) {

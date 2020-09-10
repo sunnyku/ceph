@@ -11,6 +11,7 @@
 #include <list>
 
 class Context;
+class ContextWQ;
 class SafeTimer;
 
 namespace librbd {

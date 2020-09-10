@@ -14,7 +14,6 @@ PATH = [
     '/sbin',
 ]
 
-
 def choose_python():
     for e in PYTHONS:
         for b in PATH:
@@ -22,7 +21,6 @@ def choose_python():
             if os.path.exists(p):
                 return p
     return None
-
 
 if __name__ == '__channelexec__':
     for item in channel:  # type: ignore

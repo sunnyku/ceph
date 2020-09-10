@@ -58,7 +58,7 @@ public:
    * with the reason. */
   virtual uint32_t get_perm_mask() const = 0;
 
-  virtual bool is_anonymous() const {
+  virtual bool is_anonymous() const final {
     /* If the identity owns the anonymous account (rgw_user), it's considered
      * the anonymous identity. On error throws rgw::auth::Exception storing
      * the reason. */
@@ -76,9 +76,6 @@ public:
 
   /* Name of Account */
   virtual string get_acct_name() const = 0;
-
-  /* Subuser of Account */
-  virtual string get_subuser() const = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& out,
@@ -365,7 +362,6 @@ class WebIdentityApplier : public IdentityApplier {
 protected:
   CephContext* const cct;
   RGWCtl* const ctl;
-  string role_session;
   rgw::web_idp::WebTokenClaims token_claims;
 
   string get_idp_url() const;
@@ -373,11 +369,9 @@ protected:
 public:
   WebIdentityApplier( CephContext* const cct,
                       RGWCtl* const ctl,
-                      const string& role_session,
                       const rgw::web_idp::WebTokenClaims& token_claims)
     : cct(cct),
       ctl(ctl),
-      role_session(role_session),
       token_claims(token_claims) {
   }
 
@@ -416,16 +410,11 @@ public:
     return token_claims.user_name;
   }
 
-  string get_subuser() const override {
-    return {};
-  }
-
   struct Factory {
     virtual ~Factory() {}
 
     virtual aplptr_t create_apl_web_identity( CephContext* cct,
                                               const req_state* s,
-                                              const string& role_session,
                                               const rgw::web_idp::WebTokenClaims& token) const = 0;
   };
 };
@@ -502,6 +491,7 @@ public:
       is_admin(acct_privilege_t::IS_ADMIN_ACCT == level),
       acct_type(acct_type) {
     }
+    bool is_anon() const {return (acct_name.compare(RGW_USER_ANON_ID) == 0);}
   };
 
   using aclspec_t = rgw::auth::Identity::aclspec_t;
@@ -552,7 +542,6 @@ public:
   void load_acct_info(const DoutPrefixProvider* dpp, RGWUserInfo& user_info) const override; /* out */
   uint32_t get_identity_type() const override { return info.acct_type; }
   string get_acct_name() const override { return info.acct_name; }
-  string get_subuser() const override { return {}; }
 
   struct Factory {
     virtual ~Factory() {}
@@ -614,7 +603,6 @@ public:
   void load_acct_info(const DoutPrefixProvider* dpp, RGWUserInfo& user_info) const override; /* out */
   uint32_t get_identity_type() const override { return TYPE_RGW; }
   string get_acct_name() const override { return {}; }
-  string get_subuser() const override { return subuser; }
 
   struct Factory {
     virtual ~Factory() {}
@@ -627,32 +615,20 @@ public:
 };
 
 class RoleApplier : public IdentityApplier {
-public:
-  struct Role {
-    string id;
-    string name;
-    string tenant;
-    vector<string> role_policies;
-  } role;
 protected:
+  const string role_name;
   const rgw_user user_id;
-  string token_policy;
-  string role_session_name;
-  std::vector<string> token_claims;
+  vector<std::string> role_policies;
 
 public:
 
   RoleApplier(CephContext* const cct,
-               const Role& role,
+               const string& role_name,
                const rgw_user& user_id,
-               const string& token_policy,
-               const string& role_session_name,
-               const std::vector<string>& token_claims)
-    : role(role),
+               const vector<std::string>& role_policies)
+    : role_name(role_name),
       user_id(user_id),
-      token_policy(token_policy),
-      role_session_name(role_session_name),
-      token_claims(token_claims) {}
+      role_policies(role_policies) {}
 
   uint32_t get_perms_from_aclspec(const DoutPrefixProvider* dpp, const aclspec_t& aclspec) const override {
     return 0;
@@ -671,18 +647,15 @@ public:
   void load_acct_info(const DoutPrefixProvider* dpp, RGWUserInfo& user_info) const override; /* out */
   uint32_t get_identity_type() const override { return TYPE_ROLE; }
   string get_acct_name() const override { return {}; }
-  string get_subuser() const override { return {}; }
   void modify_request_state(const DoutPrefixProvider* dpp, req_state* s) const override;
 
   struct Factory {
     virtual ~Factory() {}
     virtual aplptr_t create_apl_role( CephContext* cct,
                                       const req_state* s,
-                                      const rgw::auth::RoleApplier::Role& role_name,
+                                      const string& role_name,
                                       const rgw_user& user_id,
-                                      const std::string& token_policy,
-                                      const std::string& role_session,
-                                      const std::vector<string>& token_claims) const = 0;
+                                      const vector<std::string>& role_policies) const = 0;
     };
 };
 

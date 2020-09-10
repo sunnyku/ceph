@@ -8,14 +8,12 @@ except ImportError:
 
 def _mk_device(rotational=True,
                locked=False,
-               size="394.27 GB",
-               vendor='Vendor',
-               model='Model'):
+               size="394.27 GB"):
     return [Device(
         path='??',
         sys_api={
             "rotational": '1' if rotational else '0',
-            "vendor": vendor,
+            "vendor": "Vendor",
             "human_readable_size": size,
             "partitions": {},
             "locked": int(locked),
@@ -23,7 +21,7 @@ def _mk_device(rotational=True,
             "removable": "0",
             "path": "??",
             "support_discard": "",
-            "model": model,
+            "model": "Model",
             "ro": "0",
             "nr_requests": "128",
             "size": 423347879936  # ignore coversion from human_readable_size

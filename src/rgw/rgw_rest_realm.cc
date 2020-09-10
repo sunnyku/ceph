@@ -6,7 +6,6 @@
 #include "rgw_rest_s3.h"
 #include "rgw_rest_config.h"
 #include "rgw_zone.h"
-#include "rgw_sal_rados.h"
 
 #include "services/svc_zone.h"
 #include "services/svc_mdlog.h"
@@ -247,8 +246,7 @@ class RGWHandler_Period : public RGWHandler_Auth_S3 {
 
 class RGWRESTMgr_Period : public RGWRESTMgr {
  public:
-  RGWHandler_REST* get_handler(rgw::sal::RGWRadosStore *store,
-			       struct req_state*,
+  RGWHandler_REST* get_handler(struct req_state*,
                                const rgw::auth::StrategyRegistry& auth_registry,
                                const std::string&) override {
     return new RGWHandler_Period(auth_registry);
@@ -364,8 +362,7 @@ RGWRESTMgr_Realm::RGWRESTMgr_Realm()
 }
 
 RGWHandler_REST*
-RGWRESTMgr_Realm::get_handler(rgw::sal::RGWRadosStore *store,
-			      struct req_state*,
+RGWRESTMgr_Realm::get_handler(struct req_state*,
                               const rgw::auth::StrategyRegistry& auth_registry,
                               const std::string&)
 {

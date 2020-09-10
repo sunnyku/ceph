@@ -38,7 +38,7 @@ a practical summary of the same.
 Update the tracker
 ------------------
 
-Before you start, you should know the :ref:`issue-tracker` number of the bug
+Before you start, you should know the `Issue tracker`_ number of the bug
 you intend to fix. If there is no tracker issue, now is the time to create
 one.
 
@@ -76,9 +76,9 @@ detailed instructions on forking. In short, if your GitHub username is
 https://github.com/mygithubaccount/ceph. Once you have created your fork,
 you clone it by doing:
 
-.. prompt:: bash $
+.. code::
 
-   git clone https://github.com/mygithubaccount/ceph
+    $ git clone https://github.com/mygithubaccount/ceph
 
 While it is possible to clone the upstream repo directly, in this case you
 must fork it first. Forking is what enables us to open a `GitHub pull
@@ -96,12 +96,10 @@ copy of the ``master`` branch in ``remotes/origin/master``. Since the fork
 upstream repo (https://github.com/ceph/ceph.git, typically abbreviated to
 ``ceph/ceph.git``) is updated frequently by other developers, you will need
 to sync your fork periodically. To do this, first add the upstream repo as
-a "remote" and fetch it
+a "remote" and fetch it::
 
-.. prompt:: bash $
-
-   git remote add ceph https://github.com/ceph/ceph.git
-   git fetch ceph
+    $ git remote add ceph https://github.com/ceph/ceph.git
+    $ git fetch ceph
 
 Fetching downloads all objects (commits, branches) that were added since
 the last sync. After running these commands, all the branches from
@@ -110,31 +108,27 @@ the last sync. After running these commands, all the branches from
 ``ceph/$BRANCH_NAME`` in certain git commands.
 
 For example, your local ``master`` branch can be reset to the upstream Ceph
-``master`` branch by doing
+``master`` branch by doing::
 
-.. prompt:: bash $
-
-   git fetch ceph
-   git checkout master
-   git reset --hard ceph/master
+    $ git fetch ceph
+    $ git checkout master
+    $ git reset --hard ceph/master
 
 Finally, the ``master`` branch of your fork can then be synced to upstream
-master by
+master by::
 
-.. prompt:: bash $
-
-   git push -u origin master
+    $ git push -u origin master
 
 Bugfix branch
 -------------
 
 Next, create a branch for the bugfix:
 
-.. prompt:: bash $
+.. code::
 
-   git checkout master
-   git checkout -b fix_1
-   git push -u origin fix_1
+    $ git checkout master
+    $ git checkout -b fix_1
+    $ git push -u origin fix_1
 
 This creates a ``fix_1`` branch locally and in our GitHub fork. At this
 point, the ``fix_1`` branch is identical to the ``master`` branch, but not
@@ -159,17 +153,13 @@ see the chapters on testing.
 
 For now, let us just assume that you have finished work on the bugfix and
 that you have tested it and believe it works. Commit the changes to your local
-branch using the ``--signoff`` option
+branch using the ``--signoff`` option::
 
-.. prompt:: bash $
+    $ git commit -as
 
-   git commit -as
+and push the changes to your fork::
 
-and push the changes to your fork
-
-.. prompt:: bash $
-
-   git push origin fix_1
+    $ git push origin fix_1
 
 GitHub pull request
 -------------------
@@ -195,7 +185,7 @@ the `Git Commit Good Practice`_ article at the `OpenStack Project Wiki`_.
 .. _`Git Commit Good Practice`: https://wiki.openstack.org/wiki/GitCommitMessages
 .. _`OpenStack Project Wiki`: https://wiki.openstack.org/wiki/Main_Page
 
-Once your pull request (PR) is opened, update the :ref:`issue-tracker` by
+Once your pull request (PR) is opened, update the `Issue tracker`_ by
 adding a comment to the bug pointing the other developers to your PR. The
 update can be as simple as::
 
@@ -208,10 +198,10 @@ When your PR hits GitHub, the Ceph project's `Continuous Integration (CI)
 <https://en.wikipedia.org/wiki/Continuous_integration>`_
 infrastructure will test it automatically. At the time of this writing
 (March 2016), the automated CI testing included a test to check that the
-commits in the PR are properly signed (see :ref:`submitting-patches`) and a
-:ref:`make-check` test.
+commits in the PR are properly signed (see `Submitting patches`_) and a
+`make check`_ test.
 
-The latter, :ref:`make-check`, builds the PR and runs it through a battery of
+The latter, `make check`_, builds the PR and runs it through a battery of
 tests. These tests run on machines operated by the Ceph Continuous
 Integration (CI) team. When the tests complete, the result will be shown
 on GitHub in the pull request itself.
@@ -222,7 +212,7 @@ Refer to the chapters on testing for details.
 Notes on PR make check test
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The GitHub :ref:`make-check` test is driven by a Jenkins instance.
+The GitHub `make check`_ test is driven by a Jenkins instance.
 
 Jenkins merges the PR branch into the latest version of the base branch before
 starting the build, so you don't have to rebase the PR to pick up any fixes.
@@ -232,14 +222,14 @@ comment should contain the string "test this please". Since a human subscribed
 to the PR might interpret that as a request for him or her to test the PR,
 it's good to write the request as "Jenkins, test this please".
 
-The :ref:`make-check` log is the place to go if there is a failure and you're not
-sure what caused it. To reach it, first click on "details" (next to the :ref:`make-check`
-test in the PR) to get into the Jenkins web GUI, and then click on
+The `make check`_ log is the place to go if there is a failure and you're not
+sure what caused it. To reach it, first click on "details" (next to the `make
+check`_ test in the PR) to get into the Jenkins web GUI, and then click on
 "Console Output" (on the left).
 
 Jenkins is set up to grep the log for strings known to have been associated
-with :ref:`make-check` failures in the past. However, there is no guarantee that
-the strings are associated with any given :ref:`make-check` failure. You have to
+with `make check`_ failures in the past. However, there is no guarantee that
+the strings are associated with any given `make check`_ failure. You have to
 dig into the log to be sure.
 
 Integration tests AKA ceph-qa-suite
@@ -255,7 +245,7 @@ sub-directory`_ and are run via the `teuthology framework`_.
 .. _`teuthology framework`: https://github.com/ceph/teuthology
 
 The Ceph community has access to the `Sepia lab
-<https://wiki.sepia.ceph.com/doku.php>`_ where :ref:`testing-integration-tests` can be
+<https://wiki.sepia.ceph.com/doku.php>`_ where `integration tests`_ can be
 run on real hardware. Other developers may add tags like "needs-qa" to your
 PR. This allows PRs that need testing to be merged into a single branch and
 tested all at the same time. Since teuthology suites can take hours (even
@@ -263,7 +253,7 @@ days in some cases) to run, this can save a lot of time.
 
 To request access to the Sepia lab, start `here <https://wiki.sepia.ceph.com/doku.php?id=vpnaccess>`_.
 
-Integration testing is discussed in more detail in the :ref:`testing-integration-tests`
+Integration testing is discussed in more detail in the `integration testing`_
 chapter.
 
 Code review
@@ -272,7 +262,7 @@ Code review
 Once your bugfix has been thoroughly tested, or even during this process,
 it will be subjected to code review by other developers. This typically
 takes the form of correspondence in the PR itself, but can be supplemented
-by discussions on :ref:`irc` and the :ref:`mailing-list`.
+by discussions on `IRC`_ and the `Mailing list`_.
 
 Amending your PR
 ----------------
@@ -290,9 +280,9 @@ history. See `this tutorial
 introduction to rebasing. When you are done with your modifications, you
 will need to force push your branch with:
 
-.. prompt:: bash $
+.. code::
 
-   git push --force origin fix_1
+    $ git push --force origin fix_1
 
 Merge
 -----
@@ -301,56 +291,16 @@ The bugfixing process culminates when one of the project leads decides to
 merge your PR.
 
 When this happens, it is a signal for you (or the lead who merged the PR)
-to change the :ref:`issue-tracker` status to "Resolved". Some issues may be
+to change the `Issue tracker`_ status to "Resolved". Some issues may be
 flagged for backporting, in which case the status should be changed to
-"Pending Backport" (see the :ref:`backporting` chapter for details).
+"Pending Backport" (see the `Backporting`_ chapter for details).
 
-See also :ref:`merging` for more information on merging.
 
-Proper Merge Commit Format
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This is the most basic form of a merge commit::
-
-       doc/component: title of the commit 
-
-       Reviewed-by: Reviewer Name <rname@example.com>
-
-This consists of two parts:
-
-#. The title of the commit of the pull request to be merged.
-#. The name and email address of the reviewer. Enclose the reviewer's email 
-   address in angle brackets.
-
-Using .githubmap to Find a Reviewer's Email Address
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-If you cannot find the email address of the reviewer on his or her github
-page, you can look it up in the **.githubmap** file, which can be found in
-the repository at **/ceph/.githubmap**.
-
-Using "git log" to find a Reviewer's Email Address
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-If you cannot find a reviewer's email address by using the above methods,
-you can search the git log for their email address. Reviewers are likely
-to have committed something before, and as long as they have committed
-something, the git log will probably contain their email address.
-
-Use the following command
-
-.. prompt:: bash [branch-under-review]$
-
-   git log
-
-Using ptl-tool to Generate Merge Commits
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Another method of generating merge commits involves using Patrick Donnelly's
-**ptl-tool** pull commits. This tool can be found at
-**/ceph/src/script/ptl-tool.py**.  Merge commits that have been generated by
-the **ptl-tool** have the following form::
-
-     Merge PR #36257 into master
-     * refs/pull/36257/head:
-             client: move client_lock to _unmount()
-             client: add timer_lock support
-     Reviewed-by: Patrick Donnelly <pdonnell@redhat.com>
+.. _make check:
+.. _Backporting: ../essentials/#backporting
+.. _IRC:  ../essentials/#irc
+.. _Issue Tracker: ../issue-tracker
+.. _Integration Tests: ../tests-integration-tests
+.. _Integration Testing: ../tests-integration-tests
+.. _Mailing List: ../essentials/#mailing-list
+.. _Submitting Patches: ../essentials/#submitting-patches

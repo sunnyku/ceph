@@ -15,9 +15,6 @@
 
 #pragma once
 
-#include "rgw_datalog.h"
-#include "rgw_rest.h"
-#include "rgw_rest_s3.h"
 #include "rgw_metadata.h"
 #include "rgw_mdlog.h"
 
@@ -195,8 +192,8 @@ public:
 };
 
 class RGWOp_DATALog_List : public RGWRESTOp {
-  std::vector<rgw_data_change_log_entry> entries;
-  std::string last_marker;
+  list<rgw_data_change_log_entry> entries;
+  string last_marker;
   bool truncated;
   bool extra_info;
 public:
@@ -301,8 +298,7 @@ public:
   RGWRESTMgr_Log() = default;
   ~RGWRESTMgr_Log() override = default;
 
-  RGWHandler_REST* get_handler(rgw::sal::RGWRadosStore *store,
-			       struct req_state* const,
+  RGWHandler_REST* get_handler(struct req_state* const,
                                const rgw::auth::StrategyRegistry& auth_registry,
                                const std::string& frontend_prefixs) override {
     return new RGWHandler_Log(auth_registry);

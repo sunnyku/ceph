@@ -61,16 +61,12 @@ public:
     decode(path, p);
     decode(description, p);
     decode(nick, p);
-    uint8_t raw_type;
-    decode(raw_type, p);
-    type = (enum perfcounter_type_d)raw_type;
+    decode((uint8_t&)type, p);
     if (struct_v >= 2) {
       decode(priority, p);
     }
     if (struct_v >= 3) {
-      uint8_t raw_unit;
-      decode(raw_unit, p);
-      unit = (enum unit_t)raw_unit;
+      decode((uint8_t&)unit, p);
     }
     DECODE_FINISH(p);
   }

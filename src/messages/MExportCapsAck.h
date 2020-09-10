@@ -16,9 +16,10 @@
 #ifndef CEPH_MEXPORTCAPSACK_H
 #define CEPH_MEXPORTCAPSACK_H
 
-#include "messages/MMDSOp.h"
+#include "msg/Message.h"
 
-class MExportCapsAck : public MMDSOp {
+
+class MExportCapsAck : public SafeMessage {
  static constexpr int HEAD_VERSION = 1;
  static constexpr int COMPAT_VERSION = 1;
 
@@ -28,9 +29,9 @@ public:
 
 protected:
   MExportCapsAck() :
-    MMDSOp{MSG_MDS_EXPORTCAPSACK, HEAD_VERSION, COMPAT_VERSION} {}
+    SafeMessage{MSG_MDS_EXPORTCAPSACK, HEAD_VERSION, COMPAT_VERSION} {}
   MExportCapsAck(inodeno_t i) :
-    MMDSOp{MSG_MDS_EXPORTCAPSACK, HEAD_VERSION, COMPAT_VERSION}, ino(i) {}
+    SafeMessage{MSG_MDS_EXPORTCAPSACK, HEAD_VERSION, COMPAT_VERSION}, ino(i) {}
   ~MExportCapsAck() override {}
 
 public:

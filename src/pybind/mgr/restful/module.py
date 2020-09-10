@@ -11,6 +11,7 @@ import inspect
 import tempfile
 import threading
 import traceback
+import six
 import socket
 import fcntl
 
@@ -21,6 +22,7 @@ from uuid import uuid4
 from pecan import jsonify, make_app
 from OpenSSL import crypto
 from pecan.rest import RestController
+from six import iteritems
 from werkzeug.serving import make_server, make_ssl_devcert
 
 from .hooks import ErrorHook
@@ -196,7 +198,6 @@ class Module(MgrModule):
         {'name': 'server_addr'},
         {'name': 'server_port'},
         {'name': 'key_file'},
-        {'name': 'enable_auth', 'type': 'bool', 'default': True},
     ]
 
     COMMANDS = [
@@ -235,7 +236,7 @@ class Module(MgrModule):
         self.requests_lock = threading.RLock()
 
         self.keys = {}
-        self.enable_auth = True
+        self.disable_auth = False
 
         self.server = None
 
@@ -262,7 +263,7 @@ class Module(MgrModule):
     def refresh_keys(self):
         self.keys = {}
         rawkeys = self.get_store_prefix('keys/') or {}
-        for k, v in rawkeys.items():
+        for k, v in six.iteritems(rawkeys):
             self.keys[k[5:]] = v  # strip of keys/ prefix
 
     def _serve(self):
@@ -301,8 +302,6 @@ class Module(MgrModule):
         else:
             pkey_fname = self.get_localized_module_option('key_file')
 
-        self.enable_auth = self.get_localized_module_option('enable_auth', True)
-        
         if not cert_fname or not pkey_fname:
             raise CannotServe('no certificate configured')
         if not os.path.isfile(cert_fname):
@@ -385,9 +384,6 @@ class Module(MgrModule):
         except StopIteration:
             # the command was not issued by me
             pass
-
-    def config_notify(self):
-        self.enable_auth = self.get_localized_module_option('enable_auth', True)
 
 
     def create_self_signed_cert(self):

@@ -36,7 +36,7 @@ void netmask_ipv4(const struct in_addr *addr,
 
 static bool match_numa_node(const string& if_name, int numa_node)
 {
-#if defined(WITH_SEASTAR) || defined(_WIN32)
+#ifdef WITH_SEASTAR
   return true;
 #else
   int if_node = -1;

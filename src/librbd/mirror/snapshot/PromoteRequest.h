@@ -6,7 +6,6 @@
 
 #include "include/buffer.h"
 #include "include/rbd/librbd.hpp"
-#include "common/ceph_mutex.h"
 #include "librbd/internal.h"
 
 #include <string>

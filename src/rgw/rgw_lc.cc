@@ -28,7 +28,6 @@
 #include "rgw_string.h"
 #include "rgw_multi.h"
 #include "rgw_sal.h"
-#include "rgw_sal_rados.h"
 
 // this seems safe to use, at least for now--arguably, we should
 // prefer header-only fmt, in general
@@ -586,6 +585,10 @@ static int remove_expired_obj(lc_op_ctx& oc, bool remove_indeed)
   del_op.params.obj_owner = obj_owner;
   del_op.params.unmod_since = meta.mtime;
 
+  if (perfcounter) {
+    perfcounter->inc(l_rgw_lc_remove_expired, 1);
+  }
+
   return del_op.delete_obj(null_yield);
 } /* remove_expired_obj */
 
@@ -839,26 +842,20 @@ int RGWLC::handle_multipart_expiration(
 	return;
       }
       RGWObjectCtx rctx(store);
-      int ret = abort_multipart_upload(store, cct, &rctx, bucket_info, mp_obj);
-      if (ret == 0) {
-        if (perfcounter) {
-          perfcounter->inc(l_rgw_lc_abort_mpu, 1);
-        }
-      } else {
-	if (ret == -ERR_NO_SUCH_UPLOAD) {
-	  ldpp_dout(wk->get_lc(), 5)
-	    << "ERROR: abort_multipart_upload failed, ret=" << ret
-	    << wq->thr_name()
-	    << ", meta:" << obj.key
-	    << dendl;
-	} else {
-	  ldpp_dout(wk->get_lc(), 0)
-	    << "ERROR: abort_multipart_upload failed, ret=" << ret
-	    << wq->thr_name()
-	    << ", meta:" << obj.key
-	    << dendl;
-	}
-      } /* abort failed */
+      ret = abort_multipart_upload(store, cct, &rctx, bucket_info, mp_obj);
+      if (ret < 0 && ret != -ERR_NO_SUCH_UPLOAD) {
+	ldpp_dout(wk->get_lc(), 0)
+	  << "ERROR: abort_multipart_upload failed, ret=" << ret
+	  << wq->thr_name()
+	  << ", meta:" << obj.key
+	  << dendl;
+      } else if (ret == -ERR_NO_SUCH_UPLOAD) {
+	ldpp_dout(wk->get_lc(), 5)
+	  << "ERROR: abort_multipart_upload failed, ret=" << ret
+	  << wq->thr_name()
+	  << ", meta:" << obj.key
+	  << dendl;
+      }
     } /* expired */
   };
 
@@ -937,8 +934,6 @@ static inline bool has_all_tags(const lc_op& rule_action,
   for (const auto& tag : object_tags.get_tags()) {
     const auto& rule_tags = rule_action.obj_tags->get_tags();
     const auto& iter = rule_tags.find(tag.first);
-    if(iter == rule_tags.end())
-        continue;
     if(iter->second == tag.second)
     {
       tag_count++;
@@ -1090,9 +1085,6 @@ public:
 			 << oc.wq->thr_name() << dendl;
 	return r;
       }
-      if (perfcounter) {
-        perfcounter->inc(l_rgw_lc_expire_current, 1);
-      }
       ldout(oc.cct, 2) << "DELETED:" << oc.bucket_info.bucket << ":" << o.key
 		       << " " << oc.wq->thr_name() << dendl;
     }
@@ -1138,9 +1130,6 @@ public:
 		       << " " << oc.wq->thr_name() << dendl;
       return r;
     }
-    if (perfcounter) {
-      perfcounter->inc(l_rgw_lc_expire_noncurrent, 1);
-    }
     ldout(oc.cct, 2) << "DELETED:" << oc.bucket_info.bucket << ":" << o.key
 		     << " (non-current expiration) "
 		     << oc.wq->thr_name() << dendl;
@@ -1182,9 +1171,6 @@ public:
 		       << " " << oc.wq->thr_name()
 		       << dendl;
       return r;
-    }
-    if (perfcounter) {
-      perfcounter->inc(l_rgw_lc_expire_dm, 1);
     }
     ldout(oc.cct, 2) << "DELETED:" << oc.bucket_info.bucket << ":" << o.key
 		     << " (delete marker expiration) "
@@ -1263,10 +1249,8 @@ public:
       return -EINVAL;
     }
 
-    rgw::sal::RGWRadosBucket bucket(oc.store, oc.bucket_info);
-    rgw::sal::RGWRadosObject obj(oc.store, oc.obj.key, &bucket);
     int r = oc.store->getRados()->transition_obj(
-      oc.rctx, &bucket, obj, target_placement, o.meta.mtime,
+      oc.rctx, oc.bucket_info, oc.obj, target_placement, o.meta.mtime,
       o.versioned_epoch, oc.dpp, null_yield);
     if (r < 0) {
       ldpp_dout(oc.dpp, 0) << "ERROR: failed to transition obj " 
@@ -1296,15 +1280,6 @@ protected:
 public:
   LCOpAction_CurrentTransition(const transition_action& _transition)
     : LCOpAction_Transition(_transition) {}
-    int process(lc_op_ctx& oc) {
-      int r = LCOpAction_Transition::process(oc);
-      if (r == 0) {
-        if (perfcounter) {
-          perfcounter->inc(l_rgw_lc_transition_current, 1);
-        }
-      }
-      return r;
-    }
 };
 
 class LCOpAction_NonCurrentTransition : public LCOpAction_Transition {
@@ -1321,15 +1296,6 @@ public:
 				  const transition_action& _transition)
     : LCOpAction_Transition(_transition)
     {}
-    int process(lc_op_ctx& oc) {
-      int r = LCOpAction_Transition::process(oc);
-      if (r == 0) {
-        if (perfcounter) {
-          perfcounter->inc(l_rgw_lc_transition_noncurrent, 1);
-        }
-      }
-      return r;
-    }
 };
 
 void LCOpRule::build()
@@ -1451,7 +1417,7 @@ int RGWLC::bucket_lc_process(string& shard_id, LCWorker* worker,
   }
 
   auto stack_guard = make_scope_guard(
-    [&worker]
+    [&worker, &bucket_info]
       {
 	worker->workpool->drain();
       }
@@ -1651,9 +1617,7 @@ static inline vector<int> random_sequence(uint32_t n)
     [ix = 0]() mutable {
       return ix++;
     });
-  std::random_device rd;
-  std::default_random_engine rng{rd()};
-  std::shuffle(v.begin(), v.end(), rd);
+  std::random_shuffle(v.begin(), v.end());
   return v;
 }
 
@@ -1933,8 +1897,7 @@ void RGWLifecycleConfiguration::generate_test_instances(
   o.push_back(new RGWLifecycleConfiguration);
 }
 
-static inline void get_lc_oid(CephContext *cct,
-			      const string& shard_id, string *oid)
+void get_lc_oid(CephContext *cct, const string& shard_id, string *oid)
 {
   int max_objs =
     (cct->_conf->rgw_lc_max_objs > HASH_PRIME ? HASH_PRIME :
@@ -2155,8 +2118,8 @@ std::string s3_expiration_header(
   for (const auto& ri : rule_map) {
     const auto& rule = ri.second;
     auto& id = rule.get_id();
+    auto& prefix = rule.get_prefix();
     auto& filter = rule.get_filter();
-    auto& prefix = filter.has_prefix() ? filter.get_prefix(): rule.get_prefix();
     auto& expiration = rule.get_expiration();
     auto& noncur_expiration = rule.get_noncur_expiration();
 
@@ -2186,7 +2149,7 @@ std::string s3_expiration_header(
 
     if(! prefix.empty()) {
       if (! boost::starts_with(obj_key.name, prefix))
-        continue;
+	continue;
     }
 
     if (filter.has_tags()) {
@@ -2258,71 +2221,5 @@ std::string s3_expiration_header(
   return hdr;
 
 } /* rgwlc_s3_expiration_header */
-
-bool s3_multipart_abort_header(
-  DoutPrefixProvider* dpp,
-  const rgw_obj_key& obj_key,
-  const ceph::real_time& mtime,
-  const std::map<std::string, buffer::list>& bucket_attrs,
-  ceph::real_time& abort_date,
-  std::string& rule_id)
-{
-  CephContext* cct = dpp->get_cct();
-  RGWLifecycleConfiguration config(cct);
-
-  const auto& aiter = bucket_attrs.find(RGW_ATTR_LC);
-  if (aiter == bucket_attrs.end())
-    return false;
-
-  bufferlist::const_iterator iter{&aiter->second};
-  try {
-    config.decode(iter);
-  } catch (const buffer::error& e) {
-    ldpp_dout(dpp, 0) << __func__
-                      <<  "() decode life cycle config failed"
-                      << dendl;
-    return false;
-  } /* catch */
-
-  std::optional<ceph::real_time> abort_date_tmp;
-  std::optional<std::string_view> rule_id_tmp;
-  const auto& rule_map = config.get_rule_map();
-  for (const auto& ri : rule_map) {
-    const auto& rule = ri.second;
-    const auto& id = rule.get_id();
-    const auto& filter = rule.get_filter();
-    const auto& prefix = filter.has_prefix()?filter.get_prefix():rule.get_prefix();
-    const auto& mp_expiration = rule.get_mp_expiration();
-    if (!rule.is_enabled()) {
-      continue;
-    }
-    if(!prefix.empty() && !boost::starts_with(obj_key.name, prefix)) {
-      continue;
-    }
-
-    std::optional<ceph::real_time> rule_abort_date;
-    if (mp_expiration.has_days()) {
-      rule_abort_date = std::optional<ceph::real_time>(
-              mtime + make_timespan(mp_expiration.get_days()*24*60*60 - ceph::real_clock::to_time_t(mtime)%(24*60*60) + 24*60*60));
-    }
-
-    // update earliest abort date
-    if (rule_abort_date) {
-      if ((! abort_date_tmp) ||
-          (*abort_date_tmp > *rule_abort_date)) {
-        abort_date_tmp =
-                std::optional<ceph::real_time>(rule_abort_date);
-        rule_id_tmp = std::optional<std::string_view>(id);
-      }
-    }
-  }
-  if (abort_date_tmp && rule_id_tmp) {
-    abort_date = *abort_date_tmp;
-    rule_id = *rule_id_tmp;
-    return true;
-  } else {
-    return false;
-  }
-}
 
 } /* namespace rgw::lc */

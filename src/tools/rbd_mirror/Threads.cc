@@ -3,18 +3,22 @@
 
 #include "tools/rbd_mirror/Threads.h"
 #include "common/Timer.h"
-#include "librbd/AsioEngine.h"
+#include "common/WorkQueue.h"
 #include "librbd/ImageCtx.h"
-#include "librbd/asio/ContextWQ.h"
 
 namespace rbd {
 namespace mirror {
 
 template <typename I>
-Threads<I>::Threads(std::shared_ptr<librados::Rados>& rados) {
-  auto cct = static_cast<CephContext*>(rados->cct());
-  asio_engine = new librbd::AsioEngine(rados);
-  work_queue = asio_engine->get_work_queue();
+Threads<I>::Threads(CephContext *cct) {
+  thread_pool = new ThreadPool(cct, "Journaler::thread_pool", "tp_journal",
+                               cct->_conf.get_val<uint64_t>("rbd_op_threads"),
+                               "rbd_op_threads");
+  thread_pool->start();
+
+  work_queue = new ContextWQ("Journaler::work_queue",
+                             cct->_conf.get_val<uint64_t>("rbd_op_thread_timeout"),
+                             thread_pool);
 
   timer = new SafeTimer(cct, timer_lock, true);
   timer->init();
@@ -29,7 +33,10 @@ Threads<I>::~Threads() {
   delete timer;
 
   work_queue->drain();
-  delete asio_engine;
+  delete work_queue;
+
+  thread_pool->stop();
+  delete thread_pool;
 }
 
 } // namespace mirror

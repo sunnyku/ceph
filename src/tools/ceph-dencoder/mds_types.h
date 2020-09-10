@@ -90,12 +90,12 @@ TYPE_FEATUREFUL_NOCOPY(ESession)
 #include "mds/events/ESessions.h"
 TYPE_FEATUREFUL_NOCOPY(ESessions)
 
-#include "mds/events/EPeerUpdate.h"
+#include "mds/events/ESlaveUpdate.h"
 TYPE(link_rollback)
 TYPE(rmdir_rollback)
 TYPE(rename_rollback::drec)
 TYPE(rename_rollback)
-TYPE_FEATUREFUL_NOCOPY(EPeerUpdate)
+TYPE_FEATUREFUL_NOCOPY(ESlaveUpdate)
 
 #include "mds/events/ESubtreeMap.h"
 TYPE_FEATUREFUL_NOCOPY(ESubtreeMap)

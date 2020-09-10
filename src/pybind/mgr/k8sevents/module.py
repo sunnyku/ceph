@@ -33,7 +33,13 @@ import logging
 import tempfile
 import threading
 
-from urllib.parse import urlparse
+try:
+    # python 3 
+    from urllib.parse import urlparse
+except ImportError:
+    # python 2 fallback
+    from urlparse import urlparse
+
 from datetime import tzinfo, datetime, timedelta
    
 from urllib3.exceptions import MaxRetryError,ProtocolError

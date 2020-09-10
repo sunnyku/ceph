@@ -3,8 +3,11 @@ import { NgModule } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 
-import { NgbNavModule, NgbPopoverModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgBootstrapFormValidationModule } from 'ng-bootstrap-form-validation';
+import { ButtonsModule } from 'ngx-bootstrap/buttons';
+import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
+import { PopoverModule } from 'ngx-bootstrap/popover';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 
 import { ActionLabels, URLVerbs } from '../../shared/constants/app.constants';
 import { SharedModule } from '../../shared/shared.module';
@@ -21,14 +24,16 @@ import { UserTabsComponent } from './user-tabs/user-tabs.component';
 
 @NgModule({
   imports: [
+    ButtonsModule.forRoot(),
     CommonModule,
     FormsModule,
+    PopoverModule.forRoot(),
     ReactiveFormsModule,
     SharedModule,
-    NgbNavModule,
-    NgbPopoverModule,
+    TabsModule.forRoot(),
     RouterModule,
-    NgBootstrapFormValidationModule
+    NgBootstrapFormValidationModule,
+    BsDatepickerModule.forRoot()
   ],
   declarations: [
     LoginComponent,

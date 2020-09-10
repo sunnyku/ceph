@@ -3,11 +3,11 @@
 
 #include "librbd/journal/ObjectDispatch.h"
 #include "common/dout.h"
+#include "common/WorkQueue.h"
 #include "osdc/Striper.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/Journal.h"
 #include "librbd/Utils.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/io/ObjectDispatchSpec.h"
 #include "librbd/io/ObjectDispatcherInterface.h"
 
@@ -107,8 +107,7 @@ bool ObjectDispatch<I>::discard(
 template <typename I>
 bool ObjectDispatch<I>::write(
     uint64_t object_no, uint64_t object_off, ceph::bufferlist&& data,
-    const ::SnapContext &snapc, int op_flags, int write_flags,
-    std::optional<uint64_t> assert_version,
+    const ::SnapContext &snapc, int op_flags,
     const ZTracer::Trace &parent_trace, int* object_dispatch_flags,
     uint64_t* journal_tid, io::DispatchResult* dispatch_result,
     Context** on_finish, Context* on_dispatched) {

@@ -26,7 +26,6 @@
 
 #include "messages/MMonGetMap.h"
 #include "messages/MMonGetVersion.h"
-#include "messages/MMonGetMap.h"
 #include "messages/MMonGetVersionReply.h"
 #include "messages/MMonMap.h"
 #include "messages/MConfig.h"
@@ -47,7 +46,6 @@
 #include "common/LogClient.h"
 
 #include "MonClient.h"
-#include "error_code.h"
 #include "MonMap.h"
 
 #include "auth/Auth.h"
@@ -60,16 +58,14 @@
 #undef dout_prefix
 #define dout_prefix *_dout << "monclient" << (_hunting() ? "(hunting)":"") << ": "
 
-namespace bs = boost::system;
 using std::string;
-using namespace std::literals;
 
-MonClient::MonClient(CephContext *cct_, boost::asio::io_context& service) :
+MonClient::MonClient(CephContext *cct_) :
   Dispatcher(cct_),
   AuthServer(cct_),
   messenger(NULL),
   timer(cct_, monc_lock),
-  service(service),
+  finisher(cct_),
   initialized(false),
   log_client(NULL),
   more_log_pending(false),
@@ -99,7 +95,7 @@ int MonClient::get_monmap()
 {
   ldout(cct, 10) << __func__ << dendl;
   std::unique_lock l(monc_lock);
-
+  
   sub.want("monmap", 0, 0);
   if (!_opened())
     _reopen_session();
@@ -141,14 +137,6 @@ int MonClient::get_monmap_and_config()
     }
   });
 
-  want_bootstrap_config = true;
-  auto shutdown_config = make_scope_guard([this] {
-    std::unique_lock l(monc_lock);
-    want_bootstrap_config = false;
-    bootstrap_config.reset();
-  });
-
-  ceph::ref_t<MConfig> config;
   while (tries-- > 0) {
     r = init();
     if (r < 0) {
@@ -172,15 +160,13 @@ int MonClient::get_monmap_and_config()
 	r = 0;
 	break;
       }
-      while ((!bootstrap_config || monmap.get_epoch() == 0) && r == 0) {
+      while ((!got_config || monmap.get_epoch() == 0) && r == 0) {
 	ldout(cct,20) << __func__ << " waiting for monmap|config" << dendl;
 	map_cond.wait_for(l, ceph::make_timespan(
           cct->_conf->mon_client_hunt_interval));
       }
-
-      if (bootstrap_config) {
+      if (got_config) {
 	ldout(cct,10) << __func__ << " success" << dendl;
-	config = std::move(bootstrap_config);
 	r = 0;
 	break;
       }
@@ -188,12 +174,6 @@ int MonClient::get_monmap_and_config()
     lderr(cct) << __func__ << " failed to get config" << dendl;
     shutdown();
     continue;
-  }
-
-  if (config) {
-    // apply the bootstrap config to ensure its applied prior to completing
-    // the bootstrap
-    cct->_conf.set_mon_vals(cct, config->config, config_cb);
   }
 
   shutdown();
@@ -440,8 +420,6 @@ void MonClient::handle_monmap(MMonMap *m)
     }
   }
 
-  cct->set_mon_addrs(monmap);
-
   sub.got("monmap", monmap.get_epoch());
   map_cond.notify_all();
   want_monmap = false;
@@ -454,27 +432,15 @@ void MonClient::handle_monmap(MMonMap *m)
 void MonClient::handle_config(MConfig *m)
 {
   ldout(cct,10) << __func__ << " " << *m << dendl;
-
-  if (want_bootstrap_config) {
-    // get_monmap_and_config is waiting for config which it will apply
-    // synchronously
-    bootstrap_config = ceph::ref_t<MConfig>(m, false);
-    map_cond.notify_all();
-    return;
-  }
-
-  // Take the sledgehammer approach to ensuring we don't depend on
-  // anything in MonClient.
-  boost::asio::defer(finish_strand,
-		    [m, cct = boost::intrusive_ptr<CephContext>(cct),
-		     config_notify_cb = config_notify_cb,
-		     config_cb = config_cb]() {
-		      cct->_conf.set_mon_vals(cct.get(), m->config, config_cb);
-		      if (config_notify_cb) {
-			config_notify_cb();
-		      }
-		      m->put();
-		    });
+  finisher.queue(new LambdaContext([this, m](int r) {
+	cct->_conf.set_mon_vals(cct, m->config, config_cb);
+	if (config_notify_cb) {
+	  config_notify_cb();
+	}
+	m->put();
+      }));
+  got_config = true;
+  map_cond.notify_all();
 }
 
 // ----------------------
@@ -512,6 +478,7 @@ int MonClient::init()
   messenger->add_dispatcher_head(this);
 
   timer.init();
+  finisher.start();
   schedule_tick();
 
   return 0;
@@ -523,10 +490,10 @@ void MonClient::shutdown()
   monc_lock.lock();
   stopping = true;
   while (!version_requests.empty()) {
-    ceph::async::defer(std::move(version_requests.begin()->second),
-		       monc_errc::shutting_down, 0, 0);
+    version_requests.begin()->second->context->complete(-ECANCELED);
     ldout(cct, 20) << __func__ << " canceling and discarding version request "
-		   << version_requests.begin()->first << dendl;
+		   << version_requests.begin()->second << dendl;
+    delete version_requests.begin()->second;
     version_requests.erase(version_requests.begin());
   }
   while (!mon_commands.empty()) {
@@ -544,6 +511,8 @@ void MonClient::shutdown()
   monc_lock.unlock();
 
   if (initialized) {
+    finisher.wait_for_empty();
+    finisher.stop();
     initialized = false;
   }
   monc_lock.lock();
@@ -727,8 +696,8 @@ void MonClient::_reopen_session(int rank)
 
   // throw out version check requests
   while (!version_requests.empty()) {
-    ceph::async::defer(std::move(version_requests.begin()->second),
-		       monc_errc::session_reset, 0, 0);
+    finisher.queue(version_requests.begin()->second->context, -EAGAIN);
+    delete version_requests.begin()->second;
     version_requests.erase(version_requests.begin());
   }
 
@@ -984,13 +953,11 @@ void MonClient::_un_backoff()
 void MonClient::schedule_tick()
 {
   auto do_tick = make_lambda_context([this](int) { tick(); });
-  if (!is_connected()) {
-    // start another round of hunting
+  if (_hunting()) {
     const auto hunt_interval = (cct->_conf->mon_client_hunt_interval *
 				reopen_interval_multiplier);
     timer.add_event_after(hunt_interval, do_tick);
   } else {
-    // keep in touch
     timer.add_event_after(std::min(cct->_conf->mon_client_ping_interval,
 				   cct->_conf->mon_client_log_interval),
 			  do_tick);
@@ -1124,9 +1091,10 @@ void MonClient::_send_command(MonCommand *r)
   if (r->is_tell()) {
     ++r->send_attempts;
     if (r->send_attempts > cct->_conf->mon_client_directed_command_retry) {
-      _finish_command(r, monc_errc::mon_unavailable, "mon unavailable", {});
+      _finish_command(r, -ENXIO, "mon unavailable");
       return;
     }
+
     // tell-style command
     if (monmap.min_mon_release >= ceph_release_t::octopus) {
       if (r->target_con) {
@@ -1136,7 +1104,7 @@ void MonClient::_send_command(MonCommand *r)
 	if (r->target_rank >= (int)monmap.size()) {
 	  ldout(cct, 10) << " target " << r->target_rank
 			 << " >= max mon " << monmap.size() << dendl;
-	  _finish_command(r, monc_errc::rank_dne, "mon rank dne"sv, {});
+	  _finish_command(r, -ENOENT, "mon rank dne");
 	  return;
 	}
 	r->target_con = messenger->connect_to_mon(
@@ -1145,7 +1113,7 @@ void MonClient::_send_command(MonCommand *r)
 	if (!monmap.contains(r->target_name)) {
 	  ldout(cct, 10) << " target " << r->target_name
 			 << " not present in monmap" << dendl;
-	  _finish_command(r, monc_errc::mon_dne, "mon dne"sv, {});
+	  _finish_command(r, -ENOENT, "mon dne");
 	  return;
 	}
 	r->target_con = messenger->connect_to_mon(
@@ -1180,7 +1148,7 @@ void MonClient::_send_command(MonCommand *r)
       if (r->target_rank >= (int)monmap.size()) {
 	ldout(cct, 10) << " target " << r->target_rank
 		       << " >= max mon " << monmap.size() << dendl;
-	_finish_command(r, monc_errc::rank_dne, "mon rank dne"sv, {});
+	_finish_command(r, -ENOENT, "mon rank dne");
 	return;
       }
       _reopen_session(r->target_rank);
@@ -1195,7 +1163,7 @@ void MonClient::_send_command(MonCommand *r)
       if (!monmap.contains(r->target_name)) {
 	ldout(cct, 10) << " target " << r->target_name
 		       << " not present in monmap" << dendl;
-	_finish_command(r, monc_errc::mon_dne, "mon dne"sv, {});
+	_finish_command(r, -ENOENT, "mon dne");
 	return;
       }
       _reopen_session(monmap.get_rank(r->target_name));
@@ -1266,10 +1234,9 @@ void MonClient::handle_mon_command_ack(MMonCommandAck *ack)
   }
 
   ldout(cct, 10) << __func__ << " " << r->tid << " " << r->cmd << dendl;
-  auto ec = ack->r < 0 ? bs::error_code(-ack->r, mon_category())
-    : bs::error_code();
-  _finish_command(r, ec, ack->rs,
-		  std::move(ack->get_data()));
+  if (r->poutbl)
+    r->poutbl->claim(ack->get_data());
+  _finish_command(r, ack->r, ack->rs);
   ack->put();
 }
 
@@ -1294,9 +1261,9 @@ void MonClient::handle_command_reply(MCommandReply *reply)
   }
 
   ldout(cct, 10) << __func__ << " " << r->tid << " " << r->cmd << dendl;
-  auto ec = reply->r < 0 ? bs::error_code(-reply->r, mon_category())
-    : bs::error_code();
-  _finish_command(r, ec, reply->rs, std::move(reply->get_data()));
+  if (r->poutbl)
+    r->poutbl->claim(reply->get_data());
+  _finish_command(r, reply->r, reply->rs);
   reply->put();
 }
 
@@ -1313,17 +1280,19 @@ int MonClient::_cancel_mon_command(uint64_t tid)
   ldout(cct, 10) << __func__ << " tid " << tid << dendl;
 
   MonCommand *cmd = it->second;
-  _finish_command(cmd, monc_errc::timed_out, "timed out"sv, {});
+  _finish_command(cmd, -ETIMEDOUT, "");
   return 0;
 }
 
-void MonClient::_finish_command(MonCommand *r, bs::error_code ret,
-				std::string_view rs, ceph::buffer::list&& bl)
+void MonClient::_finish_command(MonCommand *r, int ret, string rs)
 {
-  ldout(cct, 10) << __func__ << " " << r->tid << " = " << ret << " " << rs
-		 << dendl;
-  ceph::async::defer(std::move(r->onfinish), ret, std::string(rs),
-		     std::move(bl));
+  ldout(cct, 10) << __func__ << " " << r->tid << " = " << ret << " " << rs << dendl;
+  if (r->prval)
+    *(r->prval) = ret;
+  if (r->prs)
+    *(r->prs) = rs;
+  if (r->onfinish)
+    finisher.queue(r->onfinish, ret);
   if (r->target_con) {
     r->target_con->mark_down();
   }
@@ -1331,7 +1300,116 @@ void MonClient::_finish_command(MonCommand *r, bs::error_code ret,
   delete r;
 }
 
+void MonClient::start_mon_command(const std::vector<string>& cmd,
+                                  const ceph::buffer::list& inbl,
+                                  ceph::buffer::list *outbl, string *outs,
+                                  Context *onfinish)
+{
+  ldout(cct,10) << __func__ << " cmd=" << cmd << dendl;
+  std::lock_guard l(monc_lock);
+  if (!initialized || stopping) {
+    if (onfinish) {
+      onfinish->complete(-ECANCELED);
+    }
+    return;
+  }
+  MonCommand *r = new MonCommand(++last_mon_command_tid);
+  r->cmd = cmd;
+  r->inbl = inbl;
+  r->poutbl = outbl;
+  r->prs = outs;
+  r->onfinish = onfinish;
+  if (cct->_conf->rados_mon_op_timeout > 0) {
+    class C_CancelMonCommand : public Context
+    {
+      uint64_t tid;
+      MonClient *monc;
+      public:
+      C_CancelMonCommand(uint64_t tid, MonClient *monc) : tid(tid), monc(monc) {}
+      void finish(int r) override {
+	monc->_cancel_mon_command(tid);
+      }
+    };
+    r->ontimeout = new C_CancelMonCommand(r->tid, this);
+    timer.add_event_after(cct->_conf->rados_mon_op_timeout, r->ontimeout);
+  }
+  mon_commands[r->tid] = r;
+  _send_command(r);
+}
+
+void MonClient::start_mon_command(const string &mon_name,
+                                  const std::vector<string>& cmd,
+                                  const ceph::buffer::list& inbl,
+                                  ceph::buffer::list *outbl, string *outs,
+                                  Context *onfinish)
+{
+  ldout(cct,10) << __func__ << " mon." << mon_name << " cmd=" << cmd << dendl;
+  std::lock_guard l(monc_lock);
+  if (!initialized || stopping) {
+    if (onfinish) {
+      onfinish->complete(-ECANCELED);
+    }
+    return;
+  }
+  MonCommand *r = new MonCommand(++last_mon_command_tid);
+
+  // detect/tolerate mon *rank* passed as a string
+  string err;
+  int rank = strict_strtoll(mon_name.c_str(), 10, &err);
+  if (err.size() == 0 && rank >= 0) {
+    ldout(cct,10) << __func__ << " interpreting name '" << mon_name
+		  << "' as rank " << rank << dendl;
+    r->target_rank = rank;
+  } else {
+    r->target_name = mon_name;
+  }
+  r->cmd = cmd;
+  r->inbl = inbl;
+  r->poutbl = outbl;
+  r->prs = outs;
+  r->onfinish = onfinish;
+  mon_commands[r->tid] = r;
+  _send_command(r);
+}
+
+void MonClient::start_mon_command(int rank,
+                                  const std::vector<string>& cmd,
+                                  const ceph::buffer::list& inbl,
+                                  ceph::buffer::list *outbl, string *outs,
+                                  Context *onfinish)
+{
+  ldout(cct,10) << __func__ << " rank " << rank << " cmd=" << cmd << dendl;
+  std::lock_guard l(monc_lock);
+  if (!initialized || stopping) {
+    if (onfinish) {
+      onfinish->complete(-ECANCELED);
+    }
+    return;
+  }
+  MonCommand *r = new MonCommand(++last_mon_command_tid);
+  r->target_rank = rank;
+  r->cmd = cmd;
+  r->inbl = inbl;
+  r->poutbl = outbl;
+  r->prs = outs;
+  r->onfinish = onfinish;
+  mon_commands[r->tid] = r;
+  _send_command(r);
+}
+
 // ---------
+
+void MonClient::get_version(string map, version_t *newest, version_t *oldest, Context *onfinish)
+{
+  version_req_d *req = new version_req_d(onfinish, newest, oldest);
+  ldout(cct, 10) << "get_version " << map << " req " << req << dendl;
+  std::lock_guard l(monc_lock);
+  auto m = ceph::make_message<MMonGetVersion>();
+  m->what = map;
+  m->handle = ++version_req_id;
+  version_requests[m->handle] = req;
+  _send_mon_message(std::move(m));
+}
 
 void MonClient::handle_get_version_reply(MMonGetVersionReply* m)
 {
@@ -1341,12 +1419,15 @@ void MonClient::handle_get_version_reply(MMonGetVersionReply* m)
     ldout(cct, 0) << __func__ << " version request with handle " << m->handle
 		  << " not found" << dendl;
   } else {
-    auto req = std::move(iter->second);
-    ldout(cct, 10) << __func__ << " finishing " << iter->first << " version "
-		   << m->version << dendl;
+    version_req_d *req = iter->second;
+    ldout(cct, 10) << __func__ << " finishing " << req << " version " << m->version << dendl;
     version_requests.erase(iter);
-    ceph::async::defer(std::move(req), bs::error_code(),
-		       m->version, m->oldest_version);
+    if (req->newest)
+      *req->newest = m->version;
+    if (req->oldest)
+      *req->oldest = m->oldest_version;
+    finisher.queue(req->context, 0);
+    delete req;
   }
   m->put();
 }
@@ -1516,8 +1597,7 @@ int MonClient::handle_auth_bad_method(
 	    allowed_methods,
 	    allowed_modes);
 	  if (r < 0) {
-	    auto ec = bs::error_code(-r, mon_category());
-	    _finish_command(i.second, ec, "auth failed"sv, {});
+	    _finish_command(i.second, r, "auth failed");
 	  }
 	  return r;
 	}
@@ -1925,109 +2005,4 @@ void MonClient::register_config_callback(md_config_t::config_callback fn) {
 
 md_config_t::config_callback MonClient::get_config_callback() {
   return config_cb;
-}
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-virtual-dtor"
-class monc_error_category : public ceph::converting_category {
-public:
-  monc_error_category(){}
-  const char* name() const noexcept override;
-  const char* message(int ev, char*, std::size_t) const noexcept override;
-  std::string message(int ev) const override;
-  bs::error_condition default_error_condition(int ev) const noexcept
-    override;
-  bool equivalent(int ev, const bs::error_condition& c) const
-    noexcept override;
-  using ceph::converting_category::equivalent;
-  int from_code(int ev) const noexcept override;
-};
-#pragma GCC diagnostic pop
-#pragma clang diagnostic pop
-
-const char* monc_error_category::name() const noexcept {
-  return "monc";
-}
-
-const char* monc_error_category::message(int ev, char*, std::size_t) const noexcept {
-  if (ev == 0)
-    return "No error";
-
-  switch (static_cast<monc_errc>(ev)) {
-  case monc_errc::shutting_down: // Command failed due to MonClient shutting down
-    return "Command failed due to MonClient shutting down";
-  case monc_errc::session_reset:
-    return "Monitor session was reset";
-  case monc_errc::rank_dne:
-    return "Requested monitor rank does not exist";
-  case monc_errc::mon_dne:
-    return "Requested monitor does not exist";
-  case monc_errc::timed_out:
-    return "Monitor operation timed out";
-  case monc_errc::mon_unavailable:
-    return "Monitor unavailable";
-  }
-
-  return "Unknown error";
-}
-
-std::string monc_error_category::message(int ev) const {
-  return message(ev, nullptr, 0);
-}
-
-bs::error_condition monc_error_category::default_error_condition(int ev) const noexcept {
-  switch (static_cast<monc_errc>(ev)) {
-  case monc_errc::shutting_down:
-    return bs::errc::operation_canceled;
-  case monc_errc::session_reset:
-    return bs::errc::resource_unavailable_try_again;
-  case monc_errc::rank_dne:
-    [[fallthrough]];
-  case monc_errc::mon_dne:
-    return ceph::errc::not_in_map;
-  case monc_errc::timed_out:
-    return bs::errc::timed_out;
-  case monc_errc::mon_unavailable:
-    return bs::errc::no_such_device;
-  }
-  return { ev, *this };
-}
-
-bool monc_error_category::equivalent(int ev, const bs::error_condition& c) const noexcept {
-  switch (static_cast<monc_errc>(ev)) {
-  case monc_errc::rank_dne:
-    [[fallthrough]];
-  case monc_errc::mon_dne:
-      return c == bs::errc::no_such_file_or_directory;
-  default:
-    return default_error_condition(ev) == c;
-  }
-}
-
-int monc_error_category::from_code(int ev) const noexcept {
-  if (ev == 0)
-    return 0;
-
-  switch (static_cast<monc_errc>(ev)) {
-  case monc_errc::shutting_down:
-    return -ECANCELED;
-  case monc_errc::session_reset:
-    return -EAGAIN;
-  case monc_errc::rank_dne:
-    [[fallthrough]];
-  case monc_errc::mon_dne:
-    return -ENOENT;
-  case monc_errc::timed_out:
-    return -ETIMEDOUT;
-  case monc_errc::mon_unavailable:
-    return -ENXIO;
-  }
-  return -EDOM;
-}
-
-const bs::error_category& monc_category() noexcept {
-  static const monc_error_category c;
-  return c;
 }

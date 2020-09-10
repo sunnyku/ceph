@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 from tasks.ceph_test_case import CephTestCase
@@ -6,10 +7,8 @@ import re
 
 from tasks.cephfs.fuse_mount import FuseMount
 
-from teuthology import contextutil
 from teuthology.orchestra import run
 from teuthology.orchestra.run import CommandFailedError
-from teuthology.contextutil import safe_while
 
 
 log = logging.getLogger(__name__)
@@ -63,8 +62,6 @@ class CephFSTestCase(CephTestCase):
     def setUp(self):
         super(CephFSTestCase, self).setUp()
 
-        self.config_set('mon', 'mon_allow_pool_delete', True)
-
         if len(self.mds_cluster.mds_ids) < self.MDSS_REQUIRED:
             self.skipTest("Only have {0} MDSs, require {1}".format(
                 len(self.mds_cluster.mds_ids), self.MDSS_REQUIRED
@@ -104,17 +101,17 @@ class CephFSTestCase(CephTestCase):
         self.fs = None # is now invalid!
         self.recovery_fs = None
 
-        # In case anything is in the OSD blocklist list, clear it out.  This is to avoid
-        # the OSD map changing in the background (due to blocklist expiry) while tests run.
+        # In case anything is in the OSD blacklist list, clear it out.  This is to avoid
+        # the OSD map changing in the background (due to blacklist expiry) while tests run.
         try:
-            self.mds_cluster.mon_manager.raw_cluster_cmd("osd", "blocklist", "clear")
+            self.mds_cluster.mon_manager.raw_cluster_cmd("osd", "blacklist", "clear")
         except CommandFailedError:
             # Fallback for older Ceph cluster
-            blocklist = json.loads(self.mds_cluster.mon_manager.raw_cluster_cmd("osd",
-                                  "dump", "--format=json-pretty"))['blocklist']
-            log.info("Removing {0} blocklist entries".format(len(blocklist)))
-            for addr, blocklisted_at in blocklist.items():
-                self.mds_cluster.mon_manager.raw_cluster_cmd("osd", "blocklist", "rm", addr)
+            blacklist = json.loads(self.mds_cluster.mon_manager.raw_cluster_cmd("osd",
+                                  "dump", "--format=json-pretty"))['blacklist']
+            log.info("Removing {0} blacklist entries".format(len(blacklist)))
+            for addr, blacklisted_at in blacklist.items():
+                self.mds_cluster.mon_manager.raw_cluster_cmd("osd", "blacklist", "rm", addr)
 
         client_mount_ids = [m.client_id for m in self.mounts]
         # In case the test changes the IDs of clients, stash them so that we can
@@ -267,10 +264,6 @@ class CephFSTestCase(CephTestCase):
         if core_dir:  # Non-default core_pattern with a directory in it
             # We have seen a core_pattern that looks like it's from teuthology's coredump
             # task, so proceed to clear out the core file
-            if core_dir[0] == '|':
-                log.info("Piped core dumps to program {0}, skip cleaning".format(core_dir[1:]))
-                return;
-
             log.info("Clearing core from directory: {0}".format(core_dir))
 
             # Verify that we see the expected single coredump
@@ -293,79 +286,19 @@ class CephFSTestCase(CephTestCase):
         else:
             log.info("No core_pattern directory set, nothing to clear (internal.coredump not enabled?)")
 
-    def _get_subtrees(self, status=None, rank=None, path=None):
-        if path is None:
-            path = "/"
-        try:
-            with contextutil.safe_while(sleep=1, tries=3) as proceed:
-                while proceed():
-                    try:
-                        if rank == "all":
-                            subtrees = []
-                            for r in self.fs.get_ranks(status=status):
-                                s = self.fs.rank_asok(["get", "subtrees"], status=status, rank=r['rank'])
-                                s = filter(lambda s: s['auth_first'] == r['rank'] and s['auth_second'] == -2, s)
-                                subtrees += s
-                        else:
-                            subtrees = self.fs.rank_asok(["get", "subtrees"], status=status, rank=rank)
-                        subtrees = filter(lambda s: s['dir']['path'].startswith(path), subtrees)
-                        return list(subtrees)
-                    except CommandFailedError as e:
-                        # Sometimes we get transient errors
-                        if e.exitstatus == 22:
-                            pass
-                        else:
-                            raise
-        except contextutil.MaxWhileTries as e:
-            raise RuntimeError(f"could not get subtree state from rank {rank}") from e
-
-    def _wait_subtrees(self, test, status=None, rank=None, timeout=30, sleep=2, action=None, path=None):
+    def _wait_subtrees(self, status, rank, test):
+        timeout = 30
+        pause = 2
         test = sorted(test)
-        try:
-            with contextutil.safe_while(sleep=sleep, tries=timeout//sleep) as proceed:
-                while proceed():
-                    subtrees = self._get_subtrees(status=status, rank=rank, path=path)
-                    filtered = sorted([(s['dir']['path'], s['auth_first']) for s in subtrees])
-                    log.info("%s =?= %s", filtered, test)
-                    if filtered == test:
-                        # Confirm export_pin in output is correct:
-                        for s in subtrees:
-                            if s['export_pin'] >= 0:
-                                self.assertTrue(s['export_pin'] == s['auth_first'])
-                        return subtrees
-                    if action is not None:
-                        action()
-        except contextutil.MaxWhileTries as e:
-            raise RuntimeError("rank {0} failed to reach desired subtree state".format(rank)) from e
-
-    def _wait_until_scrub_complete(self, path="/", recursive=True):
-        out_json = self.fs.rank_tell(["scrub", "start", path] + ["recursive"] if recursive else [])
-        with safe_while(sleep=10, tries=10) as proceed:
-            while proceed():
-                out_json = self.fs.rank_tell(["scrub", "status"])
-                if out_json['status'] == "no active scrubs running":
-                    break;
-
-    def _wait_distributed_subtrees(self, count, status=None, rank=None, path=None):
-        try:
-            with contextutil.safe_while(sleep=5, tries=20) as proceed:
-                while proceed():
-                    subtrees = self._get_subtrees(status=status, rank=rank, path=path)
-                    subtrees = list(filter(lambda s: s['distributed_ephemeral_pin'] == True, subtrees))
-                    log.info(f"len={len(subtrees)} {subtrees}")
-                    if len(subtrees) >= count:
-                        return subtrees
-        except contextutil.MaxWhileTries as e:
-            raise RuntimeError("rank {0} failed to reach desired subtree state".format(rank)) from e
-
-    def _wait_random_subtrees(self, count, status=None, rank=None, path=None):
-        try:
-            with contextutil.safe_while(sleep=5, tries=20) as proceed:
-                while proceed():
-                    subtrees = self._get_subtrees(status=status, rank=rank, path=path)
-                    subtrees = list(filter(lambda s: s['random_ephemeral_pin'] == True, subtrees))
-                    log.info(f"len={len(subtrees)} {subtrees}")
-                    if len(subtrees) >= count:
-                        return subtrees
-        except contextutil.MaxWhileTries as e:
-            raise RuntimeError("rank {0} failed to reach desired subtree state".format(rank)) from e
+        for i in range(timeout // pause):
+            subtrees = self.fs.mds_asok(["get", "subtrees"], mds_id=status.get_rank(self.fs.id, rank)['name'])
+            subtrees = filter(lambda s: s['dir']['path'].startswith('/'), subtrees)
+            filtered = sorted([(s['dir']['path'], s['auth_first']) for s in subtrees])
+            log.info("%s =?= %s", filtered, test)
+            if filtered == test:
+                # Confirm export_pin in output is correct:
+                for s in subtrees:
+                    self.assertTrue(s['export_pin'] == s['auth_first'])
+                return subtrees
+            time.sleep(pause)
+        raise RuntimeError("rank {0} failed to reach desired subtree state".format(rank))

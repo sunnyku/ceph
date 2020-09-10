@@ -3,13 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbDropdownModule, NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { ChartsModule } from 'ng2-charts';
+import { AlertModule } from 'ngx-bootstrap/alert';
+import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
+import { PopoverModule } from 'ngx-bootstrap/popover';
 
-import { configureTestBed } from '../../../../testing/unit-test-helper';
-import { ComponentsModule } from '../../../shared/components/components.module';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { TableComponent } from '../../../shared/datatable/table/table.component';
+
+import { ComponentsModule } from '../../../shared/components/components.module';
 import { RbdConfigurationEntry } from '../../../shared/models/configuration';
 import { PipesModule } from '../../../shared/pipes/pipes.module';
 import { FormatterService } from '../../../shared/services/formatter.service';
@@ -27,13 +30,14 @@ describe('RbdConfigurationListComponent', () => {
       NgxDatatableModule,
       RouterTestingModule,
       ComponentsModule,
-      NgbDropdownModule,
+      AlertModule,
+      BsDropdownModule.forRoot(),
       ChartsModule,
       PipesModule,
-      NgbTooltipModule
+      PopoverModule
     ],
     declarations: [RbdConfigurationListComponent, TableComponent],
-    providers: [FormatterService, RbdConfigurationService]
+    providers: [FormatterService, RbdConfigurationService, i18nProviders]
   });
 
   beforeEach(() => {

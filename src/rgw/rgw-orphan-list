@@ -8,7 +8,7 @@ export LANG=C
 
 out_dir="."
 temp_file=/tmp/temp.$$
-timestamp=$(date -u +%Y%m%d%H%M)
+timestamp=$(date -u +%Y%m%d%k%M)
 lspools_err="${out_dir}/lspools-${timestamp}.error"
 rados_out="${out_dir}/rados-${timestamp}.intermediate"
 rados_err="${out_dir}/rados-${timestamp}.error"
@@ -28,14 +28,13 @@ error_out() {
 }
 
 prompt_pool() {
-    # note: all prompts go to stderr so stdout contains just the result
-    >&2 echo "Available pools:"
+    echo "Available pools:"
     rados lspools >"$temp_file" 2>"$lspools_err"
     if [ "$?" -ne 0 ] ;then
 	error_out "rados lspools" "$lspools_err"
     fi
-    >&2 sed 's/^/    /' "$temp_file" # list pools and indent
-    >&2 printf "Which pool do you want to search for orphans? "
+    sed 's/^/    /' $temp_file # list pools and indent
+    printf "Which pool do you want to search for orphans? "
     local mypool
     read mypool
     echo $mypool
@@ -77,12 +76,9 @@ if [ "${PIPESTATUS[0]}" -gt 1 ] ;then
     error_out "ceph-diff-sorted"
 fi
 
-found=$(wc -l < "$delta_out")
-possible=$(wc -l < "$rados_out")
-percentage=0
-if [ $possible -ne 0 ] ;then
-    percentage=$(expr 100 \* $found / $possible)
-fi
+found="$(wc -l < $delta_out)"
+possible="$(wc -l < $rados_out)"
+percentage=$(expr 100 \* $found / $possible)
 
 echo "$found potential orphans found out of a possible $possible (${percentage}%)."
 echo "The results can be found in ${delta_out}."

@@ -1,4 +1,6 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ViewChild } from '@angular/core';
+
+import { TabsetComponent } from 'ngx-bootstrap/tabs';
 
 import { Permissions } from '../../../../shared/models/permissions';
 
@@ -14,7 +16,12 @@ export class HostDetailsComponent {
   @Input()
   selection: any;
 
+  @ViewChild(TabsetComponent)
+  tabsetChild: TabsetComponent;
+
   get selectedHostname(): string {
     return this.selection !== undefined ? this.selection['hostname'] : null;
   }
+
+  constructor() {}
 }

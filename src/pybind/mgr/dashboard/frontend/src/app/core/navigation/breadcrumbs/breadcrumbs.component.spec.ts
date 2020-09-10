@@ -53,7 +53,7 @@ describe('BreadcrumbsComponent', () => {
 
   beforeEach(() => {
     fixture = TestBed.createComponent(BreadcrumbsComponent);
-    router = TestBed.inject(Router);
+    router = TestBed.get(Router);
     component = fixture.componentInstance;
     fixture.detectChanges();
     expect(component.crumbs).toEqual([]);

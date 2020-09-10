@@ -1,5 +1,4 @@
 import { Injectable, NgZone } from '@angular/core';
-
 import { asyncScheduler, SchedulerLike, Subscription } from 'rxjs';
 
 abstract class NgZoneScheduler implements SchedulerLike {

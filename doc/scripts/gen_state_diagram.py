@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
+from __future__ import print_function
 
 import re
 import sys
@@ -22,7 +23,7 @@ def acc_lines(generator):
 def to_char(generator):
     for line in generator:
         for char in line:
-            if char != '\n':
+            if char is not '\n':
                 yield char
             else:
                 yield ' '
@@ -40,22 +41,22 @@ def remove_multiline_comments(generator):
     in_comment = False
     for char in generator:
         if in_comment:
-            if saw == "*":
-                if char == "/":
+            if saw is "*":
+                if char is "/":
                     in_comment = False
                 saw = ""
-            if char == "*":
+            if char is "*":
                 saw = "*"
             continue
-        if saw == "/":
-            if char == '*':
+        if saw is "/":
+            if char is '*':
                 in_comment = True
                 saw = ""
                 continue
             else:
                 yield saw
                 saw = ""
-        if char == '/':
+        if char is '/':
             saw = "/"
             continue
         yield char
@@ -128,7 +129,7 @@ class StateMachineRenderer(object):
             if tokens.group(2) not in self.state_contents.keys():
                 self.state_contents[tokens.group(2)] = []
             self.state_contents[tokens.group(2)].append(tokens.group(1))
-            if tokens.group(3):
+            if tokens.group(3) is not "":
                 self.machines[tokens.group(1)] = tokens.group(3)
             self.context.append((tokens.group(1), self.context_depth, ""))
             return
@@ -139,14 +140,14 @@ class StateMachineRenderer(object):
                                  line):
                 if i.group(1) not in self.edges.keys():
                     self.edges[i.group(1)] = []
-                if not self.context:
+                if len(self.context) is 0:
                     raise Exception("no context at line: " + line)
                 self.edges[i.group(1)].append((self.context[-1][0], i.group(2)))
         i = re.search("return\s+transit<\s*(\w*)\s*>()", line)
         if i is not None:
-            if not self.context:
+            if len(self.context) is 0:
                 raise Exception("no context at line: " + line)
-            if not self.context[-1][2]:
+            if self.context[-1][2] is "":
                 raise Exception("no event in context at line: " + line)
             if self.context[-1][2] not in self.edges.keys():
                 self.edges[self.context[-1][2]] = []

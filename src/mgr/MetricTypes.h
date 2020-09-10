@@ -7,11 +7,9 @@
 #include <boost/variant.hpp>
 #include "include/denc.h"
 #include "mgr/OSDPerfMetricTypes.h"
-#include "mgr/MDSPerfMetricTypes.h"
 
 enum class MetricReportType {
   METRIC_REPORT_TYPE_OSD = 0,
-  METRIC_REPORT_TYPE_MDS = 1,
 };
 
 struct OSDMetricPayload {
@@ -31,23 +29,6 @@ struct OSDMetricPayload {
   }
 };
 
-struct MDSMetricPayload {
-  static const MetricReportType METRIC_REPORT_TYPE = MetricReportType::METRIC_REPORT_TYPE_MDS;
-  MDSPerfMetricReport metric_report;
-
-  MDSMetricPayload() {
-  }
-  MDSMetricPayload(const MDSPerfMetricReport &metric_report)
-    : metric_report(metric_report) {
-  }
-
-  DENC(MDSMetricPayload, v, p) {
-    DENC_START(1, 1, p);
-    denc(v.metric_report, p);
-    DENC_FINISH(p);
-  }
-};
-
 struct UnknownMetricPayload {
   static const MetricReportType METRIC_REPORT_TYPE = static_cast<MetricReportType>(-1);
 
@@ -59,11 +40,9 @@ struct UnknownMetricPayload {
 };
 
 WRITE_CLASS_DENC(OSDMetricPayload)
-WRITE_CLASS_DENC(MDSMetricPayload)
 WRITE_CLASS_DENC(UnknownMetricPayload)
 
 typedef boost::variant<OSDMetricPayload,
-                       MDSMetricPayload,
                        UnknownMetricPayload> MetricPayload;
 
 class EncodeMetricPayloadVisitor : public boost::static_visitor<void> {
@@ -118,9 +97,6 @@ struct MetricReportMessage {
     case MetricReportType::METRIC_REPORT_TYPE_OSD:
       payload = OSDMetricPayload();
       break;
-    case MetricReportType::METRIC_REPORT_TYPE_MDS:
-      payload = MDSMetricPayload();
-      break;
     default:
       payload = UnknownMetricPayload();
       break;
@@ -136,7 +112,6 @@ WRITE_CLASS_ENCODER(MetricReportMessage);
 
 enum MetricConfigType {
   METRIC_CONFIG_TYPE_OSD = 0,
-  METRIC_CONFIG_TYPE_MDS = 1,
 };
 
 struct OSDConfigPayload {
@@ -156,23 +131,6 @@ struct OSDConfigPayload {
   }
 };
 
-struct MDSConfigPayload {
-  static const MetricConfigType METRIC_CONFIG_TYPE = MetricConfigType::METRIC_CONFIG_TYPE_MDS;
-  std::map<MDSPerfMetricQuery, MDSPerfMetricLimits> config;
-
-  MDSConfigPayload() {
-  }
-  MDSConfigPayload(const std::map<MDSPerfMetricQuery, MDSPerfMetricLimits> &config)
-    : config(config) {
-  }
-
-  DENC(MDSConfigPayload, v, p) {
-    DENC_START(1, 1, p);
-    denc(v.config, p);
-    DENC_FINISH(p);
-  }
-};
-
 struct UnknownConfigPayload {
   static const MetricConfigType METRIC_CONFIG_TYPE = static_cast<MetricConfigType>(-1);
 
@@ -184,11 +142,9 @@ struct UnknownConfigPayload {
 };
 
 WRITE_CLASS_DENC(OSDConfigPayload)
-WRITE_CLASS_DENC(MDSConfigPayload)
 WRITE_CLASS_DENC(UnknownConfigPayload)
 
 typedef boost::variant<OSDConfigPayload,
-                       MDSConfigPayload,
                        UnknownConfigPayload> ConfigPayload;
 
 class EncodeConfigPayloadVisitor : public boost::static_visitor<void> {
@@ -242,9 +198,6 @@ struct MetricConfigMessage {
     switch (metric_config_type) {
     case MetricConfigType::METRIC_CONFIG_TYPE_OSD:
       payload = OSDConfigPayload();
-      break;
-    case MetricConfigType::METRIC_CONFIG_TYPE_MDS:
-      payload = MDSConfigPayload();
       break;
     default:
       payload = UnknownConfigPayload();

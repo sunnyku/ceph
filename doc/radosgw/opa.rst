@@ -46,7 +46,6 @@ Example request::
    {
        "input": {
            "method": "GET",
-           "subuser": "subuser",
            "user_info": {
                "user_id": "john",
                "display_name": "John"  

@@ -1,11 +1,13 @@
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TimeDiffService {
+  constructor() {}
+
   calculateDuration(startDate: Date, endDate: Date): string {
     const startTime = +startDate;
     const endTime = +endDate;

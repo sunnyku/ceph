@@ -17,11 +17,10 @@
 
 namespace librbd {
 
-class AsioEngine;
 class ImageCtx;
 template <typename> class ManagedLock;
 
-} // namespace librbd
+}
 
 namespace rbd {
 namespace mirror {
@@ -38,19 +37,19 @@ public:
                             std::vector<std::string> *instance_ids,
                             Context *on_finish);
   static void remove_instance(librados::IoCtx &io_ctx,
-                              librbd::AsioEngine& asio_engine,
+                              ContextWQ *work_queue,
                               const std::string &instance_id,
                               Context *on_finish);
 
   static InstanceWatcher *create(
-    librados::IoCtx &io_ctx, librbd::AsioEngine& asio_engine,
+    librados::IoCtx &io_ctx, ContextWQ *work_queue,
     InstanceReplayer<ImageCtxT> *instance_replayer,
     Throttler<ImageCtxT> *image_sync_throttler);
   void destroy() {
     delete this;
   }
 
-  InstanceWatcher(librados::IoCtx &io_ctx, librbd::AsioEngine& asio_engine,
+  InstanceWatcher(librados::IoCtx &io_ctx, ContextWQ *work_queue,
                   InstanceReplayer<ImageCtxT> *instance_replayer,
                   Throttler<ImageCtxT> *image_sync_throttler,
                   const std::string &instance_id);

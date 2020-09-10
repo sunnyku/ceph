@@ -189,11 +189,12 @@ int execute_prepare(const po::variables_map &vm,
   }
 
   librados::IoCtx dest_io_ctx;
-  utils::normalize_pool_name(&dest_pool_name);
-  r = utils::init_io_ctx(rados, dest_pool_name, dest_namespace_name,
-                         &dest_io_ctx);
-  if (r < 0) {
-    return r;
+  if (!dest_pool_name.empty()) {
+    r = utils::init_io_ctx(rados, dest_pool_name, dest_namespace_name,
+                           &dest_io_ctx);
+    if (r < 0) {
+      return r;
+    }
   }
 
   r = do_prepare(io_ctx, image_name, dest_pool_name.empty() ? io_ctx :

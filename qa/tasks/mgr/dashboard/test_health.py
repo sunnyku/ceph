@@ -40,7 +40,7 @@ class HealthTest(DashboardTestCase):
             'ro_compat': JObj({}, allow_unknown=True),
             'incompat': JObj({}, allow_unknown=True)
         }),
-        'required_client_features': JObj({}, allow_unknown=True),
+        'min_compat_client': str,
         'data_pools': JList(int),
         'info': JObj({}, allow_unknown=True),
         'fs_name': str,
@@ -169,8 +169,7 @@ class HealthTest(DashboardTestCase):
                         'wr_bytes': int,
                         'compress_bytes_used': int,
                         'compress_under_bytes': int,
-                        'stored_raw': int,
-                        'avail_raw': int
+                        'stored_raw': int
                     }),
                     'name': str,
                     'id': int

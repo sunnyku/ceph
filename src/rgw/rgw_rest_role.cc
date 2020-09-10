@@ -15,7 +15,6 @@
 #include "rgw_rest.h"
 #include "rgw_role.h"
 #include "rgw_rest_role.h"
-#include "rgw_sal_rados.h"
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -415,7 +414,7 @@ void RGWGetRolePolicy::execute()
     s->formatter->open_object_section("GetRolePolicyResult");
     s->formatter->dump_string("PolicyName", policy_name);
     s->formatter->dump_string("RoleName", role_name);
-    s->formatter->dump_string("PolicyDocument", perm_policy);
+    s->formatter->dump_string("Permission policy", perm_policy);
     s->formatter->close_section();
     s->formatter->close_section();
   }

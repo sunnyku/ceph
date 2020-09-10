@@ -3,15 +3,14 @@ import { FormsModule } from '@angular/forms';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbDropdownModule, NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
-import _ from 'lodash';
+import * as _ from 'lodash';
+import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
 
 import { configureTestBed } from '../../../../testing/unit-test-helper';
 import { ComponentsModule } from '../../components/components.module';
 import { CdTableColumnFilter } from '../../models/cd-table-column-filter';
 import { CdTableFetchDataContext } from '../../models/cd-table-fetch-data-context';
-import { CdTableSelection } from '../../models/cd-table-selection';
 import { PipesModule } from '../../pipes/pipes.module';
 import { TableComponent } from './table.component';
 
@@ -43,9 +42,8 @@ describe('TableComponent', () => {
       FormsModule,
       ComponentsModule,
       RouterTestingModule,
-      NgbDropdownModule,
-      PipesModule,
-      NgbTooltipModule
+      BsDropdownModule.forRoot(),
+      PipesModule
     ]
   });
 
@@ -54,7 +52,7 @@ describe('TableComponent', () => {
     component = fixture.componentInstance;
 
     component.data = createFakeData(10);
-    component.localColumns = component.columns = [
+    component.columns = [
       { prop: 'a', name: 'Index', filterable: true },
       { prop: 'b', name: 'Index times ten' },
       { prop: 'c', name: 'Odd?', filterable: true }
@@ -104,16 +102,6 @@ describe('TableComponent', () => {
       expect(eventName).toBe('mouseenter');
       expect(wasCalled).toBe(true);
       done();
-    });
-    component.ngOnInit();
-  });
-
-  it('should call updateSelection on init', () => {
-    component.updateSelection.subscribe((selection: CdTableSelection) => {
-      expect(selection.hasSelection).toBeFalsy();
-      expect(selection.hasSingleSelection).toBeFalsy();
-      expect(selection.hasMultiSelection).toBeFalsy();
-      expect(selection.selected.length).toBe(0);
     });
     component.ngOnInit();
   });
@@ -307,7 +295,7 @@ describe('TableComponent', () => {
 
       beforeEach(() => {
         component.data = [testObject];
-        component.localColumns = [{ prop: 'obj', name: 'Object' }];
+        component.columns = [{ prop: 'obj', name: 'Object' }];
       });
 
       it('should not search through objects as default case', () => {
@@ -378,7 +366,7 @@ describe('TableComponent', () => {
     });
 
     it('should search through arrays', () => {
-      component.localColumns = [
+      component.columns = [
         { prop: 'a', name: 'Index' },
         { prop: 'b', name: 'ArrayColumn' }
       ];
@@ -448,8 +436,10 @@ describe('TableComponent', () => {
   describe('after ngInit', () => {
     const toggleColumn = (prop: string, checked: boolean) => {
       component.toggleColumn({
-        prop: prop,
-        isHidden: checked
+        target: {
+          name: prop,
+          checked: checked
+        }
       });
     };
 
@@ -464,15 +454,15 @@ describe('TableComponent', () => {
     });
 
     it('should have updated the column definitions', () => {
-      expect(component.localColumns[0].flexGrow).toBe(1);
-      expect(component.localColumns[1].flexGrow).toBe(2);
-      expect(component.localColumns[2].flexGrow).toBe(2);
-      expect(component.localColumns[2].resizeable).toBe(false);
+      expect(component.columns[0].flexGrow).toBe(1);
+      expect(component.columns[1].flexGrow).toBe(2);
+      expect(component.columns[2].flexGrow).toBe(2);
+      expect(component.columns[2].resizeable).toBe(false);
     });
 
     it('should have table columns', () => {
       expect(component.tableColumns.length).toBe(3);
-      expect(component.tableColumns).toEqual(component.localColumns);
+      expect(component.tableColumns).toEqual(component.columns);
     });
 
     it('should have a unique identifier which it searches for', () => {
@@ -532,7 +522,7 @@ describe('TableComponent', () => {
       component.data = createFakeData(5);
       component.fetchData.subscribe((context: any) => {
         context.error();
-        expect(component.status.type).toBe('danger');
+        expect(component.loadingError).toBeTruthy();
         expect(component.data.length).toBe(0);
         expect(component.loadingIndicator).toBeFalsy();
         expect(component['updating']).toBeFalsy();
@@ -546,7 +536,7 @@ describe('TableComponent', () => {
         context.errorConfig.resetData = false;
         context.errorConfig.displayError = false;
         context.error();
-        expect(component.status.type).toBe('danger');
+        expect(component.loadingError).toBeFalsy();
         expect(component.data.length).toBe(10);
         expect(component.loadingIndicator).toBeFalsy();
         expect(component['updating']).toBeFalsy();

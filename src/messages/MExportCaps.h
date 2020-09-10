@@ -16,9 +16,10 @@
 #ifndef CEPH_MEXPORTCAPS_H
 #define CEPH_MEXPORTCAPS_H
 
-#include "messages/MMDSOp.h"
+#include "msg/Message.h"
 
-class MExportCaps : public MMDSOp {
+
+class MExportCaps : public SafeMessage {
 private:
   static constexpr int HEAD_VERSION = 2;
   static constexpr int COMPAT_VERSION = 1;
@@ -31,7 +32,7 @@ public:
 
 protected:
   MExportCaps() :
-    MMDSOp{MSG_MDS_EXPORTCAPS, HEAD_VERSION, COMPAT_VERSION} {}
+    SafeMessage{MSG_MDS_EXPORTCAPS, HEAD_VERSION, COMPAT_VERSION} {}
   ~MExportCaps() override {}
 
 public:

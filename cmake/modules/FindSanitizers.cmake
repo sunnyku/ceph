@@ -44,15 +44,13 @@ if(Sanitizers_COMPILE_OPTIONS)
     "-fno-omit-frame-pointer")
 endif()
 
-include(CheckCXXSourceCompiles)
-include(CMakePushCheckState)
+string (REPLACE ";" " " Sanitizers_COMPILE_OPTIONS "${Sanitizers_COMPILE_OPTIONS}")
 
-cmake_push_check_state()
-string (REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${Sanitizers_COMPILE_OPTIONS}")
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_FLAGS ${Sanitizers_COMPILE_OPTIONS})
 set(CMAKE_REQUIRED_LIBRARIES ${Sanitizers_COMPILE_OPTIONS})
 check_cxx_source_compiles("int main() {}"
   Sanitizers_ARE_SUPPORTED)
-cmake_pop_check_state()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Sanitizers

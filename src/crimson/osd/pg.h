@@ -14,8 +14,6 @@
 
 #include "common/dout.h"
 #include "crimson/net/Fwd.h"
-#include "messages/MOSDRepOpReply.h"
-#include "messages/MOSDOpReply.h"
 #include "os/Transaction.h"
 #include "osd/osd_types.h"
 #include "crimson/osd/object_context.h"
@@ -23,7 +21,6 @@
 
 #include "crimson/common/type_helpers.h"
 #include "crimson/os/futurized_collection.h"
-#include "crimson/osd/backfill_state.h"
 #include "crimson/osd/osd_operations/client_request.h"
 #include "crimson/osd/osd_operations/peering_event.h"
 #include "crimson/osd/osd_operations/replicated_request.h"
@@ -116,7 +113,7 @@ public:
     return peering_state.get_min_last_complete_ondisk();
   }
 
-  const pg_info_t& get_info() const final {
+  const pg_info_t& get_info() const {
     return peering_state.get_info();
   }
 
@@ -150,7 +147,9 @@ public:
     // Not needed yet -- mainly for scrub scheduling
   }
 
-  void scrub_requested(bool deep, bool repair, bool need_auto = false) final;
+  void scrub_requested(bool deep, bool repair, bool need_auto = false) final {
+    ceph_assert(0 == "Not implemented");
+  }
 
   uint64_t get_snap_trimq_size() const final {
     return 0;
@@ -182,7 +181,7 @@ public:
 
   template <typename T>
   void start_peering_event_operation(T &&evt, float delay = 0) {
-    (void) shard_services.start_operation<LocalPeeringEvent>(
+    shard_services.start_operation<LocalPeeringEvent>(
       this,
       shard_services,
       pg_whoami,
@@ -201,8 +200,8 @@ public:
   }
   void request_local_background_io_reservation(
     unsigned priority,
-    PGPeeringEventURef on_grant,
-    PGPeeringEventURef on_preempt) final {
+    PGPeeringEventRef on_grant,
+    PGPeeringEventRef on_preempt) final {
     shard_services.local_reserver.request_reservation(
       pgid,
       on_grant ? make_lambda_context([this, on_grant=std::move(on_grant)] (int) {
@@ -229,8 +228,8 @@ public:
 
   void request_remote_recovery_reservation(
     unsigned priority,
-    PGPeeringEventURef on_grant,
-    PGPeeringEventURef on_preempt) final {
+    PGPeeringEventRef on_grant,
+    PGPeeringEventRef on_preempt) final {
     shard_services.remote_reserver.request_reservation(
       pgid,
       on_grant ? make_lambda_context([this, on_grant=std::move(on_grant)] (int) {
@@ -282,7 +281,7 @@ public:
   void check_recovery_sources(const OSDMapRef& newmap) final {
     // Not needed yet
   }
-  void check_blocklisted_watchers() final {
+  void check_blacklisted_watchers() final {
     // Not needed yet
   }
   void clear_primary_state() final {
@@ -301,7 +300,9 @@ public:
   void on_role_change() final {
     // Not needed yet
   }
-  void on_change(ceph::os::Transaction &t) final;
+  void on_change(ceph::os::Transaction &t) final {
+    recovery_backend->on_peering_interval_change(t);
+  }
   void on_activate(interval_set<snapid_t> to_trim) final;
   void on_activate_complete() final;
   void on_new_interval() final {
@@ -342,14 +343,15 @@ public:
   }
 
   void on_backfill_reserved() final {
-    recovery_handler->on_backfill_reserved();
+    recovery_handler->start_background_recovery(
+      crimson::osd::scheduler::scheduler_class_t::background_best_effort);
   }
   void on_backfill_canceled() final {
     ceph_assert(0 == "Not implemented");
   }
-
   void on_recovery_reserved() final {
-    recovery_handler->start_pglogbased_recovery();
+    recovery_handler->start_background_recovery(
+      crimson::osd::scheduler::scheduler_class_t::background_recovery);
   }
 
 
@@ -427,9 +429,6 @@ public:
   bool is_primary() const final {
     return peering_state.is_primary();
   }
-  bool is_nonprimary() const {
-    return peering_state.is_nonprimary();
-  }
   bool is_peered() const final {
     return peering_state.is_peered();
   }
@@ -450,15 +449,9 @@ public:
   bool get_need_up_thru() const {
     return peering_state.get_need_up_thru();
   }
-  epoch_t get_same_interval_since() const {
-    return get_info().history.same_interval_since;
-  }
 
   const auto& get_pool() const {
     return peering_state.get_pool();
-  }
-  pg_shard_t get_primary() const {
-    return peering_state.get_primary();
   }
 
   /// initialize created PG
@@ -511,9 +504,6 @@ public:
     const OpInfo &op_info,
     Operation *op,
     F &&f) {
-    if (__builtin_expect(stopping, false)) {
-      throw crimson::common::system_shutdown_exception();
-    }
     auto [oid, type] = get_oid_and_lock(*m, op_info);
     return get_locked_obc(op, oid, type)
       .safe_then([f=std::forward<F>(f), type=type](auto obc) {
@@ -529,7 +519,6 @@ public:
 			   const MOSDRepOpReply& m);
 
   void print(std::ostream& os) const;
-  void dump_primary(Formatter*);
 
 private:
   void do_peering_event(
@@ -562,14 +551,12 @@ private:
 public:
   cached_map_t get_osdmap() { return osdmap; }
   eversion_t next_version() {
-    return eversion_t(get_osdmap_epoch(),
+    return eversion_t(projected_last_update.epoch,
 		      ++projected_last_update.version);
   }
   ShardServices& get_shard_services() final {
     return shard_services;
   }
-  seastar::future<> stop();
-
 private:
   std::unique_ptr<PGBackend> backend;
   std::unique_ptr<RecoveryBackend> recovery_backend;
@@ -594,7 +581,7 @@ public:
   const pg_missing_tracker_t& get_local_missing() const {
     return peering_state.get_pg_log().get_missing();
   }
-  epoch_t get_last_peering_reset() const final {
+  epoch_t get_last_peering_reset() const {
     return peering_state.get_last_peering_reset();
   }
   const set<pg_shard_t> &get_acting_recovery_backfill() const {
@@ -629,17 +616,8 @@ public:
     get_pool().info.opts.get(pool_opts_t::RECOVERY_OP_PRIORITY, &pri);
     return  pri > 0 ? pri : crimson::common::local_conf()->osd_recovery_op_priority;
   }
-  seastar::future<> mark_unfound_lost(int) {
-    // TODO: see PrimaryLogPG::mark_all_unfound_lost()
-    return seastar::now();
-  }
 
 private:
-  // instead of seastar::gate, we use a boolean flag to indicate
-  // whether the system is shutting down, as we don't need to track
-  // continuations here.
-  bool stopping = false;
-
   class WaitForActiveBlocker : public BlockerT<WaitForActiveBlocker> {
     PG *pg;
 
@@ -655,7 +633,6 @@ private:
     WaitForActiveBlocker(PG *pg) : pg(pg) {}
     void on_active();
     blocking_future<> wait();
-    seastar::future<> stop();
   } wait_for_active_blocker;
 
   friend std::ostream& operator<<(std::ostream&, const PG& pg);
@@ -663,31 +640,22 @@ private:
   friend class PGAdvanceMap;
   friend class PeeringEvent;
   friend class RepRequest;
-  friend class BackfillRecovery;
-  friend struct BackfillState::PGFacade;
 private:
   seastar::future<bool> find_unfound() {
     return seastar::make_ready_future<bool>(true);
   }
 
-  template <typename MsgType>
-  bool can_discard_replica_op(const MsgType& m) const;
-  bool can_discard_op(const MOSDOp& m) const;
   bool is_missing_object(const hobject_t& soid) const {
     return peering_state.get_pg_log().get_missing().get_items().count(soid);
   }
-  bool is_unreadable_object(const hobject_t &oid,
-			    eversion_t* v = 0) const final {
+  bool is_unreadable_object(const hobject_t &oid) const final {
     return is_missing_object(oid) ||
       !peering_state.get_missing_loc().readable_with_acting(
-	oid, get_actingset(), v);
+	oid, get_actingset());
   }
   const set<pg_shard_t> &get_actingset() const {
     return peering_state.get_actingset();
   }
-
-private:
-  BackfillRecovery::BackfillRecoveryPipeline backfill_pipeline;
 };
 
 std::ostream& operator<<(std::ostream&, const PG& pg);

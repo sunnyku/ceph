@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - overall HEALTH_
       - \(MON_DOWN\)
       - \(OSDMAP_FLAGS\)

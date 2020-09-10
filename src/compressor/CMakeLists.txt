@@ -22,11 +22,6 @@ if(HAVE_BROTLI)
   add_subdirectory(brotli)
 endif()
 
-add_library(compressor STATIC ${compressor_srcs})
-if(HAVE_QATZIP)
-  target_link_libraries(compressor PRIVATE ${QATZIP_LIBRARIES})
-endif()
-
 set(ceph_compressor_libs
     ceph_snappy
     ceph_zlib

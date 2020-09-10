@@ -16,7 +16,6 @@
  */
 
 #include "include/buffer.h"
-#include "common/error_code.h"
 
 using namespace ceph;
 

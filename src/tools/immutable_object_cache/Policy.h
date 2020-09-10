@@ -14,7 +14,6 @@ typedef enum {
   OBJ_CACHE_NONE = 0,
   OBJ_CACHE_PROMOTED,
   OBJ_CACHE_SKIP,
-  OBJ_CACHE_DNE,
 } cache_status_t;
 
 class Policy {

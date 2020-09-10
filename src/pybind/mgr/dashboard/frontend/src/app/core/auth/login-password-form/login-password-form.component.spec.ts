@@ -6,7 +6,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed, FormHelper } from '../../../../testing/unit-test-helper';
+import { configureTestBed, FormHelper, i18nProviders } from '../../../../testing/unit-test-helper';
 import { AuthService } from '../../../shared/api/auth.service';
 import { ComponentsModule } from '../../../shared/components/components.module';
 import { CdFormGroup } from '../../../shared/forms/cd-form-group';
@@ -33,16 +33,17 @@ describe('LoginPasswordFormComponent', () => {
       ToastrModule.forRoot(),
       SharedModule
     ],
-    declarations: [LoginPasswordFormComponent]
+    declarations: [LoginPasswordFormComponent],
+    providers: i18nProviders
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(LoginPasswordFormComponent);
     component = fixture.componentInstance;
-    httpTesting = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router);
-    authStorageService = TestBed.inject(AuthStorageService);
-    authService = TestBed.inject(AuthService);
+    httpTesting = TestBed.get(HttpTestingController);
+    router = TestBed.get(Router);
+    authStorageService = TestBed.get(AuthStorageService);
+    authService = TestBed.get(AuthService);
     spyOn(router, 'navigate');
     fixture.detectChanges();
     form = component.userForm;

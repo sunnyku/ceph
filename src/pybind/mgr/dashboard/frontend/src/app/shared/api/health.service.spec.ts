@@ -14,8 +14,8 @@ describe('HealthService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(HealthService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(HealthService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

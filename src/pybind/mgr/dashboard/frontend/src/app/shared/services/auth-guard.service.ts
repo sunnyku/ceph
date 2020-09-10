@@ -1,11 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  ActivatedRouteSnapshot,
-  CanActivate,
-  CanActivateChild,
-  Router,
-  RouterStateSnapshot
-} from '@angular/router';
+import { CanActivate, CanActivateChild, Router } from '@angular/router';
 
 import { AuthStorageService } from './auth-storage.service';
 
@@ -15,15 +9,15 @@ import { AuthStorageService } from './auth-storage.service';
 export class AuthGuardService implements CanActivate, CanActivateChild {
   constructor(private router: Router, private authStorageService: AuthStorageService) {}
 
-  canActivate(_route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+  canActivate() {
     if (this.authStorageService.isLoggedIn()) {
       return true;
     }
-    this.router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+    this.router.navigate(['/login']);
     return false;
   }
 
-  canActivateChild(childRoute: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
-    return this.canActivate(childRoute, state);
+  canActivateChild(): boolean {
+    return this.canActivate();
   }
 }

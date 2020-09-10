@@ -22,7 +22,6 @@
                    id="username"
                    name="username"
                    formControlName="username"
-                   autocomplete="off"
                    autofocus>
             <span class="invalid-feedback"
                   *ngIf="userForm.showError('username', formDir, 'required')"
@@ -34,13 +33,12 @@
         </div>
 
         <!-- Password -->
-        <div class="form-group row"
-             *ngIf="!authStorageService.isSSO()">
+        <div class="form-group row">
           <label class="cd-col-form-label"
                  for="password">
             <ng-container i18n>Password</ng-container>
             <cd-helper *ngIf="passwordPolicyHelpText.length > 0"
-                       class="text-pre-wrap"
+                       class="text-pre"
                        html="{{ passwordPolicyHelpText }}">
             </cd-helper>
           </label>
@@ -77,8 +75,7 @@
         </div>
 
         <!-- Confirm password -->
-        <div class="form-group row"
-             *ngIf="!authStorageService.isSSO()">
+        <div class="form-group row">
           <label i18n
                  class="cd-col-form-label"
                  for="confirmpassword">Confirm password</label>
@@ -89,7 +86,6 @@
                      placeholder="Confirm password..."
                      id="confirmpassword"
                      name="confirmpassword"
-                     autocomplete="new-password"
                      formControlName="confirmpassword">
               <span class="input-group-append">
                 <button type="button"
@@ -97,13 +93,13 @@
                         cdPasswordButton="confirmpassword">
                 </button>
               </span>
-              <span class="invalid-feedback"
-                    *ngIf="userForm.showError('confirmpassword', formDir, 'match')"
-                    i18n>Password confirmation doesn't match the password.</span>
             </div>
             <span class="invalid-feedback"
                   *ngIf="userForm.showError('confirmpassword', formDir, 'required')"
                   i18n>This field is required.</span>
+            <span class="invalid-feedback"
+                  *ngIf="userForm.showError('confirmpassword', formDir, 'match')"
+                  i18n>Password confirmation doesn't match the password.</span>
           </div>
         </div>
 
@@ -114,7 +110,7 @@
                  [ngClass]="{'required': pwdExpirationSettings.pwdExpirationSpan > 0}"
                  for="pwdExpirationDate">
             <ng-container i18n>Password expiration date</ng-container>
-            <cd-helper class="text-pre-wrap"
+            <cd-helper class="text-pre"
                        *ngIf="pwdExpirationSettings.pwdExpirationSpan == 0">
               <p>
                 The Dashboard setting defining the expiration interval of
@@ -131,17 +127,16 @@
           </label>
           <div class="cd-col-form-input">
             <div class="input-group">
-              <input class="form-control"
+              <input type="text"
+                     class="form-control"
                      i18n-placeholder
                      placeholder="Password expiration date..."
+                     [bsConfig]="bsConfig"
+                     [minDate]="minDate"
+                     bsDatepicker
                      id="pwdExpirationDate"
                      name="pwdExpirationDate"
-                     formControlName="pwdExpirationDate"
-                     [ngbPopover]="popContent"
-                     triggers="manual"
-                     #p="ngbPopover"
-                     (click)="p.open()"
-                     (keypress)="p.close()">
+                     formControlName="pwdExpirationDate">
               <span class="input-group-append">
                 <button type="button"
                         class="btn btn-light"
@@ -257,9 +252,4 @@
   <p i18n>If you continue, you will no longer be able to add or remove roles from any user.</p>
 
   <ng-container i18n>Are you sure you want to continue?</ng-container>
-</ng-template>
-
-<ng-template #popContent>
-  <cd-date-time-picker [control]="userForm.get('pwdExpirationDate')"
-                       [hasTime]="false"></cd-date-time-picker>
 </ng-template>

@@ -10,11 +10,11 @@
 
   <div [ngSwitch]="value">
     <span *ngSwitchCase="'global'"
-          i18n>Global</span>
+          i18n>{{ value | titlecase }}</span>
     <strong *ngSwitchCase="'image'"
-            i18n>Image</strong>
+            i18n>{{ value | titlecase }}</strong>
     <strong *ngSwitchCase="'pool'"
-            i18n>Pool</strong>
+            i18n>{{ value | titlecase }}</strong>
   </div>
 </ng-template>
 

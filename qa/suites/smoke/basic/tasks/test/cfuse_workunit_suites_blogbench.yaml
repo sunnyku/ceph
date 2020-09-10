@@ -1,8 +1,0 @@
-tasks:
-- ceph:
-    fs: xfs
-- ceph-fuse:
-- workunit:
-    clients:
-      all:
-        - suites/blogbench.sh

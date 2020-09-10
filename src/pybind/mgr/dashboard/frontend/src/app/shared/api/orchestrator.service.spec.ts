@@ -1,7 +1,7 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { OrchestratorService } from './orchestrator.service';
 
 describe('OrchestratorService', () => {
@@ -10,13 +10,13 @@ describe('OrchestratorService', () => {
   const apiPath = 'api/orchestrator';
 
   configureTestBed({
-    providers: [OrchestratorService],
+    providers: [OrchestratorService, i18nProviders],
     imports: [HttpClientTestingModule]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(OrchestratorService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(OrchestratorService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

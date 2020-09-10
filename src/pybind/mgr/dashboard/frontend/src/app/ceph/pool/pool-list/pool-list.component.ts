@@ -1,12 +1,12 @@
 import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 
 import { ConfigurationService } from '../../../shared/api/configuration.service';
 import { PoolService } from '../../../shared/api/pool.service';
 import { ListWithDetails } from '../../../shared/classes/list-with-details.class';
-import { TableStatusViewCache } from '../../../shared/classes/table-status-view-cache';
 import { CriticalConfirmationModalComponent } from '../../../shared/components/critical-confirmation-modal/critical-confirmation-modal.component';
 import { ActionLabelsI18n, URLVerbs } from '../../../shared/constants/app.constants';
 import { TableComponent } from '../../../shared/datatable/table/table.component';
@@ -21,7 +21,6 @@ import { FinishedTask } from '../../../shared/models/finished-task';
 import { Permissions } from '../../../shared/models/permissions';
 import { DimlessPipe } from '../../../shared/pipes/dimless.pipe';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../shared/services/modal.service';
 import { TaskListService } from '../../../shared/services/task-list.service';
 import { TaskWrapperService } from '../../../shared/services/task-wrapper.service';
 import { URLBuilderService } from '../../../shared/services/url-builder.service';
@@ -41,7 +40,7 @@ const BASE_URL = 'pool';
   styleUrls: ['./pool-list.component.scss']
 })
 export class PoolListComponent extends ListWithDetails implements OnInit {
-  @ViewChild(TableComponent)
+  @ViewChild(TableComponent, { static: true })
   table: TableComponent;
   @ViewChild('poolUsageTpl', { static: true })
   poolUsageTpl: TemplateRef<any>;
@@ -52,11 +51,11 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
   pools: Pool[];
   columns: CdTableColumn[];
   selection = new CdTableSelection();
-  modalRef: NgbModalRef;
+  modalRef: BsModalRef;
   executingTasks: ExecutingTask[] = [];
   permissions: Permissions;
   tableActions: CdTableAction[];
-  tableStatus = new TableStatusViewCache();
+  viewCacheStatusList: any[];
   cacheTiers: any[] = [];
   monAllowPoolDelete = false;
 
@@ -64,8 +63,9 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
     private poolService: PoolService,
     private taskWrapper: TaskWrapperService,
     private authStorageService: AuthStorageService,
-    public taskListService: TaskListService,
-    private modalService: ModalService,
+    private taskListService: TaskListService,
+    private modalService: BsModalService,
+    private i18n: I18n,
     private pgCategoryService: PgCategoryService,
     private dimlessPipe: DimlessPipe,
     private urlBuilder: URLBuilderService,
@@ -93,7 +93,8 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
         icon: Icons.destroy,
         click: () => this.deletePoolModal(),
         name: this.actionLabels.DELETE,
-        disable: this.getDisableDesc.bind(this)
+        disable: () => !this.selection.first() || !this.monAllowPoolDelete,
+        disableDesc: () => this.getDisableDesc()
       }
     ];
 
@@ -117,23 +118,23 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
     this.columns = [
       {
         prop: 'pool_name',
-        name: $localize`Name`,
+        name: this.i18n('Name'),
         flexGrow: 4,
         cellTransformation: CellTemplate.executing
       },
       {
         prop: 'type',
-        name: $localize`Type`,
+        name: this.i18n('Type'),
         flexGrow: 2
       },
       {
         prop: 'application_metadata',
-        name: $localize`Applications`,
+        name: this.i18n('Applications'),
         flexGrow: 3
       },
       {
         prop: 'pg_status',
-        name: $localize`PG Status`,
+        name: this.i18n('PG Status'),
         flexGrow: 3,
         cellClass: ({ row, column, value }): any => {
           return this.getPgStatusCellClass(row, column, value);
@@ -141,35 +142,35 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
       },
       {
         prop: 'size',
-        name: $localize`Replica Size`,
+        name: this.i18n('Replica Size'),
         flexGrow: 2,
         cellClass: 'text-right'
       },
       {
         prop: 'last_change',
-        name: $localize`Last Change`,
+        name: this.i18n('Last Change'),
         flexGrow: 2,
         cellClass: 'text-right'
       },
       {
         prop: 'erasure_code_profile',
-        name: $localize`Erasure Coded Profile`,
+        name: this.i18n('Erasure Coded Profile'),
         flexGrow: 2
       },
       {
         prop: 'crush_rule',
-        name: $localize`Crush Ruleset`,
+        name: this.i18n('Crush Ruleset'),
         flexGrow: 3
       },
       {
-        name: $localize`Usage`,
+        name: this.i18n('Usage'),
         prop: 'usage',
         cellTemplate: this.poolUsageTpl,
         flexGrow: 3
       },
       {
         prop: 'stats.rd_bytes.rates',
-        name: $localize`Read bytes`,
+        name: this.i18n('Read bytes'),
         comparator: (_valueA: any, _valueB: any, rowA: Pool, rowB: Pool) =>
           compare('stats.rd_bytes.latest', rowA, rowB),
         cellTransformation: CellTemplate.sparkline,
@@ -177,7 +178,7 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
       },
       {
         prop: 'stats.wr_bytes.rates',
-        name: $localize`Write bytes`,
+        name: this.i18n('Write bytes'),
         comparator: (_valueA: any, _valueB: any, rowA: Pool, rowB: Pool) =>
           compare('stats.wr_bytes.latest', rowA, rowB),
         cellTransformation: CellTemplate.sparkline,
@@ -185,14 +186,14 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
       },
       {
         prop: 'stats.rd.rate',
-        name: $localize`Read ops`,
+        name: this.i18n('Read ops'),
         flexGrow: 1,
         pipe: this.dimlessPipe,
         cellTransformation: CellTemplate.perSecond
       },
       {
         prop: 'stats.wr.rate',
-        name: $localize`Write ops`,
+        name: this.i18n('Write ops'),
         flexGrow: 1,
         pipe: this.dimlessPipe,
         cellTransformation: CellTemplate.perSecond
@@ -202,13 +203,10 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
     this.taskListService.init(
       () => this.poolService.getList(),
       undefined,
-      (pools) => {
-        this.pools = this.transformPoolsData(pools);
-        this.tableStatus = new TableStatusViewCache();
-      },
+      (pools) => (this.pools = this.transformPoolsData(pools)),
       () => {
         this.table.reset(); // Disable loading indicator.
-        this.tableStatus = new TableStatusViewCache(ViewCacheStatus.ValueException);
+        this.viewCacheStatusList = [{ status: ViewCacheStatus.ValueException }];
       },
       (task) => task.name.startsWith(`${BASE_URL}/`),
       (pool, task) => task.metadata['pool_name'] === pool.pool_name,
@@ -223,13 +221,15 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
   deletePoolModal() {
     const name = this.selection.first().pool_name;
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      itemDescription: 'Pool',
-      itemNames: [name],
-      submitActionObservable: () =>
-        this.taskWrapper.wrapTaskAroundCall({
-          task: new FinishedTask(`${BASE_URL}/${URLVerbs.DELETE}`, { pool_name: name }),
-          call: this.poolService.delete(name)
-        })
+      initialState: {
+        itemDescription: 'Pool',
+        itemNames: [name],
+        submitActionObservable: () =>
+          this.taskWrapper.wrapTaskAroundCall({
+            task: new FinishedTask(`${BASE_URL}/${URLVerbs.DELETE}`, { pool_name: name }),
+            call: this.poolService.delete(name)
+          })
+      }
     });
   }
 
@@ -241,16 +241,7 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
   }
 
   transformPoolsData(pools: any) {
-    const requiredStats = [
-      'bytes_used',
-      'max_avail',
-      'avail_raw',
-      'percent_used',
-      'rd_bytes',
-      'wr_bytes',
-      'rd',
-      'wr'
-    ];
+    const requiredStats = ['bytes_used', 'max_avail', 'rd_bytes', 'wr_bytes', 'rd', 'wr'];
     const emptyStat: PoolStat = { latest: 0, rate: 0, rates: [] };
 
     _.forEach(pools, (pool: Pool) => {
@@ -260,7 +251,8 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
         stats[stat] = pool.stats && pool.stats[stat] ? pool.stats[stat] : emptyStat;
       });
       pool['stats'] = stats;
-      pool['usage'] = stats.percent_used.latest;
+      const avail = stats.bytes_used.latest + stats.max_avail.latest;
+      pool['usage'] = avail > 0 ? stats.bytes_used.latest / avail : avail;
 
       if (
         !pool.cdExecuting &&
@@ -294,16 +286,14 @@ export class PoolListComponent extends ListWithDetails implements OnInit {
     }
   }
 
-  getDisableDesc(): boolean | string {
-    if (this.selection?.hasSelection) {
-      if (!this.monAllowPoolDelete) {
-        return $localize`Pool deletion is disabled by the mon_allow_pool_delete configuration setting.`;
-      }
-
-      return false;
+  getDisableDesc(): string | undefined {
+    if (!this.monAllowPoolDelete) {
+      return this.i18n(
+        'Pool deletion is disabled by the mon_allow_pool_delete configuration setting.'
+      );
     }
 
-    return true;
+    return undefined;
   }
 
   setExpandedRow(expandedRow: any) {

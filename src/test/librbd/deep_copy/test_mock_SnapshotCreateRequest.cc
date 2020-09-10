@@ -4,7 +4,6 @@
 #include "test/librbd/test_mock_fixture.h"
 #include "test/librados_test_stub/LibradosTestStub.h"
 #include "include/rbd/librbd.hpp"
-#include "librbd/AsioEngine.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
 #include "librbd/Operations.h"
@@ -77,18 +76,16 @@ public:
   typedef SnapshotCreateRequest<librbd::MockTestImageCtx> MockSnapshotCreateRequest;
 
   librbd::ImageCtx *m_image_ctx;
-
-  std::shared_ptr<librbd::AsioEngine> m_asio_engine;
-  asio::ContextWQ *m_work_queue;
+  ThreadPool *m_thread_pool;
+  ContextWQ *m_work_queue;
 
   void SetUp() override {
     TestMockFixture::SetUp();
 
     ASSERT_EQ(0, open_image(m_image_name, &m_image_ctx));
 
-    m_asio_engine = std::make_shared<librbd::AsioEngine>(
-      m_image_ctx->md_ctx);
-    m_work_queue = m_asio_engine->get_work_queue();
+    librbd::ImageCtx::get_thread_pool_instance(m_image_ctx->cct, &m_thread_pool,
+                                               &m_work_queue);
   }
 
   void expect_start_op(librbd::MockExclusiveLock &mock_exclusive_lock) {
@@ -110,10 +107,8 @@ public:
 
   void expect_snap_create(librbd::MockTestImageCtx &mock_image_ctx,
                           const std::string &snap_name, uint64_t snap_id, int r) {
-    uint64_t flags = SNAP_CREATE_FLAG_SKIP_OBJECT_MAP |
-                     SNAP_CREATE_FLAG_SKIP_NOTIFY_QUIESCE;
     EXPECT_CALL(*mock_image_ctx.operations,
-                execute_snap_create(_, StrEq(snap_name), _, 0, flags, _))
+                execute_snap_create(_, StrEq(snap_name), _, 0, true, _))
                   .WillOnce(DoAll(InvokeWithoutArgs([&mock_image_ctx, snap_id, snap_name]() {
                                     inject_snap(mock_image_ctx, snap_id, snap_name);
                                   }),
@@ -127,8 +122,7 @@ public:
     std::string oid(librbd::ObjectMap<>::object_map_name(mock_image_ctx.id,
                                                          snap_id));
     EXPECT_CALL(get_mock_io_ctx(mock_image_ctx.md_ctx),
-                exec(oid, _, StrEq("rbd"), StrEq("object_map_resize"), _, _, _,
-                     _))
+                exec(oid, _, StrEq("rbd"), StrEq("object_map_resize"), _, _, _))
                   .WillOnce(Return(r));
   }
 

@@ -8,19 +8,18 @@
 
 #include "osd/OSDMap.h"
 
-#include "messages/MOSDOp.h"
-
+class MOSDOp;
 class OpInfo {
 public:
   struct ClassInfo {
     ClassInfo(std::string&& class_name, std::string&& method_name,
-              bool read, bool write, bool allowed) :
+              bool read, bool write, bool whitelisted) :
       class_name(std::move(class_name)), method_name(std::move(method_name)),
-      read(read), write(write), allowed(allowed)
+      read(read), write(write), whitelisted(whitelisted)
     {}
     const std::string class_name;
     const std::string method_name;
-    const bool read, write, allowed;
+    const bool read, write, whitelisted;
   };
 
 private:
@@ -30,9 +29,9 @@ private:
   void set_rmw_flags(int flags);
 
   void add_class(std::string&& class_name, std::string&& method_name,
-                 bool read, bool write, bool allowed) {
+                 bool read, bool write, bool whitelisted) {
     classes.emplace_back(std::move(class_name), std::move(method_name),
-                          read, write, allowed);
+                          read, write, whitelisted);
   }
 
 public:

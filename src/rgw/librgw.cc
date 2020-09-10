@@ -37,6 +37,7 @@
 #include "common/common_init.h"
 #include "common/dout.h"
 
+#include "rgw_rados.h"
 #include "rgw_resolve.h"
 #include "rgw_op.h"
 #include "rgw_rest.h"
@@ -227,7 +228,8 @@ namespace rgw {
     rgw_env.set("HTTP_HOST", "");
 
     /* XXX and -then- bloat up req_state with string copies from it */
-    struct req_state *s = req->get_state();
+    struct req_state rstate(req->cct, &rgw_env, req->get_user(), req->id);
+    struct req_state *s = &rstate;
 
     // XXX fix this
     s->cio = io;

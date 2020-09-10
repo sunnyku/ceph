@@ -13,9 +13,10 @@
 #include <string>
 #include <utility>
 
+class ContextWQ;
+
 namespace librbd {
 
-namespace asio { struct ContextWQ; }
 namespace watcher { struct NotifyResponse; }
 
 class Watcher {
@@ -31,7 +32,7 @@ public:
     void finish(int r) override;
   };
 
-  Watcher(librados::IoCtx& ioctx, asio::ContextWQ *work_queue,
+  Watcher(librados::IoCtx& ioctx, ContextWQ *work_queue,
           const std::string& oid);
   virtual ~Watcher();
 
@@ -59,9 +60,9 @@ public:
     std::shared_lock locker{m_watch_lock};
     return is_unregistered(m_watch_lock);
   }
-  bool is_blocklisted() const {
+  bool is_blacklisted() const {
     std::shared_lock locker{m_watch_lock};
-    return m_watch_blocklisted;
+    return m_watch_blacklisted;
   }
 
 protected:
@@ -72,7 +73,7 @@ protected:
   };
 
   librados::IoCtx& m_ioctx;
-  asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
   std::string m_oid;
   CephContext *m_cct;
   mutable ceph::shared_mutex m_watch_lock;
@@ -80,7 +81,7 @@ protected:
   watcher::Notifier m_notifier;
 
   WatchState m_watch_state;
-  bool m_watch_blocklisted = false;
+  bool m_watch_blacklisted = false;
 
   AsyncOpTracker m_async_op_tracker;
 

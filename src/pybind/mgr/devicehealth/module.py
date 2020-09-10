@@ -9,6 +9,7 @@ import operator
 import rados
 from threading import Event
 from datetime import datetime, timedelta, date, time
+from six import iteritems
 
 TIME_FORMAT = '%Y%m%d-%H%M%S'
 
@@ -558,7 +559,7 @@ class Module(MgrModule):
                 did += 1
             if to_mark_out:
                 self.mark_out_etc(to_mark_out)
-        for warning, ls in health_warnings.items():
+        for warning, ls in iteritems(health_warnings):
             n = len(ls)
             if n:
                 checks[warning] = {
@@ -615,7 +616,9 @@ class Module(MgrModule):
     def predict_lift_expectancy(self, devid):
         plugin_name = ''
         model = self.get_ceph_option('device_failure_prediction_mode')
-        if model and model.lower() == 'local':
+        if model and model.lower() == 'cloud':
+            plugin_name = 'diskprediction_cloud'
+        elif model and model.lower() == 'local':
             plugin_name = 'diskprediction_local'
         else:
             return -1, '', 'unable to enable any disk prediction model[local/cloud]'
@@ -629,7 +632,9 @@ class Module(MgrModule):
     def predict_all_devices(self):
         plugin_name = ''
         model = self.get_ceph_option('device_failure_prediction_mode')
-        if model and model.lower() == 'local':
+        if model and model.lower() == 'cloud':
+            plugin_name = 'diskprediction_cloud'
+        elif model and model.lower() == 'local':
             plugin_name = 'diskprediction_local'
         else:
             return -1, '', 'unable to enable any disk prediction model[local/cloud]'

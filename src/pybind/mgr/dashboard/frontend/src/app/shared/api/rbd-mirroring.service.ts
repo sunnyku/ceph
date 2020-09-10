@@ -2,20 +2,19 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { BehaviorSubject, Observable, Subscription } from 'rxjs';
-import { filter } from 'rxjs/operators';
 
 import { cdEncode, cdEncodeNot } from '../decorators/cd-encode';
-import { MirroringSummary } from '../models/mirroring-summary';
 import { TimerService } from '../services/timer.service';
+import { ApiModule } from './api.module';
 
 @cdEncode
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class RbdMirroringService {
   readonly REFRESH_INTERVAL = 30000;
   // Observable sources
-  private summaryDataSource = new BehaviorSubject<MirroringSummary>(null);
+  private summaryDataSource = new BehaviorSubject(null);
   // Observable streams
   summaryData$ = this.summaryDataSource.asObservable();
 
@@ -31,25 +30,29 @@ export class RbdMirroringService {
     return this.retrieveSummaryObservable().subscribe(this.retrieveSummaryObserver());
   }
 
-  private retrieveSummaryObservable(): Observable<MirroringSummary> {
+  private retrieveSummaryObservable(): Observable<Object> {
     return this.http.get('api/block/mirroring/summary');
   }
 
-  private retrieveSummaryObserver(): (data: MirroringSummary) => void {
+  private retrieveSummaryObserver(): (data: any) => void {
     return (data: any) => {
       this.summaryDataSource.next(data);
     };
   }
 
   /**
+   * Returns the current value of summaryData
+   */
+  getCurrentSummary(): { [key: string]: any; executing_tasks: object[] } {
+    return this.summaryDataSource.getValue();
+  }
+
+  /**
    * Subscribes to the summaryData,
    * which is updated periodically or when a new task is created.
    */
-  subscribeSummary(
-    next: (summary: MirroringSummary) => void,
-    error?: (error: any) => void
-  ): Subscription {
-    return this.summaryData$.pipe(filter((value) => !!value)).subscribe(next, error);
+  subscribeSummary(next: (summary: any) => void, error?: (error: any) => void): Subscription {
+    return this.summaryData$.subscribe(next, error);
   }
 
   getPool(poolName: string) {

@@ -580,7 +580,7 @@ public:
     EXPECT_CALL(get_mock_io_ctx(mock_test_image_ctx.md_ctx),
                 exec(mock_test_image_ctx.header_oid, _, StrEq("rbd"),
                      StrEq("mirror_image_snapshot_set_copy_progress"),
-                     ContentsEqual(bl), _, _, _))
+                     ContentsEqual(bl), _, _))
       .WillOnce(Return(r));
   }
 
@@ -2198,7 +2198,7 @@ TEST_F(TestMockImageReplayerSnapshotReplayer, UnlinkRemoteSnapshot) {
   ASSERT_EQ(0, init_ctx.wait());
 
   // wait for sync to complete
-  ASSERT_EQ(0, wait_for_notification(3));
+  ASSERT_EQ(0, wait_for_notification(2));
 
   // shut down
   ASSERT_EQ(0, shut_down_entry_replayer(mock_replayer, mock_threads,

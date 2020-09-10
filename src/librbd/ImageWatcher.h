@@ -5,7 +5,6 @@
 #define CEPH_LIBRBD_IMAGE_WATCHER_H
 
 #include "cls/rbd/cls_rbd_types.h"
-#include "common/AsyncOpTracker.h"
 #include "common/ceph_mutex.h"
 #include "include/Context.h"
 #include "include/rbd/librbd.hpp"
@@ -38,7 +37,6 @@ public:
   void notify_snap_create(uint64_t request_id,
                           const cls::rbd::SnapshotNamespace &snap_namespace,
 			  const std::string &snap_name,
-                          uint64_t flags,
                           ProgressContext &prog_ctx,
 			  Context *on_finish);
   void notify_snap_rename(const snapid_t &src_snap_id,
@@ -74,7 +72,7 @@ public:
   static void notify_header_update(librados::IoCtx &io_ctx,
                                    const std::string &oid);
 
-  void notify_quiesce(uint64_t *request_id, ProgressContext &prog_ctx,
+  void notify_quiesce(uint64_t request_id, ProgressContext &prog_ctx,
                       Context *on_finish);
   void notify_unquiesce(uint64_t request_id, Context *on_finish);
 
@@ -171,8 +169,6 @@ private:
 
   ceph::mutex m_owner_client_id_lock;
   watch_notify::ClientId m_owner_client_id;
-
-  AsyncOpTracker m_async_op_tracker;
 
   void handle_register_watch(int r);
 

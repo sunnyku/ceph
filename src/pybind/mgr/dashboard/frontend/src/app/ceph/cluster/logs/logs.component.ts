@@ -1,8 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 
-import { NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
-
 import { LogsService } from '../../../shared/api/logs.service';
 import { Icons } from '../../../shared/enum/icons.enum';
 
@@ -18,7 +16,11 @@ export class LogsComponent implements OnInit, OnDestroy {
   icons = Icons;
 
   interval: number;
-  priorities: Array<{ name: string; value: string }> = [
+  bsConfig = {
+    dateInputFormat: 'YYYY-MM-DD',
+    containerClass: 'theme-default'
+  };
+  prioritys: Array<{ name: string; value: string }> = [
     { name: 'Info', value: '[INF]' },
     { name: 'Warning', value: '[WRN]' },
     { name: 'Error', value: '[ERR]' },
@@ -26,15 +28,17 @@ export class LogsComponent implements OnInit, OnDestroy {
   ];
   priority = 'All';
   search = '';
-  selectedDate: NgbDateStruct;
-  startTime = { hour: 0, minute: 0 };
-  endTime = { hour: 23, minute: 59 };
-
+  selectedDate: Date;
+  startTime: Date = new Date();
+  endTime: Date = new Date();
   constructor(
     private logsService: LogsService,
     private datePipe: DatePipe,
     private ngZone: NgZone
-  ) {}
+  ) {
+    this.startTime.setHours(0, 0);
+    this.endTime.setHours(23, 59);
+  }
 
   ngOnInit() {
     this.getInfo();
@@ -58,16 +62,16 @@ export class LogsComponent implements OnInit, OnDestroy {
     });
   }
 
-  abstractFilters(): any {
+  abstractfilters(): any {
     const priority = this.priority;
     const key = this.search.toLowerCase().replace(/,/g, '');
 
     let yearMonthDay: string;
     if (this.selectedDate) {
-      const m = this.selectedDate.month;
-      const d = this.selectedDate.day;
+      const m = this.selectedDate.getMonth() + 1;
+      const d = this.selectedDate.getDate();
 
-      const year = this.selectedDate.year;
+      const year = this.selectedDate.getFullYear().toString();
       const month = m <= 9 ? `0${m}` : `${m}`;
       const day = d <= 9 ? `0${d}` : `${d}`;
       yearMonthDay = `${year}-${month}-${day}`;
@@ -75,12 +79,12 @@ export class LogsComponent implements OnInit, OnDestroy {
       yearMonthDay = '';
     }
 
-    const sHour = this.startTime?.hour ?? 0;
-    const sMinutes = this.startTime?.minute ?? 0;
+    const sHour = this.startTime ? this.startTime.getHours() : 0;
+    const sMinutes = this.startTime ? this.startTime.getMinutes() : 0;
     const sTime = sHour * 60 + sMinutes;
 
-    const eHour = this.endTime?.hour ?? 23;
-    const eMinutes = this.endTime?.minute ?? 59;
+    const eHour = this.endTime ? this.endTime.getHours() : 23;
+    const eMinutes = this.endTime ? this.endTime.getMinutes() : 59;
     const eTime = eHour * 60 + eMinutes;
 
     return { priority, key, yearMonthDay, sTime, eTime };
@@ -107,7 +111,7 @@ export class LogsComponent implements OnInit, OnDestroy {
   }
 
   filterLogs() {
-    const filters = this.abstractFilters();
+    const filters = this.abstractfilters();
     this.clog = this.filterExecutor(this.contentData.clog, filters);
     this.audit_log = this.filterExecutor(this.contentData.audit_log, filters);
   }

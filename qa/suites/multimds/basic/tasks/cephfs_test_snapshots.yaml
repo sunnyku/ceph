@@ -2,7 +2,7 @@ overrides:
   check-counter:
     dry_run: true
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - evicting unresponsive client
       - RECENT_CRASH
 

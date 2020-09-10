@@ -3,10 +3,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed, PermissionHelper } from '../../../../../testing/unit-test-helper';
+import {
+  configureTestBed,
+  i18nProviders,
+  PermissionHelper
+} from '../../../../../testing/unit-test-helper';
 import { CoreModule } from '../../../../core/core.module';
 import { TableActionsComponent } from '../../../../shared/datatable/table-actions/table-actions.component';
 import { SharedModule } from '../../../../shared/shared.module';
@@ -23,7 +27,7 @@ describe('ActiveAlertListComponent', () => {
     imports: [
       BrowserAnimationsModule,
       HttpClientTestingModule,
-      NgbNavModule,
+      TabsModule.forRoot(),
       RouterTestingModule,
       ToastrModule.forRoot(),
       SharedModule,
@@ -31,7 +35,9 @@ describe('ActiveAlertListComponent', () => {
       DashboardModule,
       CephModule,
       CoreModule
-    ]
+    ],
+    declarations: [],
+    providers: [i18nProviders]
   });
 
   beforeEach(() => {

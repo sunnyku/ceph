@@ -8,17 +8,18 @@ import { Daemon } from '../models/daemon.interface';
 import { CdDevice } from '../models/devices';
 import { SmartDataResponseV1 } from '../models/smart';
 import { DeviceService } from '../services/device.service';
+import { ApiModule } from './api.module';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class HostService {
   baseURL = 'api/host';
 
   constructor(private http: HttpClient, private deviceService: DeviceService) {}
 
-  list(): Observable<object[]> {
-    return this.http.get<object[]>(this.baseURL);
+  list() {
+    return this.http.get(this.baseURL);
   }
 
   create(hostname: string) {
@@ -41,13 +42,5 @@ export class HostService {
 
   getDaemons(hostname: string): Observable<Daemon[]> {
     return this.http.get<Daemon[]>(`${this.baseURL}/${hostname}/daemons`);
-  }
-
-  getLabels(): Observable<string[]> {
-    return this.http.get<string[]>('ui-api/host/labels');
-  }
-
-  update(hostname: string, labels: string[]) {
-    return this.http.put(`${this.baseURL}/${hostname}`, { labels: labels });
   }
 }

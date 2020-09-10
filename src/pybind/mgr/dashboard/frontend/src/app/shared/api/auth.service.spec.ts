@@ -11,7 +11,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let httpTesting: HttpTestingController;
 
-  const routes: Routes = [{ path: 'login', children: [] }];
+  const routes: Routes = [{ path: 'logout', children: [] }];
 
   configureTestBed({
     providers: [AuthService, AuthStorageService],
@@ -19,8 +19,8 @@ describe('AuthService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(AuthService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(AuthService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {
@@ -45,7 +45,7 @@ describe('AuthService', () => {
   }));
 
   it('should logout and remove the user', () => {
-    const router = TestBed.inject(Router);
+    const router = TestBed.get(Router);
     spyOn(router, 'navigate').and.stub();
 
     service.logout();

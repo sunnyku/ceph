@@ -15,13 +15,13 @@
 #ifndef CEPH_MEXPORTDIRPREPACK_H
 #define CEPH_MEXPORTDIRPREPACK_H
 
+#include "msg/Message.h"
 #include "include/types.h"
-#include "messages/MMDSOp.h"
 
-class MExportDirPrepAck : public MMDSOp {
+class MExportDirPrepAck : public SafeMessage {
 private:
-  static constexpr int HEAD_VERSION = 1;
-  static constexpr int COMPAT_VERSION = 1;
+  static const int HEAD_VERSION = 1;
+  static const int COMPAT_VERSION = 1;
 
   dirfrag_t dirfrag;
   bool success = false;
@@ -31,9 +31,9 @@ private:
 
 protected:
   MExportDirPrepAck() :
-    MMDSOp{MSG_MDS_EXPORTDIRPREPACK, HEAD_VERSION, COMPAT_VERSION} {}
+    SafeMessage{MSG_MDS_EXPORTDIRPREPACK, HEAD_VERSION, COMPAT_VERSION} {}
   MExportDirPrepAck(dirfrag_t df, bool s, uint64_t tid) :
-    MMDSOp{MSG_MDS_EXPORTDIRPREPACK, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), success(s) {
+    SafeMessage{MSG_MDS_EXPORTDIRPREPACK, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), success(s) {
     set_tid(tid);
   }
   ~MExportDirPrepAck() override {}

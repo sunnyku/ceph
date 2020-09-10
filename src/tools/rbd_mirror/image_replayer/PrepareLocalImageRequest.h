@@ -10,12 +10,10 @@
 #include "librbd/mirror/Types.h"
 #include <string>
 
-struct Context;
+namespace librbd { struct ImageCtx; }
 
-namespace librbd {
-struct ImageCtx;
-namespace asio { struct ContextWQ; }
-} // namespace librbd
+struct Context;
+struct ContextWQ;
 
 namespace rbd {
 namespace mirror {
@@ -31,7 +29,7 @@ public:
       const std::string &global_image_id,
       std::string *local_image_name,
       StateBuilder<ImageCtxT>** state_builder,
-      librbd::asio::ContextWQ *work_queue,
+      ContextWQ *work_queue,
       Context *on_finish) {
     return new PrepareLocalImageRequest(io_ctx, global_image_id,
                                         local_image_name, state_builder,
@@ -43,7 +41,7 @@ public:
       const std::string &global_image_id,
       std::string *local_image_name,
       StateBuilder<ImageCtxT>** state_builder,
-      librbd::asio::ContextWQ *work_queue,
+      ContextWQ *work_queue,
       Context *on_finish)
     : m_io_ctx(io_ctx), m_global_image_id(global_image_id),
       m_local_image_name(local_image_name), m_state_builder(state_builder),
@@ -77,7 +75,7 @@ private:
   std::string m_global_image_id;
   std::string *m_local_image_name;
   StateBuilder<ImageCtxT>** m_state_builder;
-  librbd::asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
   Context *m_on_finish;
 
   bufferlist m_out_bl;

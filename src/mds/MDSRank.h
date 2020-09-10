@@ -17,8 +17,6 @@
 
 #include <string_view>
 
-#include <boost/asio/io_context.hpp>
-
 #include "common/DecayCounter.h"
 #include "common/LogClient.h"
 #include "common/Timer.h"
@@ -39,7 +37,6 @@
 #include "MDSContext.h"
 #include "PurgeQueue.h"
 #include "Server.h"
-#include "MetricsHandler.h"
 #include "osdc/Journaler.h"
 
 // Full .h import instead of forward declaration for PerfCounter, for the
@@ -84,16 +81,6 @@ enum {
   l_mds_root_rfiles,
   l_mds_root_rbytes,
   l_mds_root_rsnaps,
-  l_mdss_handle_inode_file_caps,
-  l_mdss_ceph_cap_op_revoke,
-  l_mdss_ceph_cap_op_grant,
-  l_mdss_ceph_cap_op_trunc,
-  l_mdss_ceph_cap_op_flushsnap_ack,
-  l_mdss_ceph_cap_op_flush_ack,
-  l_mdss_handle_client_caps,
-  l_mdss_handle_client_caps_dirty,
-  l_mdss_handle_client_cap_release,
-  l_mdss_process_request_cap_release,
   l_mds_last,
 };
 
@@ -131,7 +118,6 @@ class SnapClient;
 class MDSTableServer;
 class MDSTableClient;
 class Messenger;
-class MetricAggregator;
 class Objecter;
 class MonClient;
 class MgrClient;
@@ -165,8 +151,7 @@ class MDSRank {
         MonClient *monc_,
         MgrClient *mgrc,
         Context *respawn_hook_,
-        Context *suicide_hook_,
-	boost::asio::io_context& ioc);
+        Context *suicide_hook_);
 
     mds_rank_t get_nodeid() const { return whoami; }
     int64_t get_metadata_pool();
@@ -279,7 +264,6 @@ class MDSRank {
     double get_dispatch_queue_max_age(utime_t now) const;
 
     void send_message_mds(const ref_t<Message>& m, mds_rank_t mds);
-    void send_message_mds(const ref_t<Message>& m, const entity_addrvec_t &addr);
     void forward_message_mds(const cref_t<MClientRequest>& req, mds_rank_t mds);
     void send_message_client_counted(const ref_t<Message>& m, client_t client);
     void send_message_client_counted(const ref_t<Message>& m, Session* session);
@@ -346,7 +330,7 @@ class MDSRank {
       return map_targets.count(rank);
     }
 
-    bool evict_client(int64_t session_id, bool wait, bool blocklist,
+    bool evict_client(int64_t session_id, bool wait, bool blacklist,
                       std::ostream& ss, Context *on_killed=nullptr);
     int config_client(int64_t session_id, bool remove,
 		      const std::string& option, const std::string& value,
@@ -547,16 +531,12 @@ class MDSRank {
     // because its init/shutdown happens at the top level.
     PurgeQueue purge_queue;
 
-    MetricsHandler metrics_handler;
-    std::unique_ptr<MetricAggregator> metric_aggregator;
-
     list<cref_t<Message>> waiting_for_nolaggy;
     MDSContext::que finished_queue;
     // Dispatch, retry, queues
     int dispatch_depth = 0;
 
     ceph::heartbeat_handle_d *hb = nullptr;  // Heartbeat for threads using mds_lock
-    double heartbeat_grace;
 
     map<mds_rank_t, version_t> peer_mdsmap_epoch;
 
@@ -592,8 +572,6 @@ class MDSRank {
 
     bool standby_replaying = false;  // true if current replay pass is in standby-replay mode
 private:
-    bool send_status = true;
-
     // "task" string that gets displayed in ceph status
     inline static const std::string SCRUB_STATUS_KEY = "scrub status";
 
@@ -601,12 +579,7 @@ private:
     void schedule_update_timer_task();
     void send_task_status();
 
-    bool is_rank0() const {
-      return whoami == (mds_rank_t)0;
-    }
-
     mono_time starttime = mono_clock::zero();
-    boost::asio::io_context& ioc;
 };
 
 /* This expects to be given a reference which it is responsible for.
@@ -655,8 +628,7 @@ public:
       MonClient *monc_,
       MgrClient *mgrc,
       Context *respawn_hook_,
-      Context *suicide_hook_,
-      boost::asio::io_context& ioc);
+      Context *suicide_hook_);
 
   void init();
   void tick();
@@ -674,7 +646,7 @@ public:
   const char** get_tracked_conf_keys() const override final;
   void handle_conf_change(const ConfigProxy& conf, const std::set<std::string>& changed) override;
 
-  void dump_sessions(const SessionFilter &filter, Formatter *f, bool cap_dump=false) const;
+  void dump_sessions(const SessionFilter &filter, Formatter *f) const;
   void evict_clients(const SessionFilter &filter,
 		     std::function<void(int,const std::string&,bufferlist&)> on_finish);
 

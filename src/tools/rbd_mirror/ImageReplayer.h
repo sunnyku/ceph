@@ -85,9 +85,9 @@ public:
     m_finished = finished;
   }
 
-  inline bool is_blocklisted() const {
+  inline bool is_blacklisted() const {
     std::lock_guard locker{m_lock};
-    return (m_last_r == -EBLOCKLISTED);
+    return (m_last_r == -EBLACKLISTED);
   }
 
   image_replayer::HealthState get_health_state() const;
@@ -101,10 +101,9 @@ public:
     return m_global_image_id;
   }
 
-  void start(Context *on_finish = nullptr, bool manual = false,
-             bool restart = false);
+  void start(Context *on_finish = nullptr, bool manual = false);
   void stop(Context *on_finish = nullptr, bool manual = false,
-            bool restart = false);
+	    int r = 0, const std::string& desc = "");
   void restart(Context *on_finish = nullptr);
   void flush();
 
@@ -140,11 +139,11 @@ protected:
    * @endverbatim
    */
 
-  void on_start_fail(int r, const std::string &desc);
-  bool on_start_interrupted();
-  bool on_start_interrupted(ceph::mutex& lock);
+  virtual void on_start_fail(int r, const std::string &desc);
+  virtual bool on_start_interrupted();
+  virtual bool on_start_interrupted(ceph::mutex& lock);
 
-  void on_stop_journal_replay(int r = 0, const std::string &desc = "");
+  virtual void on_stop_journal_replay(int r = 0, const std::string &desc = "");
 
   bool on_replay_interrupted();
 
@@ -206,7 +205,6 @@ private:
   bool m_finished = false;
   bool m_delete_requested = false;
   bool m_resync_requested = false;
-  bool m_restart_requested = false;
 
   image_replayer::StateBuilder<ImageCtxT>* m_state_builder = nullptr;
   image_replayer::Replayer* m_replayer = nullptr;

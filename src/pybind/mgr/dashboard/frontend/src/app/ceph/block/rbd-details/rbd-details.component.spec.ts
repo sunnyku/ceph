@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbNavModule, NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
+import { TabsModule } from 'ngx-bootstrap/tabs';
+import { TooltipModule } from 'ngx-bootstrap/tooltip';
 
 import { configureTestBed } from '../../../../testing/unit-test-helper';
 import { SharedModule } from '../../../shared/shared.module';
@@ -15,7 +16,7 @@ describe('RbdDetailsComponent', () => {
 
   configureTestBed({
     declarations: [RbdDetailsComponent, RbdSnapshotListComponent, RbdConfigurationListComponent],
-    imports: [SharedModule, NgbTooltipModule, RouterTestingModule, NgbNavModule]
+    imports: [SharedModule, TabsModule.forRoot(), TooltipModule.forRoot(), RouterTestingModule]
   });
 
   beforeEach(() => {

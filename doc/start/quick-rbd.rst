@@ -2,8 +2,10 @@
  Block Device Quick Start
 ==========================
 
-Ensure your :term:`Ceph Storage Cluster` is in an ``active + clean`` state
-before working with the :term:`Ceph Block Device`.
+To use this guide, you must have executed the procedures in the `Storage
+Cluster Quick Start`_ guide first. Ensure your :term:`Ceph Storage Cluster` is
+in an ``active + clean`` state before working with the :term:`Ceph Block
+Device`. 
 
 .. note:: The Ceph Block Device is also known as :term:`RBD` or :term:`RADOS`
    Block Device.
@@ -62,6 +64,7 @@ Configure a Block Device
 
 See `block devices`_ for additional details.
 
+.. _Storage Cluster Quick Start: ../quick-ceph-deploy
 .. _create a pool: ../../rados/operations/pools/#create-a-pool
 .. _block devices: ../../rbd
 .. _FAQ: http://wiki.ceph.com/How_Can_I_Give_Ceph_a_Try

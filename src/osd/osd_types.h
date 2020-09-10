@@ -33,7 +33,6 @@
 #include "include/mempool.h"
 
 #include "msg/msg_types.h"
-#include "include/compat.h"
 #include "include/types.h"
 #include "include/utime.h"
 #include "include/CompatSet.h"
@@ -143,7 +142,7 @@ void dump(ceph::Formatter* f, const osd_alerts_t& alerts);
 
 typedef interval_set<
   snapid_t,
-  mempool::osdmap::flat_map> snap_interval_set_t;
+  mempool::osdmap::flat_map<snapid_t,snapid_t>> snap_interval_set_t;
 
 
 /**
@@ -257,10 +256,10 @@ namespace std {
 // does it go in.
 struct object_locator_t {
   // You specify either the hash or the key -- not both
-  std::int64_t pool;     ///< pool id
-  std::string key;       ///< key string (if non-empty)
+  int64_t pool;     ///< pool id
+  std::string key;       ///< key std::string (if non-empty)
   std::string nspace;    ///< namespace
-  std::int64_t hash;     ///< hash position (if >= 0)
+  int64_t hash;     ///< hash position (if >= 0)
 
   explicit object_locator_t()
     : pool(-1), hash(-1) {}
@@ -268,11 +267,11 @@ struct object_locator_t {
     : pool(po), hash(-1)  {}
   explicit object_locator_t(int64_t po, int64_t ps)
     : pool(po), hash(ps)  {}
-  explicit object_locator_t(int64_t po, std::string_view ns)
+  explicit object_locator_t(int64_t po, std::string ns)
     : pool(po), nspace(ns), hash(-1) {}
-  explicit object_locator_t(int64_t po, std::string_view ns, int64_t ps)
+  explicit object_locator_t(int64_t po, std::string ns, int64_t ps)
     : pool(po), nspace(ns), hash(ps) {}
-  explicit object_locator_t(int64_t po, std::string_view ns, std::string_view s)
+  explicit object_locator_t(int64_t po, std::string ns, std::string s)
     : pool(po), key(s), nspace(ns), hash(-1) {}
   explicit object_locator_t(const hobject_t& soid)
     : pool(soid.pool), key(soid.get_key()), nspace(soid.nspace), hash(-1) {}
@@ -1700,7 +1699,7 @@ public:
   bool is_unmanaged_snaps_mode() const;
   bool is_removed_snap(snapid_t s) const;
 
-  snapid_t snap_exists(std::string_view s) const;
+  snapid_t snap_exists(const char *s) const;
   void add_snap(const char *n, utime_t stamp);
   uint64_t add_unmanaged_snap(bool preoctopus_compat);
   void remove_snap(snapid_t s);
@@ -2640,7 +2639,6 @@ struct pg_history_t {
 			       // (note: may be pg creation epoch for
 			       // pre-luminous clusters)
   epoch_t last_epoch_started = 0;;  // lower bound on last epoch started (anywhere, not necessarily locally)
-                                    // https://docs.ceph.com/docs/master/dev/osd_internals/last_epoch_started/
   epoch_t last_interval_started = 0;; // first epoch of last_epoch_started interval
   epoch_t last_epoch_clean = 0;;    // lower bound on last epoch the PG was completely clean.
   epoch_t last_interval_clean = 0;; // first epoch of last_epoch_clean interval
@@ -3767,7 +3765,8 @@ public:
     bl.reassign_to_mempool(mempool::mempool_osd_pglog);
   }
   void claim(ObjectModDesc &other) {
-    bl = std::move(other.bl);
+    bl.clear();
+    bl.claim(other.bl);
     can_local_rollback = other.can_local_rollback;
     rollback_info_completed = other.rollback_info_completed;
   }
@@ -3927,7 +3926,6 @@ public:
   interval_set<uint64_t> get_dirty_regions() const;
   bool omap_is_dirty() const;
   bool object_is_exist() const;
-  bool is_clean_region(uint64_t offset, uint64_t len) const;
 
   void encode(ceph::buffer::list &bl) const;
   void decode(ceph::buffer::list::const_iterator &bl);
@@ -3962,16 +3960,7 @@ struct OSDOp {
    * @param ops [out] vector of OSDOps
    * @param in  [in] combined data buffer
    */
-  template<typename V>
-  static void split_osd_op_vector_in_data(V& ops,
-					  ceph::buffer::list& in) {
-    ceph::buffer::list::iterator datap = in.begin();
-    for (unsigned i = 0; i < ops.size(); i++) {
-      if (ops[i].op.payload_len) {
-	datap.copy(ops[i].op.payload_len, ops[i].indata);
-      }
-    }
-  }
+  static void split_osd_op_vector_in_data(std::vector<OSDOp>& ops, ceph::buffer::list& in);
 
   /**
    * merge indata members of a vector of OSDOp into a single ceph::buffer::list
@@ -3982,15 +3971,7 @@ struct OSDOp {
    * @param ops [in] vector of OSDOps
    * @param out [out] combined data buffer
    */
-  template<typename V>
-  static void merge_osd_op_vector_in_data(V& ops, ceph::buffer::list& out) {
-    for (unsigned i = 0; i < ops.size(); i++) {
-      if (ops[i].indata.length()) {
-	ops[i].op.payload_len = ops[i].indata.length();
-	out.append(ops[i].indata);
-      }
-    }
-  }
+  static void merge_osd_op_vector_in_data(std::vector<OSDOp>& ops, ceph::buffer::list& out);
 
   /**
    * split a ceph::buffer::list into constituent outdata members of a vector of OSDOps
@@ -4013,34 +3994,10 @@ struct OSDOp {
    *
    * @param ops [in] vector of OSDOps
    */
-  template<typename V>
-  static void clear_data(V& ops) {
-    for (unsigned i = 0; i < ops.size(); i++) {
-      OSDOp& op = ops[i];
-      op.outdata.clear();
-      if (ceph_osd_op_type_attr(op.op.op) &&
-	  op.op.xattr.name_len &&
-	  op.indata.length() >= op.op.xattr.name_len) {
-	ceph::buffer::list bl;
-	bl.push_back(ceph::buffer::ptr_node::create(op.op.xattr.name_len));
-	bl.begin().copy_in(op.op.xattr.name_len, op.indata);
-	op.indata = std::move(bl);
-      } else if (ceph_osd_op_type_exec(op.op.op) &&
-		 op.op.cls.class_len &&
-		 op.indata.length() >
-	         (op.op.cls.class_len + op.op.cls.method_len)) {
-	__u8 len = op.op.cls.class_len + op.op.cls.method_len;
-	ceph::buffer::list bl;
-	bl.push_back(ceph::buffer::ptr_node::create(len));
-	bl.begin().copy_in(len, op.indata);
-	op.indata = std::move(bl);
-      } else {
-	op.indata.clear();
-      }
-    }
-  }
+  static void clear_data(std::vector<OSDOp>& ops);
 };
 std::ostream& operator<<(std::ostream& out, const OSDOp& op);
+
 
 struct pg_log_op_return_item_t {
   int32_t rval;
@@ -5007,24 +4964,20 @@ using pg_missing_t = pg_missing_set<false>;
 using pg_missing_tracker_t = pg_missing_set<true>;
 
 
-
-
 /**
  * pg list objects response format
  *
  */
-
-template<typename T>
-struct pg_nls_response_template {
+struct pg_nls_response_t {
   collection_list_handle_t handle;
-  std::vector<T> entries;
+  std::list<librados::ListObjectImpl> entries;
 
   void encode(ceph::buffer::list& bl) const {
     ENCODE_START(1, 1, bl);
     encode(handle, bl);
     __u32 n = (__u32)entries.size();
     encode(n, bl);
-    for (auto i = entries.begin(); i != entries.end(); ++i) {
+    for (std::list<librados::ListObjectImpl>::const_iterator i = entries.begin(); i != entries.end(); ++i) {
       encode(i->nspace, bl);
       encode(i->oid, bl);
       encode(i->locator, bl);
@@ -5038,7 +4991,7 @@ struct pg_nls_response_template {
     decode(n, bl);
     entries.clear();
     while (n--) {
-      T i;
+      librados::ListObjectImpl i;
       decode(i.nspace, bl);
       decode(i.oid, bl);
       decode(i.locator, bl);
@@ -5049,7 +5002,7 @@ struct pg_nls_response_template {
   void dump(ceph::Formatter *f) const {
     f->dump_stream("handle") << handle;
     f->open_array_section("entries");
-    for (auto p = entries.begin(); p != entries.end(); ++p) {
+    for (std::list<librados::ListObjectImpl>::const_iterator p = entries.begin(); p != entries.end(); ++p) {
       f->open_object_section("object");
       f->dump_string("namespace", p->nspace);
       f->dump_string("object", p->oid);
@@ -5058,19 +5011,19 @@ struct pg_nls_response_template {
     }
     f->close_section();
   }
-  static void generate_test_instances(std::list<pg_nls_response_template<T>*>& o) {
-    o.push_back(new pg_nls_response_template<T>);
-    o.push_back(new pg_nls_response_template<T>);
+  static void generate_test_instances(std::list<pg_nls_response_t*>& o) {
+    o.push_back(new pg_nls_response_t);
+    o.push_back(new pg_nls_response_t);
     o.back()->handle = hobject_t(object_t("hi"), "key", 1, 2, -1, "");
     o.back()->entries.push_back(librados::ListObjectImpl("", "one", ""));
     o.back()->entries.push_back(librados::ListObjectImpl("", "two", "twokey"));
     o.back()->entries.push_back(librados::ListObjectImpl("", "three", ""));
-    o.push_back(new pg_nls_response_template<T>);
+    o.push_back(new pg_nls_response_t);
     o.back()->handle = hobject_t(object_t("hi"), "key", 3, 4, -1, "");
     o.back()->entries.push_back(librados::ListObjectImpl("n1", "n1one", ""));
     o.back()->entries.push_back(librados::ListObjectImpl("n1", "n1two", "n1twokey"));
     o.back()->entries.push_back(librados::ListObjectImpl("n1", "n1three", ""));
-    o.push_back(new pg_nls_response_template<T>);
+    o.push_back(new pg_nls_response_t);
     o.back()->handle = hobject_t(object_t("hi"), "key", 5, 6, -1, "");
     o.back()->entries.push_back(librados::ListObjectImpl("", "one", ""));
     o.back()->entries.push_back(librados::ListObjectImpl("", "two", "twokey"));
@@ -5080,8 +5033,6 @@ struct pg_nls_response_template {
     o.back()->entries.push_back(librados::ListObjectImpl("n1", "n1three", ""));
   }
 };
-
-using pg_nls_response_t = pg_nls_response_template<librados::ListObjectImpl>;
 
 WRITE_CLASS_ENCODER(pg_nls_response_t)
 
@@ -5424,53 +5375,6 @@ static inline std::ostream& operator<<(std::ostream& out, const notify_info_t& n
 	     << " " << n.timeout << "s)";
 }
 
-class object_ref_delta_t {
-  std::map<hobject_t, int> ref_delta;
-
-public:
-  object_ref_delta_t() = default;
-  object_ref_delta_t(const object_ref_delta_t &) = default;
-  object_ref_delta_t(object_ref_delta_t &&) = default;
-
-  object_ref_delta_t(decltype(ref_delta) &&ref_delta)
-    : ref_delta(std::move(ref_delta)) {}
-  object_ref_delta_t(const decltype(ref_delta) &ref_delta)
-    : ref_delta(ref_delta) {}
-
-  object_ref_delta_t &operator=(const object_ref_delta_t &) = default;
-  object_ref_delta_t &operator=(object_ref_delta_t &&) = default;
-
-  void dec_ref(const hobject_t &hoid, unsigned num=1) {
-    mut_ref(hoid, -num);
-  }
-  void inc_ref(const hobject_t &hoid, unsigned num=1) {
-    mut_ref(hoid, num);
-  }
-  void mut_ref(const hobject_t &hoid, int num) {
-    auto [iter, _] = ref_delta.try_emplace(hoid, 0);
-    iter->second += num;
-    if (iter->second == 0)
-      ref_delta.erase(iter);
-  }
-
-  auto begin() const { return ref_delta.begin(); }
-  auto end() const { return ref_delta.end(); }
-
-  bool operator==(const object_ref_delta_t &rhs) const {
-    return ref_delta == rhs.ref_delta;
-  }
-  bool operator!=(const object_ref_delta_t &rhs) const {
-    return !(*this == rhs);
-  }
-  bool is_empty() {
-    return ref_delta.empty();
-  }
-  uint64_t size() {
-    return ref_delta.size();
-  }
-  friend std::ostream& operator<<(std::ostream& out, const object_ref_delta_t & ci);
-};
-
 struct chunk_info_t {
   typedef enum {
     FLAG_DIRTY = 1, 
@@ -5534,10 +5438,6 @@ struct chunk_info_t {
   void decode(ceph::buffer::list::const_iterator &bl);
   void dump(ceph::Formatter *f) const;
   friend std::ostream& operator<<(std::ostream& out, const chunk_info_t& ci);
-  bool operator==(const chunk_info_t& cit) const;
-  bool operator!=(const chunk_info_t& cit) const {
-    return !(cit == *this);
-  }
 };
 WRITE_CLASS_ENCODER(chunk_info_t)
 std::ostream& operator<<(std::ostream& out, const chunk_info_t& ci);
@@ -5582,55 +5482,6 @@ struct object_manifest_t {
     redirect_target = hobject_t();
     chunk_map.clear();
   }
-
-  /**
-   * calc_refs_to_inc_on_set
-   *
-   * Takes a manifest and returns the set of refs to
-   * increment upon set-chunk
-   *
-   * l should be nullptr if there are no clones, or 
-   * l and g may each be null if the corresponding clone does not exist.
-   * *this contains the set of new references to set
-   *
-   */
-  void calc_refs_to_inc_on_set(
-    const object_manifest_t* g, ///< [in] manifest for clone > *this
-    const object_manifest_t* l, ///< [in] manifest for clone < *this
-    object_ref_delta_t &delta    ///< [out] set of refs to drop
-  ) const;
-
-  /**
-   * calc_refs_to_drop_on_modify
-   *
-   * Takes a manifest and returns the set of refs to
-   * drop upon modification 
-   *
-   * l should be nullptr if there are no clones, or 
-   * l may be null if the corresponding clone does not exist.
-   *
-   */
-  void calc_refs_to_drop_on_modify(
-    const object_manifest_t* l, ///< [in] manifest for previous clone 
-    const ObjectCleanRegions& clean_regions, ///< [in] clean regions
-    object_ref_delta_t &delta    ///< [out] set of refs to drop
-  ) const;
-
-  /**
-   * calc_refs_to_drop_on_removal
-   *
-   * Takes the two adjacent manifests and returns the set of refs to
-   * drop upon removal of the clone containing *this.
-   *
-   * g should be nullptr if *this is on HEAD, l should be nullptr if
-   * *this is on the oldest clone (or head if there are no clones).
-   */
-  void calc_refs_to_drop_on_removal(
-    const object_manifest_t* g, ///< [in] manifest for clone > *this
-    const object_manifest_t* l, ///< [in] manifest for clone < *this
-    object_ref_delta_t &delta    ///< [out] set of refs to drop
-  ) const;
-
   static void generate_test_instances(std::list<object_manifest_t*>& o);
   void encode(ceph::buffer::list &bl) const;
   void decode(ceph::buffer::list::const_iterator &bl);

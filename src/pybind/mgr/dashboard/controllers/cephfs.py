@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+
 from collections import defaultdict
 
 import os
@@ -6,8 +8,7 @@ import os
 import cherrypy
 import cephfs
 
-from . import ApiController, ControllerDoc, RESTController, UiApiController, \
-    allow_empty_body, EndpointDoc
+from . import ApiController, RESTController, UiApiController
 from .. import mgr
 from ..exceptions import DashboardException
 from ..security import Scope
@@ -15,16 +16,10 @@ from ..services.cephfs import CephFS as CephFS_
 from ..services.ceph_service import CephService
 from ..tools import ViewCache
 
-GET_QUOTAS_SCHEMA = {
-    'max_bytes': (int, ''),
-    'max_files': (int, '')
-}
-
 
 @ApiController('/cephfs', Scope.CEPHFS)
-@ControllerDoc("Cephfs Management API", "Cephfs")
 class CephFS(RESTController):
-    def __init__(self):  # pragma: no cover
+    def __init__(self):
         super(CephFS, self).__init__()
 
         # Stateful instances of CephFSClients, hold cached results.  Key to
@@ -79,7 +74,7 @@ class CephFS(RESTController):
                 "mds_mem.ino"
             ]
 
-        result: dict = {}
+        result = {}  # type: dict
         mds_names = self._get_mds_names(fs_id)
 
         for mds_name in mds_names:
@@ -134,7 +129,7 @@ class CephFS(RESTController):
 
     # pylint: disable=too-many-statements,too-many-branches
     def fs_status(self, fs_id):
-        mds_versions: dict = defaultdict(list)
+        mds_versions = defaultdict(list)  # type: dict
 
         fsmap = mgr.get("fs_map")
         filesystem = None
@@ -184,7 +179,7 @@ class CephFS(RESTController):
                                                     info['name'],
                                                     "mds_server.handle_client_request")
                 else:
-                    activity = 0.0  # pragma: no cover
+                    activity = 0.0
 
                 self._append_mds_metadata(mds_versions, info['name'])
                 rank_table.append(
@@ -290,15 +285,15 @@ class CephFS(RESTController):
         # indepdendent of whether it's a kernel or userspace
         # client, so that the javascript doesn't have to grok that.
         for client in clients:
-            if "ceph_version" in client['client_metadata']:  # pragma: no cover - no complexity
+            if "ceph_version" in client['client_metadata']:
                 client['type'] = "userspace"
                 client['version'] = client['client_metadata']['ceph_version']
                 client['hostname'] = client['client_metadata']['hostname']
-            elif "kernel_version" in client['client_metadata']:  # pragma: no cover - no complexity
+            elif "kernel_version" in client['client_metadata']:
                 client['type'] = "kernel"
                 client['version'] = client['client_metadata']['kernel_version']
                 client['hostname'] = client['client_metadata']['hostname']
-            else:  # pragma: no cover - no complexity there
+            else:
                 client['type'] = "unknown"
                 client['version'] = ""
                 client['hostname'] = ""
@@ -339,7 +334,7 @@ class CephFS(RESTController):
         """
         try:
             return self._get_root_directory(self._cephfs_instance(fs_id))
-        except (cephfs.PermissionError, cephfs.ObjectNotFound):  # pragma: no cover
+        except (cephfs.PermissionError, cephfs.ObjectNotFound):
             return None
 
     def _get_root_directory(self, cfs):
@@ -370,7 +365,7 @@ class CephFS(RESTController):
         try:
             cfs = self._cephfs_instance(fs_id)
             paths = cfs.ls_dir(path, depth)
-        except (cephfs.PermissionError, cephfs.ObjectNotFound):  # pragma: no cover
+        except (cephfs.PermissionError, cephfs.ObjectNotFound):
             paths = []
         return paths
 
@@ -389,9 +384,8 @@ class CephFS(RESTController):
             path = os.path.normpath(path)
         return path
 
-    @RESTController.Resource('POST', path='/tree')
-    @allow_empty_body
-    def mk_tree(self, fs_id, path):
+    @RESTController.Resource('POST')
+    def mk_dirs(self, fs_id, path):
         """
         Create a directory.
         :param fs_id: The filesystem identifier.
@@ -400,8 +394,8 @@ class CephFS(RESTController):
         cfs = self._cephfs_instance(fs_id)
         cfs.mk_dirs(path)
 
-    @RESTController.Resource('DELETE', path='/tree')
-    def rm_tree(self, fs_id, path):
+    @RESTController.Resource('POST')
+    def rm_dir(self, fs_id, path):
         """
         Remove a directory.
         :param fs_id: The filesystem identifier.
@@ -410,41 +404,8 @@ class CephFS(RESTController):
         cfs = self._cephfs_instance(fs_id)
         cfs.rm_dir(path)
 
-    @RESTController.Resource('PUT', path='/quota')
-    @allow_empty_body
-    def quota(self, fs_id, path, max_bytes=None, max_files=None):
-        """
-        Set the quotas of the specified path.
-        :param fs_id: The filesystem identifier.
-        :param path: The path of the directory/file.
-        :param max_bytes: The byte limit.
-        :param max_files: The file limit.
-        """
-        cfs = self._cephfs_instance(fs_id)
-        return cfs.set_quotas(path, max_bytes, max_files)
-
-    @RESTController.Resource('GET', path='/quota')
-    @EndpointDoc("Get Cephfs Quotas of the specified path",
-                 parameters={
-                     'fs_id': (str, 'File System Identifier'),
-                     'path': (str, 'File System Path'),
-                 },
-                 responses={200: GET_QUOTAS_SCHEMA})
-    def get_quota(self, fs_id, path):
-        """
-        Get the quotas of the specified path.
-        :param fs_id: The filesystem identifier.
-        :param path: The path of the directory/file.
-        :return: Returns a dictionary containing 'max_bytes'
-            and 'max_files'.
-        :rtype: dict
-        """
-        cfs = self._cephfs_instance(fs_id)
-        return cfs.get_quotas(path)
-
-    @RESTController.Resource('POST', path='/snapshot')
-    @allow_empty_body
-    def snapshot(self, fs_id, path, name=None):
+    @RESTController.Resource('POST')
+    def mk_snapshot(self, fs_id, path, name=None):
         """
         Create a snapshot.
         :param fs_id: The filesystem identifier.
@@ -458,7 +419,7 @@ class CephFS(RESTController):
         cfs = self._cephfs_instance(fs_id)
         return cfs.mk_snapshot(path, name)
 
-    @RESTController.Resource('DELETE', path='/snapshot')
+    @RESTController.Resource('POST')
     def rm_snapshot(self, fs_id, path, name):
         """
         Remove a snapshot.
@@ -468,6 +429,31 @@ class CephFS(RESTController):
         """
         cfs = self._cephfs_instance(fs_id)
         cfs.rm_snapshot(path, name)
+
+    @RESTController.Resource('GET')
+    def get_quotas(self, fs_id, path):
+        """
+        Get the quotas of the specified path.
+        :param fs_id: The filesystem identifier.
+        :param path: The path of the directory/file.
+        :return: Returns a dictionary containing 'max_bytes'
+            and 'max_files'.
+        :rtype: dict
+        """
+        cfs = self._cephfs_instance(fs_id)
+        return cfs.get_quotas(path)
+
+    @RESTController.Resource('POST')
+    def set_quotas(self, fs_id, path, max_bytes=None, max_files=None):
+        """
+        Set the quotas of the specified path.
+        :param fs_id: The filesystem identifier.
+        :param path: The path of the directory/file.
+        :param max_bytes: The byte limit.
+        :param max_files: The file limit.
+        """
+        cfs = self._cephfs_instance(fs_id)
+        return cfs.set_quotas(path, max_bytes, max_files)
 
 
 class CephFSClients(object):
@@ -481,7 +467,6 @@ class CephFSClients(object):
 
 
 @UiApiController('/cephfs', Scope.CEPHFS)
-@ControllerDoc("Dashboard UI helper function; not part of the public API", "CephFSUi")
 class CephFsUi(CephFS):
     RESOURCE_ID = 'fs_id'
 
@@ -530,6 +515,6 @@ class CephFsUi(CephFS):
             paths = cfs.ls_dir(path, depth)
             if path == os.sep:
                 paths = [self._get_root_directory(cfs)] + paths
-        except (cephfs.PermissionError, cephfs.ObjectNotFound):  # pragma: no cover
+        except (cephfs.PermissionError, cephfs.ObjectNotFound):
             paths = []
         return paths

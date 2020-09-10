@@ -15,7 +15,7 @@ tasks:
 - ceph:
     fs: xfs
     wait-for-scrub: false
-    log-ignorelist:
+    log-whitelist:
       - \(PG_
       - \(OSD_
       - \(OBJECT_

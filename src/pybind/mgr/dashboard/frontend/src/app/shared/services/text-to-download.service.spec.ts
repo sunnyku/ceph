@@ -11,7 +11,7 @@ describe('TextToDownloadService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(TextToDownloadService);
+    service = TestBed.get(TextToDownloadService);
   });
 
   it('should be created', () => {

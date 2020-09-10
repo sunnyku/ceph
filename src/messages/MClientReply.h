@@ -145,7 +145,7 @@ struct InodeStat {
   void decode(ceph::buffer::list::const_iterator &p, const uint64_t features) {
     using ceph::decode;
     if (features == (uint64_t)-1) {
-      DECODE_START(4, p);
+      DECODE_START(2, p);
       decode(vino.ino, p);
       decode(vino.snapid, p);
       decode(rdev, p);
@@ -192,9 +192,6 @@ struct InodeStat {
       }
       if (struct_v >= 3) {
         decode(snap_btime, p);
-      } // else remains zero
-      if (struct_v >= 4) {
-        decode(rstat.rsnaps, p);
       } // else remains zero
       DECODE_FINISH(p);
     }
@@ -360,7 +357,7 @@ public:
 
   // dir contents
   void set_extra_bl(ceph::buffer::list& bl) {
-    extra_bl = std::move(bl);
+    extra_bl.claim(bl);
   }
   ceph::buffer::list& get_extra_bl() {
     return extra_bl;
@@ -371,7 +368,7 @@ public:
 
   // trace
   void set_trace(ceph::buffer::list& bl) {
-    trace_bl = std::move(bl);
+    trace_bl.claim(bl);
   }
   ceph::buffer::list& get_trace_bl() {
     return trace_bl;

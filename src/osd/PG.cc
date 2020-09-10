@@ -213,7 +213,6 @@ PG::PG(OSDService *o, OSDMapRef curmap,
   pg_stats_publish_valid(false),
   finish_sync_event(NULL),
   scrub_after_recovery(false),
-  save_req_scrub(false),
   active_pushes(0),
   recovery_state(
     o->cct,
@@ -366,7 +365,6 @@ void PG::clear_primary_state()
 
   scrubber.reserved_peers.clear();
   scrub_after_recovery = false;
-  save_req_scrub = false;
 
   agent_clear();
 }
@@ -377,7 +375,7 @@ PG::Scrubber::Scrubber()
    active(false),
    shallow_errors(0), deep_errors(0), fixed(0),
    must_scrub(false), must_deep_scrub(false), must_repair(false),
-   need_auto(false), req_scrub(false), time_for_deep(false),
+   need_auto(false), time_for_deep(false),
    auto_repair(false),
    check_repair(false),
    deep_scrub_on_error(false),
@@ -531,8 +529,6 @@ void PG::_finish_recovery(Context *c)
       scrub_after_recovery = false;
       scrubber.must_deep_scrub = true;
       scrubber.check_repair = true;
-      // We remember whether req_scrub was set when scrub_after_recovery set to true
-      scrubber.req_scrub = save_req_scrub;
       queue_scrub();
     }
   } else {
@@ -1568,7 +1564,6 @@ void PG::scrub_requested(bool deep, bool repair, bool need_auto)
     scrubber.must_repair = repair;
     // User might intervene, so clear this
     scrubber.need_auto = false;
-    scrubber.req_scrub = true;
   }
   reg_next_scrub();
 }
@@ -1625,15 +1620,15 @@ void PG::schedule_event_after(
 
 void PG::request_local_background_io_reservation(
   unsigned priority,
-  PGPeeringEventURef on_grant,
-  PGPeeringEventURef on_preempt) {
+  PGPeeringEventRef on_grant,
+  PGPeeringEventRef on_preempt) {
   osd->local_reserver.request_reservation(
     pg_id,
     on_grant ? new QueuePeeringEvt(
-      this, std::move(on_grant)) : nullptr,
+      this, on_grant) : nullptr,
     priority,
     on_preempt ? new QueuePeeringEvt(
-      this, std::move(on_preempt)) : nullptr);
+      this, on_preempt) : nullptr);
 }
 
 void PG::update_local_background_io_priority(
@@ -1650,15 +1645,15 @@ void PG::cancel_local_background_io_reservation() {
 
 void PG::request_remote_recovery_reservation(
   unsigned priority,
-  PGPeeringEventURef on_grant,
-  PGPeeringEventURef on_preempt) {
+  PGPeeringEventRef on_grant,
+  PGPeeringEventRef on_preempt) {
   osd->remote_reserver.request_reservation(
     pg_id,
     on_grant ? new QueuePeeringEvt(
-      this, std::move(on_grant)) : nullptr,
+      this, on_grant) : nullptr,
     priority,
     on_preempt ? new QueuePeeringEvt(
-      this, std::move(on_preempt)) : nullptr);
+      this, on_preempt) : nullptr);
 }
 
 void PG::cancel_remote_recovery_reservation() {
@@ -2571,12 +2566,6 @@ void PG::scrub(epoch_t queued, ThreadPool::TPHandle &handle)
   chunky_scrub(handle);
 }
 
-void PG::abort_scrub()
-{
-  scrub_clear_state();
-  scrub_unreserve_replicas();
-}
-
 /*
  * Chunky scrub scrubs objects one chunk at a time with writes blocked for that
  * chunk.
@@ -2657,29 +2646,12 @@ void PG::abort_scrub()
  */
 void PG::chunky_scrub(ThreadPool::TPHandle &handle)
 {
-  // Since repair is only by request and we need to scrub afterward
-  // treat the same as req_scrub.
-  if (!scrubber.req_scrub) {
-    if (state_test(PG_STATE_DEEP_SCRUB)) {
-      if (get_osdmap()->test_flag(CEPH_OSDMAP_NODEEP_SCRUB) ||
-	  pool.info.has_flag(pg_pool_t::FLAG_NODEEP_SCRUB)) {
-           dout(10) << "nodeep_scrub set, aborting" << dendl;
-	abort_scrub();
-        return;
-      }
-    } else if (state_test(PG_STATE_SCRUBBING)) {
-      if (get_osdmap()->test_flag(CEPH_OSDMAP_NOSCRUB) || pool.info.has_flag(pg_pool_t::FLAG_NOSCRUB)) {
-         dout(10) << "noscrub set, aborting" << dendl;
-	 abort_scrub();
-         return;
-      }
-    }
-  }
   // check for map changes
   if (scrubber.is_chunky_scrub_active()) {
     if (scrubber.epoch_start != info.history.same_interval_since) {
-      dout(10) << "scrub pg changed, aborting" << dendl;
-      abort_scrub();
+      dout(10) << "scrub  pg changed, aborting" << dendl;
+      scrub_clear_state();
+      scrub_unreserve_replicas();
       return;
     }
   }
@@ -2758,7 +2730,6 @@ void PG::chunky_scrub(ThreadPool::TPHandle &handle)
 	   * left end of the range if we are a tier because they may legitimately
 	   * not exist (see _scrub).
 	   */
-          ceph_assert(scrubber.preempt_divisor > 0);
 	  int min = std::max<int64_t>(3, cct->_conf->osd_scrub_chunk_min /
 				      scrubber.preempt_divisor);
 	  int max = std::max<int64_t>(min, cct->_conf->osd_scrub_chunk_max /
@@ -3064,7 +3035,6 @@ void PG::scrub_clear_state(bool has_error)
   state_clear(PG_STATE_DEEP_SCRUB);
   publish_stats_to_osd();
 
-  scrubber.req_scrub = false;
   // local -> nothing.
   if (scrubber.local_reserved) {
     osd->dec_scrubs_local();
@@ -3104,8 +3074,8 @@ void PG::scrub_compare_maps()
   set<hobject_t> master_set;
 
   // Construct master set
-  for (const auto& map : maps) {
-    for (const auto& i : map.second->objects) {
+  for (const auto map : maps) {
+    for (const auto i : map.second->objects) {
       master_set.insert(i.first);
     }
   }
@@ -3297,8 +3267,7 @@ void PG::scrub_finish()
     } else if (has_error) {
       // Deep scrub in order to get corrected error counts
       scrub_after_recovery = true;
-      save_req_scrub = scrubber.req_scrub;
-      dout(20) << __func__ << " Set scrub_after_recovery, req_scrub=" << save_req_scrub << dendl;
+      dout(20) << __func__ << " Set scrub_after_recovery" << dendl;
     } else if (scrubber.shallow_errors || scrubber.deep_errors) {
       // We have errors but nothing can be fixed, so there is no repair
       // possible.
@@ -3444,8 +3413,6 @@ ostream& operator<<(ostream& out, const PG& pg)
     out << " TIME_FOR_DEEP";
   if (pg.scrubber.need_auto)
     out << " NEED_AUTO";
-  if (pg.scrubber.req_scrub)
-    out << " REQ_SCRUB";
 
   if (pg.recovery_ops_active)
     out << " rops=" << pg.recovery_ops_active;
@@ -3956,6 +3923,16 @@ int PG::pg_stat_adjust(osd_stat_t *ns)
     return 1;
   }
   return 0;
+}
+
+ostream& operator<<(ostream& out, const PG::BackfillInterval& bi)
+{
+  out << "BackfillInfo(" << bi.begin << "-" << bi.end
+      << " " << bi.objects.size() << " objects";
+  if (!bi.objects.empty())
+    out << " " << bi.objects;
+  out << ")";
+  return out;
 }
 
 void PG::dump_pgstate_history(Formatter *f)

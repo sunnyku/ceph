@@ -8,7 +8,6 @@
 #include "include/fs_types.h"
 #include "include/rados/librados_fwd.hpp"
 #include "include/rbd/object_map_types.h"
-#include "common/AsyncOpTracker.h"
 #include "common/bit_vector.hpp"
 #include "common/RWLock.h"
 #include "common/RefCountedObj.h"
@@ -103,7 +102,6 @@ public:
         return false;
       }
 
-      m_async_op_tracker.start_op();
       UpdateOperation update_operation(start_object_no, end_object_no,
                                        new_state, current_state, parent_trace,
                                        ignore_enoent,
@@ -152,7 +150,6 @@ private:
   mutable ceph::shared_mutex m_lock;
   ceph::BitVector<2> m_object_map;
 
-  AsyncOpTracker m_async_op_tracker;
   UpdateGuard *m_update_guard = nullptr;
 
   void detained_aio_update(UpdateOperation &&update_operation);

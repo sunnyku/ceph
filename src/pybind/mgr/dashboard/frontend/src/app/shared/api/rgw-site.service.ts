@@ -2,21 +2,20 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { cdEncode } from '../decorators/cd-encode';
+import { ApiModule } from './api.module';
 
 @cdEncode
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class RgwSiteService {
   private url = 'api/rgw/site';
 
   constructor(private http: HttpClient) {}
 
-  get(query?: string) {
+  getPlacementTargets() {
     let params = new HttpParams();
-    if (query) {
-      params = params.append('query', query);
-    }
+    params = params.append('query', 'placement-targets');
 
     return this.http.get(this.url, { params: params });
   }

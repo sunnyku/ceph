@@ -4,6 +4,7 @@
 #include "CloseImageRequest.h"
 #include "common/debug.h"
 #include "common/errno.h"
+#include "common/WorkQueue.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
 #include "librbd/Utils.h"
@@ -48,6 +49,7 @@ void CloseImageRequest<I>::handle_close_image(int r) {
          << dendl;
   }
 
+  delete *m_image_ctx;
   *m_image_ctx = nullptr;
 
   m_on_finish->complete(0);

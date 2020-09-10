@@ -1,5 +1,4 @@
 import os
-import sys
 
 project = u'Ceph'
 copyright = u'2010-2014, Inktank Storage, Inc. and contributors. Licensed under Creative Commons Attribution Share Alike 3.0 (CC-BY-SA-3.0)'
@@ -47,11 +46,7 @@ def _get_manpages():
             if base == 'index':
                 continue
             path = os.path.join(section_dir, filename)
-            try:
-                description = _get_description(path, base)
-            except UnicodeDecodeError as e:
-                print(f"unable to decode {path}", file=sys.stderr)
-                raise e
+            description = _get_description(path, base)
             yield (
                 os.path.join(section, base),
                 base,

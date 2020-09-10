@@ -45,13 +45,10 @@ int CacheController::init() {
 int CacheController::shutdown() {
   ldout(m_cct, 20) << dendl;
 
-  int r;
-  if (m_cache_server != nullptr) {
-    r = m_cache_server->stop();
-    if (r < 0) {
-      lderr(m_cct) << "stop error\n" << dendl;
-      return r;
-    }
+  int r = m_cache_server->stop();
+  if (r < 0) {
+    lderr(m_cct) << "stop error\n" << dendl;
+    return r;
   }
 
   r = m_object_cache_store->shutdown();
@@ -67,15 +64,10 @@ void CacheController::handle_signal(int signum) {
   shutdown();
 }
 
-int CacheController::run() {
+void CacheController::run() {
   try {
     std::string controller_path =
       m_cct->_conf.get_val<std::string>("immutable_object_cache_sock");
-    if (controller_path.empty()) {
-      lderr(m_cct) << "'immutable_object_cache_sock' path not set" << dendl;
-      return -EINVAL;
-    }
-
     std::remove(controller_path.c_str());
 
     m_cache_server = new CacheServer(m_cct, controller_path,
@@ -84,13 +76,10 @@ int CacheController::run() {
 
     int ret = m_cache_server->run();
     if (ret != 0) {
-      return ret;
+      throw std::runtime_error("io serivce run error");
     }
-
-    return 0;
   } catch (std::exception& e) {
     lderr(m_cct) << "Exception: " << e.what() << dendl;
-    return -EFAULT;
   }
 }
 
@@ -102,9 +91,6 @@ void CacheController::handle_request(CacheSession* session,
     case RBDSC_REGISTER: {
       // TODO(dehao): skip register and allow clients to lookup directly
 
-      auto req_reg_data = reinterpret_cast <ObjectCacheRegData*> (req);
-      session->set_client_version(req_reg_data->version);
-
       ObjectCacheRequest* reply = new ObjectCacheRegReplyData(
         RBDSC_REGISTER_REPLY, req->seq);
       session->send(reply);
@@ -115,13 +101,11 @@ void CacheController::handle_request(CacheSession* session,
       std::string cache_path;
       ObjectCacheReadData* req_read_data =
         reinterpret_cast <ObjectCacheReadData*> (req);
-      bool return_dne_path = session->client_version().empty();
       int ret = m_object_cache_store->lookup_object(
         req_read_data->pool_namespace, req_read_data->pool_id,
-        req_read_data->snap_id, req_read_data->oid, return_dne_path,
-        cache_path);
+        req_read_data->snap_id, req_read_data->oid, cache_path);
       ObjectCacheRequest* reply = nullptr;
-      if (ret != OBJ_CACHE_PROMOTED && ret != OBJ_CACHE_DNE) {
+      if (ret != OBJ_CACHE_PROMOTED) {
         reply = new ObjectCacheReadRadosData(RBDSC_READ_RADOS, req->seq);
       } else {
         reply = new ObjectCacheReadReplyData(RBDSC_READ_REPLY,

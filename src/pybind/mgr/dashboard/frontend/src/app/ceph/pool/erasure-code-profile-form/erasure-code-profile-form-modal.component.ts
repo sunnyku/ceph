@@ -1,7 +1,8 @@
 import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { Validators } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { ErasureCodeProfileService } from '../../../shared/api/erasure-code-profile.service';
 import { CrushNodeSelectionClass } from '../../../shared/classes/crush.node.selection.class';
@@ -44,14 +45,15 @@ export class ErasureCodeProfileFormModalComponent extends CrushNodeSelectionClas
 
   constructor(
     private formBuilder: CdFormBuilder,
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     private taskWrapper: TaskWrapperService,
     private ecpService: ErasureCodeProfileService,
+    private i18n: I18n,
     public actionLabels: ActionLabelsI18n
   ) {
     super();
     this.action = this.actionLabels.CREATE;
-    this.resource = $localize`EC Profile`;
+    this.resource = this.i18n('EC Profile');
     this.createForm();
     this.setJerasureDefaults();
   }
@@ -317,15 +319,16 @@ export class ErasureCodeProfileFormModalComponent extends CrushNodeSelectionClas
         task: new FinishedTask('ecp/create', { name: profile.name }),
         call: this.ecpService.create(profile)
       })
-      .subscribe({
-        error: () => {
+      .subscribe(
+        undefined,
+        () => {
           this.form.setErrors({ cdSubmitButton: true });
         },
-        complete: () => {
-          this.activeModal.close();
+        () => {
+          this.bsModalRef.hide();
           this.submitAction.emit(profile);
         }
-      });
+      );
   }
 
   private createJson() {

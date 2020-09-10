@@ -15,12 +15,12 @@
 #ifndef CEPH_MEXPORTDIRNOTIFYACK_H
 #define CEPH_MEXPORTDIRNOTIFYACK_H
 
-#include "messages/MMDSOp.h"
+#include "msg/Message.h"
 
-class MExportDirNotifyAck : public MMDSOp {
+class MExportDirNotifyAck : public SafeMessage {
 private:
-  static constexpr int HEAD_VERSION = 1;
-  static constexpr int COMPAT_VERSION = 1;
+  static const int HEAD_VERSION = 1;
+  static const int COMPAT_VERSION = 1;
 
   dirfrag_t dirfrag;
   std::pair<__s32,__s32> new_auth;
@@ -31,9 +31,9 @@ private:
   
 protected:
   MExportDirNotifyAck() :
-    MMDSOp{MSG_MDS_EXPORTDIRNOTIFYACK, HEAD_VERSION, COMPAT_VERSION} {}
+    SafeMessage{MSG_MDS_EXPORTDIRNOTIFYACK, HEAD_VERSION, COMPAT_VERSION} {}
   MExportDirNotifyAck(dirfrag_t df, uint64_t tid, std::pair<__s32,__s32> na) :
-    MMDSOp{MSG_MDS_EXPORTDIRNOTIFYACK, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), new_auth(na) {
+    SafeMessage{MSG_MDS_EXPORTDIRNOTIFYACK, HEAD_VERSION, COMPAT_VERSION}, dirfrag(df), new_auth(na) {
     set_tid(tid);
   }
   ~MExportDirNotifyAck() override {}

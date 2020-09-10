@@ -1,4 +1,3 @@
-import inspect
 import unittest
 try:
     import mock
@@ -6,14 +5,12 @@ except ImportError:
     from unittest import mock
 
 from orchestrator import InventoryHost
-from orchestrator import Orchestrator as OrchestratorBase
 
 from . import ControllerTestCase
 from .. import mgr
 from ..controllers.orchestrator import get_device_osd_map
 from ..controllers.orchestrator import Orchestrator
 from ..controllers.orchestrator import OrchestratorInventory
-from ..services.orchestrator import OrchFeature
 
 
 class OrchestratorControllerTest(ControllerTestCase):
@@ -84,7 +81,6 @@ class OrchestratorControllerTest(ControllerTestCase):
         ]
         fake_client = mock.Mock()
         fake_client.available.return_value = True
-        fake_client.get_missing_features.return_value = []
         self._set_inventory(fake_client, inventory)
         instance.return_value = fake_client
 
@@ -160,11 +156,3 @@ class TestOrchestrator(unittest.TestCase):
                 'sda': [2]
             }
         })
-
-    def test_features_has_corresponding_methods(self):
-        defined_methods = [v for k, v in inspect.getmembers(
-            OrchFeature, lambda m: not inspect.isroutine(m)) if not k.startswith('_')]
-        orchestrator_methods = [k for k, v in inspect.getmembers(
-            OrchestratorBase, inspect.isroutine)]
-        for method in defined_methods:
-            self.assertIn(method, orchestrator_methods)

@@ -48,11 +48,7 @@ private:
    *  ALLOCATE_JOURNAL_TAG  *
    *      |            *    *
    *      |            *    *
-   *      v            *    *
-   *  OPEN_IMAGE_CACHE *    *
-   *      |         *  *    *
-   *      |         *  *    *
-   *      |         v  v    v
+   *      |            v    v
    *      |         CLOSE_JOURNAL
    *      |               |
    *      |               v
@@ -94,12 +90,6 @@ private:
 
   void send_close_object_map();
   void handle_close_object_map(int r);
-
-  void send_open_image_cache();
-  void handle_open_image_cache(int r);
-
-  void send_close_image_cache();
-  void handle_close_image_cache(int r);
 
   void apply();
   void revert();

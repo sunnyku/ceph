@@ -2,6 +2,8 @@ from io import StringIO
 import json
 import time
 import logging
+import re
+import six
 
 from textwrap import dedent
 
@@ -98,16 +100,13 @@ class FuseMount(CephFSMount):
         run_cmd.extend(fuse_cmd)
 
         def list_connections():
-            conn_dir = "/sys/fs/fuse/connections"
-
-            self.client_remote.run(args=['sudo', 'modprobe', 'fuse'],
-                                   check_status=False)
             self.client_remote.run(
-                args=["sudo", "mount", "-t", "fusectl", conn_dir, conn_dir],
-                check_status=False, timeout=(30))
-
+                args=["sudo", "mount", "-t", "fusectl", "/sys/fs/fuse/connections", "/sys/fs/fuse/connections"],
+                check_status=False,
+                timeout=(15*60)
+            )
             try:
-                ls_str = self.client_remote.sh("ls " + conn_dir,
+                ls_str = self.client_remote.sh("ls /sys/fs/fuse/connections",
                                                stdout=StringIO(),
                                                timeout=(15*60)).strip()
             except CommandFailedError:
@@ -216,7 +215,7 @@ class FuseMount(CephFSMount):
                 log.info('mount point does not exist: %s', self.mountpoint)
                 return False
 
-        fstype = proc.stdout.getvalue().rstrip('\n')
+        fstype = six.ensure_str(proc.stdout.getvalue()).rstrip('\n')
         if fstype == 'fuseblk':
             log.info('ceph-fuse is mounted on %s', self.mountpoint)
             return True
@@ -240,15 +239,13 @@ class FuseMount(CephFSMount):
 
         self.mounted = True
 
-        # Now that we're mounted, set permissions so that the rest of the test
-        # will have unrestricted access to the filesystem mount.
+        # Now that we're mounted, set permissions so that the rest of the test will have
+        # unrestricted access to the filesystem mount.
         for retry in range(10):
             try:
                 stderr = StringIO()
-                self.client_remote.run(args=['sudo', 'chmod', '1777',
-                                             self.mountpoint],
-                                       timeout=(15*60), cwd=self.test_dir,
-                                       stderr=stderr, omit_sudo=False)
+                self.client_remote.run(args=['sudo', 'chmod', '1777', self.mountpoint],
+                                       timeout=(15*60), cwd=self.test_dir, stderr=stderr)
                 break
             except run.CommandFailedError:
                 stderr = stderr.getvalue()
@@ -275,10 +272,17 @@ class FuseMount(CephFSMount):
         try:
             log.info('Running fusermount -u on {name}...'.format(name=self.client_remote.name))
             stderr = StringIO()
-            self.client_remote.run(args=['sudo', 'fusermount', '-u',
-                                         self.mountpoint],
-                                   cwd=self.test_dir, stderr=stderr,
-                                   timeout=(30*60), omit_sudo=False)
+            self.client_remote.run(
+                args = [
+                    'sudo',
+                    'fusermount',
+                    '-u',
+                    self.mountpoint,
+                ],
+                cwd=self.test_dir,
+                stderr=stderr,
+                timeout=(30*60),
+            )
         except run.CommandFailedError:
             if "mountpoint not found" in stderr.getvalue():
                 # This happens if the mount directory doesn't exist
@@ -289,10 +293,14 @@ class FuseMount(CephFSMount):
             else:
                 log.info('Failed to unmount ceph-fuse on {name}, aborting...'.format(name=self.client_remote.name))
 
-                self.client_remote.run(
-                    args=['sudo', run.Raw('PATH=/usr/sbin:$PATH'), 'lsof',
-                    run.Raw(';'), 'ps', 'auxf'],
-                    timeout=(60*15), omit_sudo=False)
+                self.client_remote.run(args=[
+                    'sudo',
+                    run.Raw('PATH=/usr/sbin:$PATH'),
+                    'lsof',
+                    run.Raw(';'),
+                    'ps',
+                    'auxf',
+                ], timeout=(60*15))
 
                 # abort the fuse mount, killing all hung processes
                 if self._fuse_conn:
@@ -307,9 +315,17 @@ class FuseMount(CephFSMount):
                 stderr = StringIO()
                 # make sure its unmounted
                 try:
-                    self.client_remote.run(args=['sudo', 'umount', '-l', '-f',
-                                                 self.mountpoint],
-                                           stderr=stderr, timeout=(60*15), omit_sudo=False)
+                    self.client_remote.run(
+                        args=[
+                            'sudo',
+                            'umount',
+                            '-l',
+                            '-f',
+                            self.mountpoint,
+                        ],
+                        stderr=stderr,
+                        timeout=(60*15)
+                    )
                 except CommandFailedError:  
                     if self.is_mounted():   
                         raise
@@ -399,17 +415,16 @@ class FuseMount(CephFSMount):
     def _prefix(self):
         return ""
 
-    def find_admin_socket(self):
+    def admin_socket(self, args):
         pyscript = """
 import glob
 import re
 import os
 import subprocess
 
-def _find_admin_socket(client_name):
+def find_socket(client_name):
         asok_path = "{asok_path}"
         files = glob.glob(asok_path)
-        mountpoint = "{mountpoint}"
 
         # Given a non-glob path, it better be there
         if "*" not in asok_path:
@@ -419,24 +434,20 @@ def _find_admin_socket(client_name):
         for f in files:
                 pid = re.match(".*\.(\d+)\.asok$", f).group(1)
                 if os.path.exists("/proc/{{0}}".format(pid)):
-                    with open("/proc/{{0}}/cmdline".format(pid), 'r') as proc_f:
-                        contents = proc_f.read()
-                        if mountpoint in contents:
-                            return f
+                        return f
         raise RuntimeError("Client socket {{0}} not found".format(client_name))
 
-print(_find_admin_socket("{client_name}"))
+print(find_socket("{client_name}"))
 """.format(
             asok_path=self._asok_path(),
-            client_name="client.{0}".format(self.client_id),
-            mountpoint=self.mountpoint)
+            client_name="client.{0}".format(self.client_id))
 
-        asok_path = self.run_python(pyscript)
+        # Find the admin socket
+        asok_path = self.client_remote.sh(
+            ['sudo', 'python3', '-c', pyscript],
+            stdout=StringIO(),
+            timeout=(15*60)).strip()
         log.info("Found client admin socket at {0}".format(asok_path))
-        return asok_path
-
-    def admin_socket(self, args):
-        asok_path = self.find_admin_socket()
 
         # Query client ID from admin socket, wait 2 seconds
         # and retry 10 times if it is not ready
@@ -445,12 +456,11 @@ print(_find_admin_socket("{client_name}"))
                 try:
                     p = self.client_remote.run(args=
                         ['sudo', self._prefix + 'ceph', '--admin-daemon', asok_path] + args,
-                        stdout=StringIO(), stderr=StringIO(), wait=False,
+                        stdout=StringIO(), stderr=StringIO(),
                         timeout=(15*60))
-                    p.wait()
                     break
                 except CommandFailedError:
-                    if "connection refused" in p.stderr.getvalue().lower():
+                    if "Connection refused" in stderr.getvalue():
                         pass
 
         return json.loads(p.stdout.getvalue().strip())

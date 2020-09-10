@@ -9,7 +9,6 @@
 #include "common/Timer.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/Utils.h"
-#include "librbd/asio/ContextWQ.h"
 #include "tools/rbd_mirror/Threads.h"
 #include "tools/rbd_mirror/image_deleter/Types.h"
 
@@ -95,8 +94,8 @@ template <typename I>
 void TrashWatcher<I>::handle_rewatch_complete(int r) {
   dout(5) << "r=" << r << dendl;
 
-  if (r == -EBLOCKLISTED) {
-    dout(0) << "detected client is blocklisted" << dendl;
+  if (r == -EBLACKLISTED) {
+    dout(0) << "detected client is blacklisted" << dendl;
     return;
   } else if (r == -ENOENT) {
     dout(5) << "trash directory deleted" << dendl;
@@ -135,9 +134,9 @@ void TrashWatcher<I>::handle_create_trash(int r) {
   }
 
   Context* on_init_finish = nullptr;
-  if (r == -EBLOCKLISTED || r == -ENOENT) {
-    if (r == -EBLOCKLISTED) {
-      dout(0) << "detected client is blocklisted" << dendl;
+  if (r == -EBLACKLISTED || r == -ENOENT) {
+    if (r == -EBLACKLISTED) {
+      dout(0) << "detected client is blacklisted" << dendl;
     } else {
       dout(0) << "detected pool no longer exists" << dendl;
     }
@@ -201,8 +200,8 @@ void TrashWatcher<I>::handle_register_watcher(int r) {
   Context *on_init_finish = nullptr;
   if (r >= 0) {
     trash_list(true);
-  } else if (r == -EBLOCKLISTED) {
-    dout(0) << "detected client is blocklisted" << dendl;
+  } else if (r == -EBLACKLISTED) {
+    dout(0) << "detected client is blacklisted" << dendl;
 
     std::lock_guard locker{m_lock};
     std::swap(on_init_finish, m_on_init_finish);
@@ -287,8 +286,8 @@ void TrashWatcher<I>::handle_trash_list(int r) {
       r = 0;
     }
 
-    if (r == -EBLOCKLISTED) {
-      dout(0) << "detected client is blocklisted during trash refresh" << dendl;
+    if (r == -EBLACKLISTED) {
+      dout(0) << "detected client is blacklisted during trash refresh" << dendl;
       m_trash_list_in_progress = false;
       std::swap(on_init_finish, m_on_init_finish);
     } else if (r >= 0 && images.size() < MAX_RETURN) {
@@ -303,7 +302,7 @@ void TrashWatcher<I>::handle_trash_list(int r) {
     m_last_image_id = images.rbegin()->first;
     trash_list(false);
     return;
-  } else if (r < 0 && r != -EBLOCKLISTED) {
+  } else if (r < 0 && r != -EBLACKLISTED) {
     derr << "failed to retrieve trash directory: " << cpp_strerror(r) << dendl;
     schedule_trash_list(10);
   }

@@ -3,7 +3,7 @@
 #include "librbd/AsyncRequest.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/Utils.h"
-#include "librbd/asio/ContextWQ.h"
+#include "common/WorkQueue.h"
 
 namespace librbd
 {

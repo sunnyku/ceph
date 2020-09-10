@@ -1,7 +1,7 @@
 
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - bad backtrace on directory inode
       - error reading table object
       - Metadata damage detected

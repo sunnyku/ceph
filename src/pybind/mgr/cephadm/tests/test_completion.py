@@ -45,6 +45,7 @@ class TestCompletion(object):
             return str(args)
         assert run_forall(input) == expected
 
+
     @pytest.mark.parametrize("input,expected", [
         ([], []),
         ([1], ["(1,)"]),

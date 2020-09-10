@@ -64,30 +64,18 @@ setup_coverage() {
     deactivate
 }
 
-display_log() {
-    local daemon=$1
-    shift
-    local lines=$1
-    shift
-
-    local log_files=$(find "$CEPH_OUT_DIR" -iname "${daemon}.*.log" | tr '\n' ' ')
-    for log_file in ${log_files[@]}; do
-        printf "\n\nDisplaying last ${lines} lines of: ${log_file}\n\n"
-        tail -n ${lines} $log_file
-        printf "\n\nEnd of: ${log_file}\n\n"
-    done
-    printf "\n\nTEST FAILED.\n\n"
-}
-
 on_tests_error() {
-    local ret=$?
-    if [[ -n "$JENKINS_HOME" && -z "$ON_TESTS_ERROR_RUN" ]]; then
+    if [[ -n "$JENKINS_HOME" ]]; then
         CEPH_OUT_DIR=${CEPH_OUT_DIR:-"$LOCAL_BUILD_DIR"/out}
-        display_log "mgr" 1000
-        display_log "osd" 1000
-        ON_TESTS_ERROR_RUN=1
+        MGR_LOG_FILES=$(find "$CEPH_OUT_DIR" -iname "mgr.*.log" | tr '\n' ' ')
+        MGR_LOG_FILE_LAST_LINES=60000
+        for mgr_log_file in ${MGR_LOG_FILES[@]}; do
+            printf "\n\nDisplaying last ${MGR_LOG_FILE_LAST_LINES} lines of: $mgr_log_file\n\n"
+            tail -n ${MGR_LOG_FILE_LAST_LINES} $mgr_log_file
+            printf "\n\nEnd of: $mgr_log_file\n\n"
+        done
+        printf "\n\nTEST FAILED.\n\n"
     fi
-    return $ret
 }
 
 run_teuthology_tests() {
@@ -129,8 +117,7 @@ run_teuthology_tests() {
     export COVERAGE_FILE=.coverage.mgr.dashboard
     find . -iname "*${COVERAGE_FILE}*" -type f -delete
 
-    python ../qa/tasks/vstart_runner.py --ignore-missing-binaries --no-verbose $OPTIONS $(echo $TEST_CASES) ||
-      on_tests_error
+    python ../qa/tasks/vstart_runner.py --ignore-missing-binaries $OPTIONS $(echo $TEST_CASES)
 
     deactivate
     cd $CURR_DIR

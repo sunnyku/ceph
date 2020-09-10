@@ -18,8 +18,7 @@
 #define RGW_SYNC_LOG_TRIM_H
 
 #include <memory>
-#include <string_view>
-
+#include <boost/utility/string_view.hpp>
 #include "include/common_fwd.h"
 #include "include/encoding.h"
 #include "common/ceph_time.h"
@@ -37,7 +36,7 @@ namespace sal {
 struct BucketChangeObserver {
   virtual ~BucketChangeObserver() = default;
 
-  virtual void on_bucket_changed(const std::string_view& bucket_instance) = 0;
+  virtual void on_bucket_changed(const boost::string_view& bucket_instance) = 0;
 };
 
 /// Configuration for BucketTrimManager
@@ -79,7 +78,7 @@ class BucketTrimManager : public BucketChangeObserver {
   int init();
 
   /// increment a counter for the given bucket instance
-  void on_bucket_changed(const std::string_view& bucket_instance) override;
+  void on_bucket_changed(const boost::string_view& bucket_instance) override;
 
   /// create a coroutine to run the bucket trim process every trim interval
   RGWCoroutine* create_bucket_trim_cr(RGWHTTPManager *http);

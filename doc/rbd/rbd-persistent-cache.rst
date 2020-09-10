@@ -38,10 +38,10 @@ Enable RBD Shared Read-only Parent Image Cache
 ----------------------------------------------
 
 To enable RBD shared read-only parent image cache, the following Ceph settings
-need to added in the ``[client]`` `section`_ of your ``ceph.conf`` file::
+need to added in the ``[client]`` `section`_ of your ``ceph.conf`` file.
 
-        rbd parent cache enabled = true
-        rbd plugins = parent_cache
+``rbd parent cache enabled = true``
+
 
 Immutable Object Cache Daemon
 =============================
@@ -72,10 +72,6 @@ from local file. The daemon also maintains simple LRU statistics so if there's
 not enough capacity it will delete some cold cache files.
 
 Here are some important cache options correspond to the following settings:
-
-- ``immutable_object_cache_sock`` The path to the domain socket used for
-  communication between librbd clients and the ceph-immutable-object-cache
-  daemon.
 
 - ``immutable_object_cache_path`` The immutable object cache data directory.
 

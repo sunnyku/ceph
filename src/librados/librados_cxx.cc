@@ -21,7 +21,6 @@
 #include "common/common_init.h"
 #include "common/TracepointProvider.h"
 #include "common/hobject.h"
-#include "common/async/waiter.h"
 #include "include/rados/librados.h"
 #include "include/rados/librados.hpp"
 #include "include/types.h"
@@ -156,11 +155,10 @@ void librados::ObjectOperation::assert_exists()
 {
   ceph_assert(impl);
   ::ObjectOperation *o = &impl->o;
-  o->stat(nullptr, nullptr, nullptr);
+  o->stat(NULL, (ceph::real_time*) NULL, NULL);
 }
 
-void librados::ObjectOperation::exec(const char *cls, const char *method,
-				     bufferlist& inbl)
+void librados::ObjectOperation::exec(const char *cls, const char *method, bufferlist& inbl)
 {
   ceph_assert(impl);
   ::ObjectOperation *o = &impl->o;
@@ -631,13 +629,6 @@ void librados::ObjectReadOperation::cache_evict()
   o->cache_evict();
 }
 
-void librados::ObjectReadOperation::tier_flush()
-{
-  ceph_assert(impl);
-  ::ObjectOperation *o = &impl->o;
-  o->tier_flush();
-}
-
 void librados::ObjectWriteOperation::set_redirect(const std::string& tgt_obj, 
 						  const IoCtx& tgt_ioctx,
 						  uint64_t tgt_version,
@@ -649,7 +640,7 @@ void librados::ObjectWriteOperation::set_redirect(const std::string& tgt_obj,
 			  tgt_ioctx.io_ctx_impl->oloc, tgt_version, flag);
 }
 
-void librados::ObjectReadOperation::set_chunk(uint64_t src_offset,
+void librados::ObjectWriteOperation::set_chunk(uint64_t src_offset,
 					       uint64_t src_length,
 					       const IoCtx& tgt_ioctx,
 					       string tgt_oid,
@@ -674,6 +665,13 @@ void librados::ObjectWriteOperation::unset_manifest()
   ceph_assert(impl);
   ::ObjectOperation *o = &impl->o;
   o->unset_manifest();
+}
+
+void librados::ObjectWriteOperation::tier_flush()
+{
+  ceph_assert(impl);
+  ::ObjectOperation *o = &impl->o;
+  o->tier_flush();
 }
 
 void librados::ObjectWriteOperation::tmap_update(const bufferlist& cmdbl)
@@ -1756,7 +1754,7 @@ int librados::IoCtx::lock_exclusive(const std::string &oid, const std::string &n
   if (duration)
     dur.set_from_timeval(duration);
 
-  return rados::cls::lock::lock(this, oid, name, ClsLockType::EXCLUSIVE, cookie, "",
+  return rados::cls::lock::lock(this, oid, name, LOCK_EXCLUSIVE, cookie, "",
 		  		description, dur, flags);
 }
 
@@ -1769,7 +1767,7 @@ int librados::IoCtx::lock_shared(const std::string &oid, const std::string &name
   if (duration)
     dur.set_from_timeval(duration);
 
-  return rados::cls::lock::lock(this, oid, name, ClsLockType::SHARED, cookie, tag,
+  return rados::cls::lock::lock(this, oid, name, LOCK_SHARED, cookie, tag,
 		  		description, dur, flags);
 }
 
@@ -1837,7 +1835,7 @@ int librados::IoCtx::list_lockers(const std::string &oid, const std::string &nam
   if (tag)
     *tag = tmp_tag;
   if (exclusive) {
-    if (tmp_type == ClsLockType::EXCLUSIVE)
+    if (tmp_type == LOCK_EXCLUSIVE)
       *exclusive = 1;
     else
       *exclusive = 0;
@@ -2010,7 +2008,7 @@ struct AioGetxattrDataPP {
   AioGetxattrDataPP(librados::AioCompletionImpl *c, bufferlist *_bl) :
     bl(_bl), completion(c) {}
   bufferlist *bl;
-  struct librados::CB_AioCompleteAndSafe completion;
+  struct librados::C_AioCompleteAndSafe completion;
 };
 
 static void rados_aio_getxattr_completepp(rados_completion_t c, void *arg) {
@@ -2019,7 +2017,7 @@ static void rados_aio_getxattr_completepp(rados_completion_t c, void *arg) {
   if (rc >= 0) {
     rc = cdata->bl->length();
   }
-  cdata->completion(rc);
+  cdata->completion.finish(rc);
   delete cdata;
 }
 
@@ -2625,9 +2623,9 @@ int librados::Rados::ioctx_create2(int64_t pool_id, IoCtx &io)
   return 0;
 }
 
-void librados::Rados::test_blocklist_self(bool set)
+void librados::Rados::test_blacklist_self(bool set)
 {
-  client->blocklist_self(set);
+  client->blacklist_self(set);
 }
 
 int librados::Rados::get_pool_stats(std::list<string>& v,
@@ -2810,14 +2808,10 @@ int librados::Rados::wait_for_latest_osdmap()
   return client->wait_for_latest_osdmap();
 }
 
-int librados::Rados::blocklist_add(const std::string& client_address,
+int librados::Rados::blacklist_add(const std::string& client_address,
 				   uint32_t expire_seconds)
 {
-  return client->blocklist_add(client_address, expire_seconds);
-}
-
-std::string librados::Rados::get_addrs() const {
-  return client->get_addrs();
+  return client->blacklist_add(client_address, expire_seconds);
 }
 
 librados::PoolAsyncCompletion *librados::Rados::pool_async_create_completion()
@@ -3046,27 +3040,29 @@ int librados::IoCtx::object_list(const ObjectCursor &start,
   ceph_assert(next != nullptr);
   result->clear();
 
-  ceph::async::waiter<boost::system::error_code,
-		      std::vector<librados::ListObjectImpl>,
-		      hobject_t>  w;
-  io_ctx_impl->objecter->enumerate_objects<librados::ListObjectImpl>(
+  C_SaferCond cond;
+  hobject_t next_hash;
+  std::list<librados::ListObjectImpl> obj_result;
+  io_ctx_impl->objecter->enumerate_objects(
       io_ctx_impl->poolid,
       io_ctx_impl->oloc.nspace,
       *((hobject_t*)start.c_cursor),
       *((hobject_t*)finish.c_cursor),
       result_item_count,
       filter,
-      w);
+      &obj_result,
+      &next_hash,
+      &cond);
 
-  auto [ec, obj_result, next_hash] = w.wait();
-  if (ec) {
+  int r = cond.wait();
+  if (r < 0) {
     next->set((rados_object_list_cursor)(new hobject_t(hobject_t::get_max())));
-    return ceph::from_error_code(ec);
+    return r;
   }
 
   next->set((rados_object_list_cursor)(new hobject_t(next_hash)));
 
-  for (auto i = obj_result.begin();
+  for (std::list<librados::ListObjectImpl>::iterator i = obj_result.begin();
        i != obj_result.end(); ++i) {
     ObjectItem oi;
     oi.oid = i->oid;

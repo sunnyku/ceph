@@ -99,12 +99,12 @@ class AuthTest(DashboardTestCase):
         self._ceph_cmd(['dashboard', 'set-jwt-token-ttl', '28800'])
         self.set_jwt_token(None)
 
-    def test_remove_from_blocklist(self):
+    def test_remove_from_blacklist(self):
         self._ceph_cmd(['dashboard', 'set-jwt-token-ttl', '5'])
         self._post("/api/auth", {'username': 'admin', 'password': 'admin'})
         self.assertStatus(201)
         self.set_jwt_token(self.jsonBody()['token'])
-        # the following call adds the token to the blocklist
+        # the following call adds the token to the blacklist
         self._post("/api/auth/logout")
         self.assertStatus(200)
         self._get("/api/host")
@@ -115,7 +115,7 @@ class AuthTest(DashboardTestCase):
         self._post("/api/auth", {'username': 'admin', 'password': 'admin'})
         self.assertStatus(201)
         self.set_jwt_token(self.jsonBody()['token'])
-        # the following call removes expired tokens from the blocklist
+        # the following call removes expired tokens from the blacklist
         self._post("/api/auth/logout")
         self.assertStatus(200)
 

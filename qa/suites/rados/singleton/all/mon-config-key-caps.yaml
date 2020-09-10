@@ -10,7 +10,7 @@ tasks:
 - ceph:
     pre-mgr-commands:
       - sudo ceph config set mgr mgr/devicehealth/enable_monitoring false --force
-    log-ignorelist:
+    log-whitelist:
     - overall HEALTH_
     - \(AUTH_BAD_CAPS\)
 - workunit:

@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Validators } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { OsdService } from '../../../../shared/api/osd.service';
 import { CdFormBuilder } from '../../../../shared/forms/cd-form-builder';
@@ -18,7 +18,7 @@ export class OsdReweightModalComponent implements OnInit {
   reweightForm: CdFormGroup;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     private osdService: OsdService,
     private fb: CdFormBuilder
   ) {}
@@ -40,6 +40,6 @@ export class OsdReweightModalComponent implements OnInit {
   reweight() {
     this.osdService
       .reweight(this.osdId, this.reweightForm.value.weight)
-      .subscribe(() => this.activeModal.close());
+      .subscribe(() => this.bsModalRef.hide());
   }
 }

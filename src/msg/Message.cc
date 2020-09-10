@@ -110,6 +110,7 @@
 #include "messages/MMonGetVersionReply.h"
 #include "messages/MMonHealth.h"
 #include "messages/MMonHealthChecks.h"
+#include "messages/MMonMetadata.h"
 #include "messages/MAuth.h"
 #include "messages/MAuthReply.h"
 #include "messages/MMonSubscribe.h"
@@ -127,9 +128,8 @@
 #include "messages/MClientLease.h"
 #include "messages/MClientSnap.h"
 #include "messages/MClientQuota.h"
-#include "messages/MClientMetrics.h"
 
-#include "messages/MMDSPeerRequest.h"
+#include "messages/MMDSSlaveRequest.h"
 
 #include "messages/MMDSMap.h"
 #include "messages/MFSMap.h"
@@ -174,8 +174,6 @@
 #include "messages/MHeartbeat.h"
 
 #include "messages/MMDSTableRequest.h"
-#include "messages/MMDSMetrics.h"
-#include "messages/MMDSPing.h"
 
 //#include "messages/MInodeUpdate.h"
 #include "messages/MCacheExpire.h"
@@ -212,10 +210,6 @@
 
 #include "messages/MOSDPGUpdateLogMissing.h"
 #include "messages/MOSDPGUpdateLogMissingReply.h"
-
-#ifdef WITH_BLKIN
-#include "Messenger.h"
-#endif
 
 #define DEBUGLVL  10    // debug level of output
 
@@ -472,6 +466,9 @@ Message *decode_message(CephContext *cct,
   case CEPH_MSG_MON_GET_VERSION_REPLY:
     m = make_message<MMonGetVersionReply>();
     break;
+  case CEPH_MSG_MON_METADATA:
+    m = make_message<MMonMetadata>();
+    break;
 
   case MSG_OSD_BOOT:
     m = make_message<MOSDBoot>();
@@ -685,13 +682,10 @@ Message *decode_message(CephContext *cct,
   case CEPH_MSG_CLIENT_QUOTA:
     m = make_message<MClientQuota>();
     break;
-  case CEPH_MSG_CLIENT_METRICS:
-    m = make_message<MClientMetrics>();
-    break;
 
     // mds
-  case MSG_MDS_PEER_REQUEST:
-    m = make_message<MMDSPeerRequest>();
+  case MSG_MDS_SLAVE_REQUEST:
+    m = make_message<MMDSSlaveRequest>();
     break;
 
   case CEPH_MSG_MDS_MAP:
@@ -833,14 +827,6 @@ Message *decode_message(CephContext *cct,
 
   case MSG_MDS_LOCK:
     m = make_message<MLock>();
-    break;
-
-  case MSG_MDS_METRICS:
-    m = make_message<MMDSMetrics>();
-    break;
-
-  case MSG_MDS_PING:
-    m = make_message<MMDSPing>();
     break;
 
   case MSG_MGR_BEACON:
@@ -987,12 +973,12 @@ void Message::decode_trace(ceph::bufferlist::const_iterator &p, bool create)
   const auto msgr = connection->get_messenger();
   const auto endpoint = msgr->get_trace_endpoint();
   if (info.trace_id) {
-    trace.init(get_type_name().data(), endpoint, &info, true);
+    trace.init(get_type_name(), endpoint, &info, true);
     trace.event("decoded trace");
   } else if (create || (msgr->get_myname().is_osd() &&
                         msgr->cct->_conf->osd_blkin_trace_all)) {
     // create a trace even if we didn't get one on the wire
-    trace.init(get_type_name().data(), endpoint);
+    trace.init(get_type_name(), endpoint);
     trace.event("created trace");
   }
   trace.keyval("tid", get_tid());

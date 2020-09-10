@@ -5,7 +5,6 @@
 #include "librbd/BlockGuard.h"
 #include "librbd/ExclusiveLock.h"
 #include "librbd/ImageCtx.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/object_map/RefreshRequest.h"
 #include "librbd/object_map/ResizeRequest.h"
 #include "librbd/object_map/SnapshotCreateRequest.h"
@@ -16,6 +15,7 @@
 #include "librbd/Utils.h"
 #include "common/dout.h"
 #include "common/errno.h"
+#include "common/WorkQueue.h"
 
 #include "include/rados/librados.hpp"
 
@@ -163,14 +163,8 @@ void ObjectMap<I>::close(Context *on_finish) {
     return;
   }
 
-  ctx = new LambdaContext([this, ctx](int r) {
-      auto req = object_map::UnlockRequest<I>::create(m_image_ctx, ctx);
-      req->send();
-    });
-
-  // ensure the block guard for aio updates is empty before unlocking
-  // the object map
-  m_async_op_tracker.wait_for_ops(ctx);
+  auto req = object_map::UnlockRequest<I>::create(m_image_ctx, ctx);
+  req->send();
 }
 
 template <typename I>
@@ -234,7 +228,7 @@ void ObjectMap<I>::aio_save(Context *on_finish) {
 
   librados::ObjectWriteOperation op;
   if (m_snap_id == CEPH_NOSNAP) {
-    rados::cls::lock::assert_locked(&op, RBD_LOCK_NAME, ClsLockType::EXCLUSIVE, "", "");
+    rados::cls::lock::assert_locked(&op, RBD_LOCK_NAME, LOCK_EXCLUSIVE, "", "");
   }
   cls_client::object_map_save(&op, m_object_map);
 
@@ -282,7 +276,6 @@ void ObjectMap<I>::detained_aio_update(UpdateOperation &&op) {
     lderr(cct) << "failed to detain object map update: " << cpp_strerror(r)
                << dendl;
     m_image_ctx.op_work_queue->queue(op.on_finish, r);
-    m_async_op_tracker.finish_op();
     return;
   } else if (r > 0) {
     ldout(cct, 20) << "detaining object map update due to in-flight update: "
@@ -322,7 +315,6 @@ void ObjectMap<I>::handle_detained_aio_update(BlockGuardCell *cell, int r,
   }
 
   on_finish->complete(r);
-  m_async_op_tracker.finish_op();
 }
 
 template <typename I>

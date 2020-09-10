@@ -22,7 +22,6 @@
 #include "mgr/mgr_commands.h"
 #include "mgr/DaemonHealthMetricCollector.h"
 #include "mgr/OSDPerfMetricCollector.h"
-#include "mgr/MDSPerfMetricCollector.h"
 #include "mon/MonCommand.h"
 
 #include "messages/MMgrOpen.h"
@@ -91,9 +90,7 @@ DaemonServer::DaemonServer(MonClient *monc_,
       shutting_down(false),
       tick_event(nullptr),
       osd_perf_metric_collector_listener(this),
-      osd_perf_metric_collector(osd_perf_metric_collector_listener),
-      mds_perf_metric_collector_listener(this),
-      mds_perf_metric_collector(mds_perf_metric_collector_listener)
+      osd_perf_metric_collector(osd_perf_metric_collector_listener)
 {
   g_conf().add_observer(this);
 }
@@ -367,22 +364,6 @@ void DaemonServer::handle_osd_perf_metric_query_updated()
       }));
 }
 
-void DaemonServer::handle_mds_perf_metric_query_updated()
-{
-  dout(10) << dendl;
-
-  // Send a fresh MMgrConfigure to all clients, so that they can follow
-  // the new policy for transmitting stats
-  finisher.queue(new LambdaContext([this](int r) {
-        std::lock_guard l(lock);
-        for (auto &c : daemon_connections) {
-          if (c->peer_is_mds()) {
-            _send_configure(c);
-          }
-        }
-      }));
-}
-
 void DaemonServer::shutdown()
 {
   dout(10) << "begin" << dendl;
@@ -548,16 +529,12 @@ bool DaemonServer::handle_close(const ref_t<MMgrClose>& m)
   return true;
 }
 
-void DaemonServer::update_task_status(
-  DaemonKey key,
-  const std::map<std::string,std::string>& task_status)
-{
+void DaemonServer::update_task_status(DaemonKey key, const ref_t<MMgrReport>& m) {
   dout(10) << "got task status from " << key << dendl;
 
-  [[maybe_unused]] auto [daemon, added] =
-    pending_service_map.get_daemon(key.type, key.name);
-  if (daemon->task_status != task_status) {
-    daemon->task_status = task_status;
+  auto p = pending_service_map.get_daemon(key.type, key.name);
+  if (!map_compare(p.first->task_status, *m->task_status)) {
+    p.first->task_status = *m->task_status;
     pending_service_map_dirty = pending_service_map.epoch;
   }
 }
@@ -656,7 +633,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
       }
       // update task status
       if (m->task_status) {
-        update_task_status(key, *m->task_status);
+        update_task_status(key, m);
         daemon->last_service_beacon = now;
       }
       if (m->get_connection()->peer_is_osd() || m->get_connection()->peer_is_mon()) {
@@ -1859,12 +1836,6 @@ bool DaemonServer::_handle_command(
     int r = 0;
     string name;
     if (cmd_getval(cmdctx->cmdmap, "key", name)) {
-      // handle special options
-      if (name == "fsid") {
-       cmdctx->odata.append(stringify(monc->get_fsid()) + "\n");
-       cmdctx->reply(r, ss);
-       return true;
-      }
       auto p = daemon->config.find(name);
       if (p != daemon->config.end() &&
 	  !p->second.empty()) {
@@ -2809,13 +2780,12 @@ void DaemonServer::got_service_map()
 	// we just started up
 	dout(10) << "got initial map e" << service_map.epoch << dendl;
 	pending_service_map = service_map;
-	pending_service_map.epoch = service_map.epoch + 1;
       } else {
 	// we we already active and therefore must have persisted it,
 	// which means ours is the same or newer.
 	dout(10) << "got updated map e" << service_map.epoch << dendl;
-	ceph_assert(pending_service_map.epoch > service_map.epoch);
       }
+      pending_service_map.epoch = service_map.epoch + 1;
     });
 
   // cull missing daemons, populate new ones
@@ -2918,9 +2888,6 @@ void DaemonServer::_send_configure(ConnectionRef c)
   if (c->peer_is_osd()) {
     configure->osd_perf_metric_queries =
         osd_perf_metric_collector.get_queries();
-  } else if (c->peer_is_mds()) {
-    configure->metric_config_message =
-      MetricConfigMessage(MDSConfigPayload(mds_perf_metric_collector.get_queries()));
   }
 
   c->send_message2(configure);

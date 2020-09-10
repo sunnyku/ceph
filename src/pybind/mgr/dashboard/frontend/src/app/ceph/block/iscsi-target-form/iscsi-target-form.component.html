@@ -213,7 +213,6 @@
             <div class="cd-col-form-input">
               <input class="form-control"
                      type="text"
-                     autocomplete="off"
                      id="target_user"
                      name="target_user"
                      formControlName="user" />
@@ -275,7 +274,6 @@
             <div class="cd-col-form-input">
               <input class="form-control"
                      type="text"
-                     autocomplete="off"
                      id="target_mutual_user"
                      name="target_mutual_user"
                      formControlName="mutual_user" />
@@ -387,7 +385,6 @@
                       <input [id]="'user' + ii"
                              class="form-control"
                              formControlName="user"
-                             autocomplete="off"
                              type="text">
                       <span class="invalid-feedback"
                             *ngIf="initiator.showError('user', formDir, 'required')"
@@ -410,7 +407,6 @@
                         <input [id]="'password' + ii"
                                class="form-control"
                                formControlName="password"
-                               autocomplete="new-password"
                                type="password">
 
                         <span class="input-group-append">
@@ -446,7 +442,6 @@
                       <input [id]="'mutual_user' + ii"
                              class="form-control"
                              formControlName="mutual_user"
-                             autocomplete="off"
                              type="text">
 
                       <span class="invalid-feedback"
@@ -470,7 +465,6 @@
                         <input [id]="'mutual_password' + ii"
                                class="form-control"
                                formControlName="mutual_password"
-                               autocomplete="new-password"
                                type="password">
 
                         <span class="input-group-append">

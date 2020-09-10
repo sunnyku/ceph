@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - Replacing daemon mds
       - Scrub error on inode
       - Behind on trimming

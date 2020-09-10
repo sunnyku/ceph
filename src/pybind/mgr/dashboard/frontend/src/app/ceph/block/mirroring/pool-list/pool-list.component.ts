@@ -1,10 +1,10 @@
 import { Component, OnDestroy, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 import { Observable, Subscriber, Subscription } from 'rxjs';
 
 import { RbdMirroringService } from '../../../../shared/api/rbd-mirroring.service';
-import { TableStatusViewCache } from '../../../../shared/classes/table-status-view-cache';
 import { CriticalConfirmationModalComponent } from '../../../../shared/components/critical-confirmation-modal/critical-confirmation-modal.component';
 import { Icons } from '../../../../shared/enum/icons.enum';
 import { CdTableAction } from '../../../../shared/models/cd-table-action';
@@ -12,7 +12,6 @@ import { CdTableSelection } from '../../../../shared/models/cd-table-selection';
 import { FinishedTask } from '../../../../shared/models/finished-task';
 import { Permission } from '../../../../shared/models/permissions';
 import { AuthStorageService } from '../../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../../shared/services/modal.service';
 import { TaskWrapperService } from '../../../../shared/services/task-wrapper.service';
 import { PoolEditModeModalComponent } from '../pool-edit-mode-modal/pool-edit-mode-modal.component';
 import { PoolEditPeerModalComponent } from '../pool-edit-peer-modal/pool-edit-peer-modal.component';
@@ -32,18 +31,17 @@ export class PoolListComponent implements OnInit, OnDestroy {
   tableActions: CdTableAction[];
   selection = new CdTableSelection();
 
-  modalRef: NgbModalRef;
+  modalRef: BsModalRef;
 
   data: [];
   columns: {};
 
-  tableStatus = new TableStatusViewCache();
-
   constructor(
     private authStorageService: AuthStorageService,
     private rbdMirroringService: RbdMirroringService,
-    private modalService: ModalService,
-    private taskWrapper: TaskWrapperService
+    private modalService: BsModalService,
+    private taskWrapper: TaskWrapperService,
+    private i18n: I18n
   ) {
     this.data = [];
     this.permission = this.authStorageService.getPermissions().rbdMirroring;
@@ -52,13 +50,13 @@ export class PoolListComponent implements OnInit, OnDestroy {
       permission: 'update',
       icon: Icons.edit,
       click: () => this.editModeModal(),
-      name: $localize`Edit Mode`,
+      name: this.i18n('Edit Mode'),
       canBePrimary: () => true
     };
     const addPeerAction: CdTableAction = {
       permission: 'create',
       icon: Icons.add,
-      name: $localize`Add Peer`,
+      name: this.i18n('Add Peer'),
       click: () => this.editPeersModal('add'),
       disable: () => !this.selection.first() || this.selection.first().mirror_mode === 'disabled',
       visible: () => !this.getPeerUUID(),
@@ -67,14 +65,14 @@ export class PoolListComponent implements OnInit, OnDestroy {
     const editPeerAction: CdTableAction = {
       permission: 'update',
       icon: Icons.exchange,
-      name: $localize`Edit Peer`,
+      name: this.i18n('Edit Peer'),
       click: () => this.editPeersModal('edit'),
       visible: () => !!this.getPeerUUID()
     };
     const deletePeerAction: CdTableAction = {
       permission: 'delete',
       icon: Icons.destroy,
-      name: $localize`Delete Peer`,
+      name: this.i18n('Delete Peer'),
       click: () => this.deletePeersModal(),
       visible: () => !!this.getPeerUUID()
     };
@@ -83,22 +81,24 @@ export class PoolListComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.columns = [
-      { prop: 'name', name: $localize`Name`, flexGrow: 2 },
-      { prop: 'mirror_mode', name: $localize`Mode`, flexGrow: 2 },
-      { prop: 'leader_id', name: $localize`Leader`, flexGrow: 2 },
-      { prop: 'image_local_count', name: $localize`# Local`, flexGrow: 2 },
-      { prop: 'image_remote_count', name: $localize`# Remote`, flexGrow: 2 },
+      { prop: 'name', name: this.i18n('Name'), flexGrow: 2 },
+      { prop: 'mirror_mode', name: this.i18n('Mode'), flexGrow: 2 },
+      { prop: 'leader_id', name: this.i18n('Leader'), flexGrow: 2 },
+      { prop: 'image_local_count', name: this.i18n('# Local'), flexGrow: 2 },
+      { prop: 'image_remote_count', name: this.i18n('# Remote'), flexGrow: 2 },
       {
         prop: 'health',
-        name: $localize`Health`,
+        name: this.i18n('Health'),
         cellTemplate: this.healthTmpl,
         flexGrow: 1
       }
     ];
 
-    this.subs = this.rbdMirroringService.subscribeSummary((data) => {
+    this.subs = this.rbdMirroringService.subscribeSummary((data: any) => {
+      if (!data) {
+        return;
+      }
       this.data = data.content_data.pools;
-      this.tableStatus = new TableStatusViewCache(data.status);
     });
   }
 
@@ -114,7 +114,7 @@ export class PoolListComponent implements OnInit, OnDestroy {
     const initialState = {
       poolName: this.selection.first().name
     };
-    this.modalRef = this.modalService.show(PoolEditModeModalComponent, initialState);
+    this.modalRef = this.modalService.show(PoolEditModeModalComponent, { initialState });
   }
 
   editPeersModal(mode: string) {
@@ -125,7 +125,7 @@ export class PoolListComponent implements OnInit, OnDestroy {
     if (mode === 'edit') {
       initialState['peerUUID'] = this.getPeerUUID();
     }
-    this.modalRef = this.modalService.show(PoolEditPeerModalComponent, initialState);
+    this.modalRef = this.modalService.show(PoolEditPeerModalComponent, { initialState });
   }
 
   deletePeersModal() {
@@ -133,25 +133,28 @@ export class PoolListComponent implements OnInit, OnDestroy {
     const peerUUID = this.getPeerUUID();
 
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      itemDescription: $localize`mirror peer`,
-      itemNames: [`${poolName} (${peerUUID})`],
-      submitActionObservable: () =>
-        new Observable((observer: Subscriber<any>) => {
-          this.taskWrapper
-            .wrapTaskAroundCall({
-              task: new FinishedTask('rbd/mirroring/peer/delete', {
-                pool_name: poolName
-              }),
-              call: this.rbdMirroringService.deletePeer(poolName, peerUUID)
-            })
-            .subscribe({
-              error: (resp) => observer.error(resp),
-              complete: () => {
-                this.rbdMirroringService.refresh();
-                observer.complete();
-              }
-            });
-        })
+      initialState: {
+        itemDescription: this.i18n('mirror peer'),
+        itemNames: [`${poolName} (${peerUUID})`],
+        submitActionObservable: () =>
+          new Observable((observer: Subscriber<any>) => {
+            this.taskWrapper
+              .wrapTaskAroundCall({
+                task: new FinishedTask('rbd/mirroring/peer/delete', {
+                  pool_name: poolName
+                }),
+                call: this.rbdMirroringService.deletePeer(poolName, peerUUID)
+              })
+              .subscribe(
+                undefined,
+                (resp) => observer.error(resp),
+                () => {
+                  this.rbdMirroringService.refresh();
+                  observer.complete();
+                }
+              );
+          })
+      }
     });
   }
 

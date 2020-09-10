@@ -336,15 +336,13 @@ class TokenBucketThrottle {
 
     uint64_t remain;
     uint64_t max;
-    uint64_t capacity;
-    uint64_t available;
 
     Bucket(CephContext *cct, const std::string &name, uint64_t m)
-      : cct(cct), name(name), remain(m), max(m), capacity(m), available(m) {}
+      : cct(cct), name(name), remain(m), max(m) {}
 
     uint64_t get(uint64_t c);
-    uint64_t put(uint64_t tokens, double burst_ratio);
-    void set_max(uint64_t max, uint64_t burst_seconds);
+    uint64_t put(uint64_t c);
+    void set_max(uint64_t m);
   };
 
   struct Blocker {
@@ -358,8 +356,8 @@ class TokenBucketThrottle {
   CephContext *m_cct;
   const std::string m_name;
   Bucket m_throttle;
-  uint64_t m_burst = 0;
   uint64_t m_avg = 0;
+  uint64_t m_burst = 0;
   SafeTimer *m_timer;
   ceph::mutex *m_timer_lock;
   Context *m_token_ctx = nullptr;
@@ -407,7 +405,7 @@ class TokenBucketThrottle {
 
 public:
   TokenBucketThrottle(CephContext *cct, const std::string &name,
-                      uint64_t burst, uint64_t avg,
+                      uint64_t capacity, uint64_t avg,
                       SafeTimer *timer, ceph::mutex *timer_lock);
 
   ~TokenBucketThrottle();
@@ -452,7 +450,7 @@ public:
     return wait;
   }
 
-  int set_limit(uint64_t average, uint64_t burst, uint64_t burst_seconds);
+  int set_limit(uint64_t average, uint64_t burst);
   void set_schedule_tick_min(uint64_t tick);
 
 private:

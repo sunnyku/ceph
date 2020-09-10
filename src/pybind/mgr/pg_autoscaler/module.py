@@ -6,6 +6,7 @@ import json
 import mgr_util
 import threading
 import uuid
+from six import itervalues, iteritems
 from prettytable import PrettyTable
 from mgr_module import MgrModule
 
@@ -243,7 +244,7 @@ class PgAutoscaler(MgrModule):
 
             # do we intersect an existing root?
             s = None
-            for prev in result.values():
+            for prev in itervalues(result):
                 if osds & prev.osds:
                     s = prev
                     break
@@ -307,7 +308,7 @@ class PgAutoscaler(MgrModule):
         ret = []
 
         # iterate over all pools to determine how they should be sized
-        for pool_name, p in pools.items():
+        for pool_name, p in iteritems(pools):
             pool_id = p['pool']
             if pool_id not in pool_stats:
                 # race with pool deletion; skip
@@ -406,7 +407,7 @@ class PgAutoscaler(MgrModule):
         for pool_id in list(self._event):
             ev = self._event[pool_id]
             pool_data = pools.get(pool_id)
-            if pool_data is None or pool_data['pg_num'] == pool_data['pg_num_target'] or ev.pg_num == ev.pg_num_target:
+            if pool_data is None or pool_data['pg_num'] == pool_data['pg_num_target']:
                 # pool is gone or we've reached our target
                 self.remote('progress', 'complete', ev.ev_id)
                 del self._event[pool_id]
@@ -505,7 +506,7 @@ class PgAutoscaler(MgrModule):
             }
 
         too_much_target_bytes = []
-        for root_id, total in total_bytes.items():
+        for root_id, total in iteritems(total_bytes):
             total_target = total_target_bytes[root_id]
             if total_target > 0 and total > root_map[root_id].capacity and root_map[root_id].capacity:
                 too_much_target_bytes.append(

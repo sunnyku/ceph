@@ -32,7 +32,7 @@
 #include <vector>
 #include <map>
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun) || defined(_WIN32)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun)
 #include <sys/statvfs.h>
 #else
 #include <sys/vfs.h>    /* or <sys/statfs.h> */
@@ -674,13 +674,6 @@ public:
 			      int max,
 			      std::vector<ghobject_t> *ls, ghobject_t *next) = 0;
 
-  virtual int collection_list_legacy(CollectionHandle &c,
-                                     const ghobject_t& start,
-                                     const ghobject_t& end, int max,
-                                     std::vector<ghobject_t> *ls,
-                                     ghobject_t *next) {
-    return collection_list(c, start, end, max, ls, next);
-  }
 
   /// OMAP
   /// Get omap contents

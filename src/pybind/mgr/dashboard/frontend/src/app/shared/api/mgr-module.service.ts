@@ -3,8 +3,10 @@ import { Injectable } from '@angular/core';
 
 import { Observable } from 'rxjs';
 
+import { ApiModule } from './api.module';
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class MgrModuleService {
   private url = 'api/mgr/module';

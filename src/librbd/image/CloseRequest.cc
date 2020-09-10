@@ -4,14 +4,12 @@
 #include "librbd/image/CloseRequest.h"
 #include "common/dout.h"
 #include "common/errno.h"
-#include "librbd/ConfigWatcher.h"
 #include "librbd/ExclusiveLock.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
 #include "librbd/ImageWatcher.h"
 #include "librbd/ObjectMap.h"
 #include "librbd/Utils.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/io/AioCompletion.h"
 #include "librbd/io/ImageDispatcher.h"
 #include "librbd/io/ImageDispatchSpec.h"
@@ -36,13 +34,6 @@ CloseRequest<I>::CloseRequest(I *image_ctx, Context *on_finish)
 
 template <typename I>
 void CloseRequest<I>::send() {
-  if (m_image_ctx->config_watcher != nullptr) {
-    m_image_ctx->config_watcher->shut_down();
-
-    delete m_image_ctx->config_watcher;
-    m_image_ctx->config_watcher = nullptr;
-  }
-
   send_block_image_watcher();
 }
 
@@ -90,34 +81,6 @@ void CloseRequest<I>::handle_shut_down_update_watchers(int r) {
                << dendl;
   }
 
-  send_flush();
-}
-
-template <typename I>
-void CloseRequest<I>::send_flush() {
-  CephContext *cct = m_image_ctx->cct;
-  ldout(cct, 10) << this << " " << __func__ << dendl;
-
-  std::shared_lock owner_locker{m_image_ctx->owner_lock};
-  auto ctx = create_context_callback<
-    CloseRequest<I>, &CloseRequest<I>::handle_flush>(this);
-  auto aio_comp = io::AioCompletion::create_and_start(ctx, m_image_ctx,
-                                                      io::AIO_TYPE_FLUSH);
-  auto req = io::ImageDispatchSpec<I>::create_flush(
-    *m_image_ctx, io::IMAGE_DISPATCH_LAYER_API_START, aio_comp,
-    io::FLUSH_SOURCE_INTERNAL, {});
-  req->send();
-}
-
-template <typename I>
-void CloseRequest<I>::handle_flush(int r) {
-  CephContext *cct = m_image_ctx->cct;
-  ldout(cct, 10) << this << " " << __func__ << ": r=" << r << dendl;
-
-  if (r < 0) {
-    lderr(cct) << "failed to flush IO: " << cpp_strerror(r) << dendl;
-  }
-
   send_shut_down_exclusive_lock();
 }
 
@@ -136,7 +99,7 @@ void CloseRequest<I>::send_shut_down_exclusive_lock() {
   }
 
   if (m_exclusive_lock == nullptr) {
-    send_unregister_image_watcher();
+    send_flush();
     return;
   }
 
@@ -173,6 +136,33 @@ void CloseRequest<I>::handle_shut_down_exclusive_lock(int r) {
                << dendl;
   }
 
+  send_unregister_image_watcher();
+}
+
+template <typename I>
+void CloseRequest<I>::send_flush() {
+  CephContext *cct = m_image_ctx->cct;
+  ldout(cct, 10) << this << " " << __func__ << dendl;
+
+  std::shared_lock owner_locker{m_image_ctx->owner_lock};
+  auto ctx = create_context_callback<
+    CloseRequest<I>, &CloseRequest<I>::handle_flush>(this);
+  auto aio_comp = io::AioCompletion::create_and_start(ctx, m_image_ctx,
+                                                      io::AIO_TYPE_FLUSH);
+  auto req = io::ImageDispatchSpec<I>::create_flush(
+    *m_image_ctx, io::IMAGE_DISPATCH_LAYER_INTERNAL_START, aio_comp,
+    io::FLUSH_SOURCE_INTERNAL, {});
+  req->send();
+}
+
+template <typename I>
+void CloseRequest<I>::handle_flush(int r) {
+  CephContext *cct = m_image_ctx->cct;
+  ldout(cct, 10) << this << " " << __func__ << ": r=" << r << dendl;
+
+  if (r < 0) {
+    lderr(cct) << "failed to flush IO: " << cpp_strerror(r) << dendl;
+  }
   send_unregister_image_watcher();
 }
 
@@ -306,6 +296,7 @@ void CloseRequest<I>::handle_close_parent(int r) {
   CephContext *cct = m_image_ctx->cct;
   ldout(cct, 10) << this << " " << __func__ << ": r=" << r << dendl;
 
+  delete m_image_ctx->parent;
   m_image_ctx->parent = nullptr;
   save_result(r);
   if (r < 0) {

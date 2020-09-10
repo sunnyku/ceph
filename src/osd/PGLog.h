@@ -29,80 +29,6 @@
 #include "crimson/os/cyanstore/cyan_collection.h"
 #endif
 
-/** @name PG Log
- *
- * The pg log serves three primary purposes:
- *
- * 1) improving recovery speed
- *
- * 2) detecting duplicate ops
- *
- * 3) making erasure coded updates safe
- *
- * For (1), the main data type is pg_log_entry_t.  this is indexed in
- * memory by the IndexedLog class - this is where most of the logic
- * surrounding pg log is kept, even though the low level types are in
- * src/osd/osd_types.h
- *
- * (2) uses a type which is a subset of the full log entry, containing
- * just the pieces we need to identify and respond to a duplicate
- * request.
- *
- * As we trim the log, we convert pg_log_entry_t to smaller
- * pg_log_dup_t, and finally remove them once we reach a higher
- * limit. This is controlled by a few options:
- *
- * osd_min_pg_log_entries osd_max_pg_log_entries
- * osd_pg_log_dups_tracked
- *
- * For example, with a min of 100, max of 1000, and dups tracked of
- * 3000, the log entries and dups stored would span the following
- * versions, assuming the current earliest is version 1:
- *
- *   version: 3000 2001 2000 1 [ pg log entries ] [ pg log dups ]
- *
- * after osd_pg_log_trim_min subsequent writes to this PG, the log
- * would be trimmed to look like:
- *
- *   version: 3100 2101 2100 101 [ pg log entries ] [ pg log dups ]
- *
- * (3) means tracking the previous state of an object, so that we can
- * rollback to that prior state if necessary. It's only used for
- * erasure coding. Consider an erasure code of 4+2, for example.
- *
- * This means we split the object into 4 pieces (called shards) and
- * compute 2 parity shards. Each of these shards is stored on a
- * separate OSD. As long as 4 shards are the same version, we can
- * recover the remaining 2 by computation. Imagine during a write, 3
- * of the osds go down and restart, resulting in shards 0,1,2
- * reflecting version A and shards 3,4,5 reflecting version B, after
- * the write.
- *
- * If we had no way to reconstruct version A for another shard, we
- * would have lost the object.
- *
- * The actual data for rollback is stored in a look-aside object and
- * is removed once the EC write commits on all shards. The pg log just
- * stores the versions so we can tell how far we can rollback, and a
- * description of the type of operation for each log entry.  Beyond
- * the pg log, see PGBackend::Trimmer and PGBackend::RollbackVisitor
- * for more details on this.
- *
- * An important implication of this is that although the pg log length
- * is normally bounded, under extreme conditions, with many EC I/Os
- * outstanding, the log may grow beyond that point because we need to
- * keep the rollback information for all outstanding EC I/O.
- *
- * For more on pg log bounds, see where it is calculated in
- * PeeringState::calc_trim_to_aggressive().
- *
- * For more details on how peering uses the pg log, and architectural
- * reasons for its existence, see:
- *
- *   doc/dev/osd_internals/log_based_pg.rst
- *
- */
-
 constexpr auto PGLOG_INDEXED_OBJECTS          = 1 << 0;
 constexpr auto PGLOG_INDEXED_CALLER_OPS       = 1 << 1;
 constexpr auto PGLOG_INDEXED_EXTRA_CALLER_OPS = 1 << 2;
@@ -1660,8 +1586,8 @@ public:
     ) {
     return read_log_and_missing_crimson(
       store, ch, info,
-      log, (pg_log_debug ? &log_keys_debug : nullptr),
-      missing, pgmeta_oid, this);
+      log, missing, pgmeta_oid,
+      this);
   }
 
   template <typename missing_type>
@@ -1670,7 +1596,6 @@ public:
     crimson::os::CollectionRef ch;
     const pg_info_t &info;
     IndexedLog &log;
-    std::set<std::string>* log_keys_debug = NULL;
     missing_type &missing;
     ghobject_t pgmeta_oid;
     const DoutPrefixProvider *dpp;
@@ -1728,8 +1653,6 @@ public:
 	  ceph_assert(last_e.version.epoch <= e.version.epoch);
 	}
 	entries.push_back(e);
-	if (log_keys_debug)
-	  log_keys_debug->insert(e.get_key_name());
       }
     }
 
@@ -1770,7 +1693,6 @@ public:
     crimson::os::CollectionRef ch,
     const pg_info_t &info,
     IndexedLog &log,
-    std::set<std::string>* log_keys_debug,
     missing_type &missing,
     ghobject_t pgmeta_oid,
     const DoutPrefixProvider *dpp = nullptr
@@ -1779,8 +1701,7 @@ public:
 		       << ch->get_cid()
 		       << " " << pgmeta_oid << dendl;
     return (new FuturizedStoreLogReader<missing_type>{
-      store, ch, info, log, log_keys_debug,
-      missing, pgmeta_oid, dpp})->start();
+      store, ch, info, log, missing, pgmeta_oid, dpp})->start();
   }
 
 #endif

@@ -4,20 +4,12 @@ from contextlib import contextmanager
 
 import cherrypy
 
-from . import ApiController, RESTController, UiApiController, ControllerDoc, EndpointDoc
+from . import ApiController, RESTController, UiApiController
 from ..settings import Settings as SettingsModule, Options
 from ..security import Scope
 
-SETTINGS_SCHEMA = [{
-    "name": (str, 'Settings Name'),
-    "default": (bool, 'Default Settings'),
-    "type": (str, 'Type of Settings'),
-    "value": (bool, 'Settings Value')
-}]
-
 
 @ApiController('/settings', Scope.CONFIG_OPT)
-@ControllerDoc("Settings Management API", "Settings")
 class Settings(RESTController):
     """
     Enables to manage the settings of the dashboard (not the Ceph cluster).
@@ -38,18 +30,13 @@ class Settings(RESTController):
 
         try:
             yield result
-        except AttributeError:  # pragma: no cover - handling is too obvious
-            raise cherrypy.NotFound(result)  # pragma: no cover - handling is too obvious
+        except AttributeError:
+            raise cherrypy.NotFound(result)
 
     @staticmethod
     def _to_native(setting):
         return setting.upper().replace('-', '_')
 
-    @EndpointDoc("Display Settings Information",
-                 parameters={
-                     'names': (str, 'Name of Settings'),
-                 },
-                 responses={200: SETTINGS_SCHEMA})
     def list(self, names=None):
         """
         Get the list of available options.
@@ -111,7 +98,7 @@ class StandardSettings(RESTController):
             settings.
         :rtype: dict
         """
-        return {  # pragma: no cover - no complexity there
+        return {
             'user_pwd_expiration_span':
             SettingsModule.USER_PWD_EXPIRATION_SPAN,
             'user_pwd_expiration_warning_1':

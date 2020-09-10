@@ -7,7 +7,8 @@
 
 // SplitTest is parameterized for list/vector/set
 using Types = ::testing::Types<std::list<std::string>,
-                               std::vector<std::string>>;
+                               std::vector<std::string>,
+                               std::set<std::string>>;
 
 template <typename T>
 struct SplitTest : ::testing::Test {
@@ -18,6 +19,10 @@ struct SplitTest : ::testing::Test {
   void test(const char* input, const char *delim,
             const std::vector<std::string>& expected) {
     EXPECT_EQ(expected, get_str_vec(input, delim));
+  }
+  void test(const char* input, const char *delim,
+            const std::set<std::string>& expected) {
+    EXPECT_EQ(expected, get_str_set(input, delim));
   }
 };
 

@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - MON_DOWN
 tasks:
   - cephfs_test_runner:

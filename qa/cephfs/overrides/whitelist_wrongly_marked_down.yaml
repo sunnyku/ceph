@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - overall HEALTH_
       - \(OSD_DOWN\)
       - \(OSD_

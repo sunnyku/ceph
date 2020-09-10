@@ -18,9 +18,6 @@
 class Context;
 
 namespace librbd {
-
-namespace asio { struct ContextWQ; }
-
 namespace deep_copy {
 
 template <typename ImageCtxT = librbd::ImageCtx>
@@ -31,7 +28,7 @@ public:
                                      librados::snap_t src_snap_id_start,
                                      librados::snap_t src_snap_id_end,
                                      librados::snap_t dst_snap_id_start,
-                                     bool flatten, asio::ContextWQ *work_queue,
+                                     bool flatten, ContextWQ *work_queue,
                                      SnapSeqs *snap_seqs, Context *on_finish) {
     return new SnapshotCopyRequest(src_image_ctx, dst_image_ctx,
                                    src_snap_id_start, src_snap_id_end,
@@ -43,8 +40,8 @@ public:
                       librados::snap_t src_snap_id_start,
                       librados::snap_t src_snap_id_end,
                       librados::snap_t dst_snap_id_start,
-                      bool flatten, asio::ContextWQ *work_queue,
-                      SnapSeqs *snap_seqs, Context *on_finish);
+                      bool flatten, ContextWQ *work_queue, SnapSeqs *snap_seqs,
+                      Context *on_finish);
 
   void send();
   void cancel();
@@ -95,7 +92,7 @@ private:
   librados::snap_t m_src_snap_id_end;
   librados::snap_t m_dst_snap_id_start;
   bool m_flatten;
-  asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
   SnapSeqs *m_snap_seqs_result;
   SnapSeqs m_snap_seqs;
   Context *m_on_finish;

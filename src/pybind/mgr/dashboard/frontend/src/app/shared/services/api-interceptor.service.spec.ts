@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 
 import { ToastrService } from 'ngx-toastr';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { AppModule } from '../../app.module';
 import { NotificationType } from '../enum/notification-type.enum';
 import { CdNotification, CdNotificationConfig } from '../models/cd-notification';
@@ -19,9 +19,9 @@ describe('ApiInterceptorService', () => {
   let router: Router;
   const url = 'api/xyz';
 
-  const httpError = (error: any, errorOpts: object, done = (_resp: any): any => undefined) => {
+  const httpError = (error: any, errorOpts: object, done = (_resp: any) => {}) => {
     httpClient.get(url).subscribe(
-      () => true,
+      () => {},
       (resp) => {
         // Error must have been forwarded by the interceptor.
         expect(resp instanceof HttpErrorResponse).toBeTruthy();
@@ -62,6 +62,7 @@ describe('ApiInterceptorService', () => {
     imports: [AppModule, HttpClientTestingModule],
     providers: [
       NotificationService,
+      i18nProviders,
       {
         provide: ToastrService,
         useValue: {
@@ -75,19 +76,19 @@ describe('ApiInterceptorService', () => {
     const baseTime = new Date('2022-02-22');
     spyOn(global, 'Date').and.returnValue(baseTime);
 
-    httpClient = TestBed.inject(HttpClient);
-    httpTesting = TestBed.inject(HttpTestingController);
+    httpClient = TestBed.get(HttpClient);
+    httpTesting = TestBed.get(HttpTestingController);
 
-    notificationService = TestBed.inject(NotificationService);
+    notificationService = TestBed.get(NotificationService);
     spyOn(notificationService, 'show').and.callThrough();
     spyOn(notificationService, 'save');
 
-    router = TestBed.inject(Router);
+    router = TestBed.get(Router);
     spyOn(router, 'navigate');
   });
 
   it('should be created', () => {
-    const service = TestBed.inject(ApiInterceptorService);
+    const service = TestBed.get(ApiInterceptorService);
     expect(service).toBeTruthy();
   });
 

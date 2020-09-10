@@ -20,6 +20,7 @@ namespace librbd { struct ImageCtx; }
 namespace librbd { namespace journal { struct MirrorPeerClientMeta; } }
 
 struct Context;
+struct ContextWQ;
 
 namespace rbd {
 namespace mirror {

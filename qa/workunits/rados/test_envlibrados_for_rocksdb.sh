@@ -60,11 +60,7 @@ echo "Compile rocksdb"
 if [ -e rocksdb ]; then
 	rm -fr rocksdb
 fi
-
-pushd $(dirname /home/ubuntu/cephtest/clone.client.0/qa/workunits/rados/bash.sh)/../../../
-git submodule update --init src/rocksdb
-popd
-git clone $(dirname /home/ubuntu/cephtest/clone.client.0/qa/workunits/rados/bash.sh)/../../../src/rocksdb rocksdb
+git clone https://github.com/facebook/rocksdb.git --depth 1
 
 # compile code
 cd rocksdb

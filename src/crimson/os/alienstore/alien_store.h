@@ -10,9 +10,9 @@
 #include "os/ObjectStore.h"
 #include "osd/osd_types.h"
 
-#include "crimson/os/alienstore/thread_pool.h"
 #include "crimson/os/futurized_collection.h"
 #include "crimson/os/futurized_store.h"
+#include "crimson/thread/ThreadPool.h"
 
 namespace ceph::os {
 class Transaction;
@@ -38,6 +38,7 @@ public:
     ObjectMap::ObjectMapIterator iter;
     AlienStore* store;
   };
+  mutable std::unique_ptr<crimson::thread::ThreadPool> tp;
   AlienStore(const std::string& path, const ConfigValues& values);
   ~AlienStore() final;
 
@@ -64,23 +65,23 @@ public:
   get_attrs_ertr::future<attrs_t> get_attrs(CollectionRef c,
                                      const ghobject_t& oid) final;
 
-  read_errorator::future<omap_values_t> omap_get_values(
+  seastar::future<omap_values_t> omap_get_values(
     CollectionRef c,
     const ghobject_t& oid,
     const omap_keys_t& keys) final;
-
-  /// Retrieves paged set of values > start (if present)
-  read_errorator::future<std::tuple<bool, omap_values_t>> omap_get_values(
-    CollectionRef c,           ///< [in] collection
-    const ghobject_t &oid,     ///< [in] oid
-    const std::optional<std::string> &start ///< [in] start, empty for begin
-    ) final; ///< @return <done, values> values.empty() iff done
 
   seastar::future<std::tuple<std::vector<ghobject_t>, ghobject_t>> list_objects(
     CollectionRef c,
     const ghobject_t& start,
     const ghobject_t& end,
     uint64_t limit) const final;
+
+  /// Retrieves paged set of values > start (if present)
+  seastar::future<std::tuple<bool, omap_values_t>> omap_get_values(
+    CollectionRef c,           ///< [in] collection
+    const ghobject_t &oid,     ///< [in] oid
+    const std::optional<std::string> &start ///< [in] start, empty for begin
+    ) final; ///< @return <done, values> values.empty() iff done
 
   seastar::future<CollectionRef> create_new_collection(const coll_t& cid) final;
   seastar::future<CollectionRef> open_collection(const coll_t& cid) final;
@@ -110,13 +111,11 @@ public:
   seastar::future<FuturizedStore::OmapIteratorRef> get_omap_iterator(
     CollectionRef ch,
     const ghobject_t& oid) final;
-
-  static void configure_thread_memory();
 private:
   constexpr static unsigned MAX_KEYS_PER_OMAP_GET_CALL = 32;
-  mutable std::unique_ptr<crimson::os::ThreadPool> tp;
   const std::string path;
   uint64_t used_bytes = 0;
+  uuid_d osd_fsid;
   std::unique_ptr<ObjectStore> store;
   std::unique_ptr<CephContext> cct;
   seastar::gate transaction_gate;

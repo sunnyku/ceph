@@ -1,9 +1,14 @@
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+
 import { ActionLabelsI18n } from '../../../shared/constants/app.constants';
 import { Icons } from '../../../shared/enum/icons.enum';
 import { CdTableAction } from '../../../shared/models/cd-table-action';
 import { CdTableSelection } from '../../../shared/models/cd-table-selection';
 
 export class RbdSnapshotActionsModel {
+  i18n: I18n;
+
   create: CdTableAction;
   rename: CdTableAction;
   protect: CdTableAction;
@@ -14,7 +19,9 @@ export class RbdSnapshotActionsModel {
   deleteSnap: CdTableAction;
   ordering: CdTableAction[];
 
-  constructor(actionLabels: ActionLabelsI18n, featuresName: string[]) {
+  constructor(i18n: I18n, actionLabels: ActionLabelsI18n, featuresName: string[]) {
+    this.i18n = i18n;
+
     this.create = {
       permission: 'create',
       icon: Icons.add,
@@ -42,7 +49,11 @@ export class RbdSnapshotActionsModel {
     this.clone = {
       permission: 'create',
       canBePrimary: (selection: CdTableSelection) => selection.hasSingleSelection,
-      disable: (selection: CdTableSelection) => this.getCloneDisableDesc(selection, featuresName),
+      disable: (selection: CdTableSelection) =>
+        !selection.hasSingleSelection ||
+        selection.first().cdExecuting ||
+        !_.isUndefined(this.getCloneDisableDesc(featuresName)),
+      disableDesc: () => this.getCloneDisableDesc(featuresName),
       icon: Icons.clone,
       name: actionLabels.CLONE
     };
@@ -81,15 +92,11 @@ export class RbdSnapshotActionsModel {
     ];
   }
 
-  getCloneDisableDesc(selection: CdTableSelection, featuresName: string[]): boolean | string {
-    if (selection.hasSingleSelection && !selection.first().cdExecuting) {
-      if (!featuresName?.includes('layering')) {
-        return $localize`Parent image must support Layering`;
-      }
-
-      return false;
+  getCloneDisableDesc(featuresName: string[]): string | undefined {
+    if (!featuresName.includes('layering')) {
+      return this.i18n('Parent image must support Layering');
     }
 
-    return true;
+    return undefined;
   }
 }

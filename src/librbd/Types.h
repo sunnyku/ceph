@@ -8,10 +8,7 @@
 #include "cls/rbd/cls_rbd_types.h"
 #include "deep_copy/Types.h"
 #include <map>
-#include <memory>
 #include <string>
-
-namespace neorados { class IOContext; }
 
 namespace librbd {
 
@@ -58,8 +55,6 @@ enum {
   l_librbd_last,
 };
 
-typedef std::shared_ptr<neorados::IOContext> IOContext;
-
 typedef std::map<uint64_t, uint64_t> SnapSeqs;
 
 /// Full information about an image's parent.
@@ -102,12 +97,6 @@ enum {
 enum ImageReadOnlyFlag {
   IMAGE_READ_ONLY_FLAG_USER        = 1 << 0,
   IMAGE_READ_ONLY_FLAG_NON_PRIMARY = 1 << 1,
-};
-
-enum SnapCreateFlag {
-  SNAP_CREATE_FLAG_SKIP_OBJECT_MAP             = 1 << 0,
-  SNAP_CREATE_FLAG_SKIP_NOTIFY_QUIESCE         = 1 << 1,
-  SNAP_CREATE_FLAG_IGNORE_NOTIFY_QUIESCE_ERROR = 1 << 2,
 };
 
 struct MigrationInfo {

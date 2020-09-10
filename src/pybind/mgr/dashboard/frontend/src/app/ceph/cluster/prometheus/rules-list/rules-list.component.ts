@@ -1,18 +1,20 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 
-import { PrometheusService } from '../../../../shared/api/prometheus.service';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+
+import { ListWithDetails } from '../../../../shared/classes/list-with-details.class';
 import { CdTableColumn } from '../../../../shared/models/cd-table-column';
 import { PrometheusRule } from '../../../../shared/models/prometheus-alerts';
 import { DurationPipe } from '../../../../shared/pipes/duration.pipe';
-import { PrometheusAlertService } from '../../../../shared/services/prometheus-alert.service';
-import { PrometheusListHelper } from '../prometheus-list-helper';
 
 @Component({
   selector: 'cd-rules-list',
   templateUrl: './rules-list.component.html',
   styleUrls: ['./rules-list.component.scss']
 })
-export class RulesListComponent extends PrometheusListHelper implements OnInit {
+export class RulesListComponent extends ListWithDetails implements OnInit {
+  @Input()
+  data: any;
   columns: CdTableColumn[];
   expandedRow: PrometheusRule;
 
@@ -23,22 +25,18 @@ export class RulesListComponent extends PrometheusListHelper implements OnInit {
    */
   hideKeys = ['alerts', 'type'];
 
-  constructor(
-    public prometheusAlertService: PrometheusAlertService,
-    @Inject(PrometheusService) prometheusService: PrometheusService
-  ) {
-    super(prometheusService);
+  constructor(private i18n: I18n) {
+    super();
   }
 
   ngOnInit() {
-    super.ngOnInit();
     this.columns = [
-      { prop: 'name', name: $localize`Name` },
-      { prop: 'labels.severity', name: $localize`Severity` },
-      { prop: 'group', name: $localize`Group` },
-      { prop: 'duration', name: $localize`Duration`, pipe: new DurationPipe() },
-      { prop: 'query', name: $localize`Query`, isHidden: true },
-      { prop: 'annotations.description', name: $localize`Description` }
+      { prop: 'name', name: this.i18n('Name') },
+      { prop: 'labels.severity', name: this.i18n('Severity') },
+      { prop: 'group', name: this.i18n('Group') },
+      { prop: 'duration', name: this.i18n('Duration'), pipe: new DurationPipe() },
+      { prop: 'query', name: this.i18n('Query'), isHidden: true },
+      { prop: 'annotations.description', name: this.i18n('Description') }
     ];
   }
 }

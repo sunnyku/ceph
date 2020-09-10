@@ -1,10 +1,10 @@
 #ifndef CEPH_MGATHERCAPS_H
 #define CEPH_MGATHERCAPS_H
 
-#include "messages/MMDSOp.h"
+#include "msg/Message.h"
 
 
-class MGatherCaps : public MMDSOp {
+class MGatherCaps : public Message {
   static constexpr int HEAD_VERSION = 1;
   static constexpr int COMPAT_VERSION = 1;
 
@@ -13,7 +13,7 @@ public:
 
 protected:
   MGatherCaps() :
-    MMDSOp{MSG_MDS_GATHERCAPS, HEAD_VERSION, COMPAT_VERSION} {}
+    Message{MSG_MDS_GATHERCAPS, HEAD_VERSION, COMPAT_VERSION} {}
   ~MGatherCaps() override {}
 
 public:

@@ -1,7 +1,9 @@
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { configureTestBed } from '../../../../../testing/unit-test-helper';
+import { TabsModule } from 'ngx-bootstrap/tabs';
+
+import { configureTestBed, i18nProviders } from '../../../../../testing/unit-test-helper';
 import { SharedModule } from '../../../../shared/shared.module';
 import { MgrModuleDetailsComponent } from './mgr-module-details.component';
 
@@ -11,7 +13,8 @@ describe('MgrModuleDetailsComponent', () => {
 
   configureTestBed({
     declarations: [MgrModuleDetailsComponent],
-    imports: [HttpClientTestingModule, SharedModule]
+    imports: [HttpClientTestingModule, SharedModule, TabsModule.forRoot()],
+    providers: [i18nProviders]
   });
 
   beforeEach(() => {

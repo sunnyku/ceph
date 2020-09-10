@@ -1,8 +1,8 @@
 import { Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from '@angular/core';
 
 import { ChartDataSets, ChartOptions, ChartPoint, ChartType } from 'chart.js';
-import _ from 'lodash';
-import moment from 'moment';
+import * as _ from 'lodash';
+import * as moment from 'moment';
 
 import { ChartTooltip } from '../../../shared/models/chart-tooltip';
 
@@ -101,6 +101,8 @@ export class CephfsChartComponent implements OnChanges, OnInit {
     },
     chartType: 'line'
   };
+
+  constructor() {}
 
   ngOnInit() {
     if (_.isUndefined(this.mdsCounter)) {

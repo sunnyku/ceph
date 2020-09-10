@@ -1,7 +1,8 @@
 import { Component, Input, OnChanges, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import moment from 'moment';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as moment from 'moment';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 import { of } from 'rxjs';
 
 import { RbdService } from '../../../shared/api/rbd.service';
@@ -20,7 +21,6 @@ import { Task } from '../../../shared/models/task';
 import { CdDatePipe } from '../../../shared/pipes/cd-date.pipe';
 import { DimlessBinaryPipe } from '../../../shared/pipes/dimless-binary.pipe';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../shared/services/modal.service';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { SummaryService } from '../../../shared/services/summary.service';
 import { TaskListService } from '../../../shared/services/task-list.service';
@@ -59,7 +59,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
 
   columns: CdTableColumn[];
 
-  modalRef: NgbModalRef;
+  modalRef: BsModalRef;
 
   builders = {
     'rbd/snap/create': (metadata: any) => {
@@ -71,7 +71,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
 
   constructor(
     private authStorageService: AuthStorageService,
-    private modalService: ModalService,
+    private modalService: BsModalService,
     private dimlessBinaryPipe: DimlessBinaryPipe,
     private cdDatePipe: CdDatePipe,
     private rbdService: RbdService,
@@ -79,6 +79,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
     private notificationService: NotificationService,
     private summaryService: SummaryService,
     private taskListService: TaskListService,
+    private i18n: I18n,
     private actionLabels: ActionLabelsI18n
   ) {
     this.permission = this.authStorageService.getPermissions().rbdImage;
@@ -87,39 +88,39 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
   ngOnInit() {
     this.columns = [
       {
-        name: $localize`Name`,
+        name: this.i18n('Name'),
         prop: 'name',
         cellTransformation: CellTemplate.executing,
         flexGrow: 2
       },
       {
-        name: $localize`Size`,
+        name: this.i18n('Size'),
         prop: 'size',
         flexGrow: 1,
         cellClass: 'text-right',
         pipe: this.dimlessBinaryPipe
       },
       {
-        name: $localize`Provisioned`,
+        name: this.i18n('Provisioned'),
         prop: 'disk_usage',
         flexGrow: 1,
         cellClass: 'text-right',
         pipe: this.dimlessBinaryPipe
       },
       {
-        name: $localize`State`,
+        name: this.i18n('State'),
         prop: 'is_protected',
         flexGrow: 1,
         cellTransformation: CellTemplate.badge,
         customTemplateConfig: {
           map: {
-            true: { value: $localize`PROTECTED`, class: 'badge-success' },
-            false: { value: $localize`UNPROTECTED`, class: 'badge-info' }
+            true: { value: this.i18n('PROTECTED'), class: 'badge-success' },
+            false: { value: this.i18n('UNPROTECTED'), class: 'badge-info' }
           }
         }
       },
       {
-        name: $localize`Created`,
+        name: this.i18n('Created'),
         prop: 'timestamp',
         flexGrow: 1,
         pipe: this.cdDatePipe
@@ -130,7 +131,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
   ngOnChanges() {
     const imageSpec = new ImageSpec(this.poolName, this.namespace, this.rbdName);
 
-    const actions = new RbdSnapshotActionsModel(this.actionLabels, this.featuresName);
+    const actions = new RbdSnapshotActionsModel(this.i18n, this.actionLabels, this.featuresName);
     actions.create.click = () => this.openCreateSnapshotModal();
     actions.rename.click = () => this.openEditSnapshotModal();
     actions.protect.click = () => this.toggleProtection();
@@ -169,18 +170,18 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
 
   private openSnapshotModal(taskName: string, snapName: string = null) {
     this.modalRef = this.modalService.show(RbdSnapshotFormModalComponent);
-    this.modalRef.componentInstance.poolName = this.poolName;
-    this.modalRef.componentInstance.imageName = this.rbdName;
-    this.modalRef.componentInstance.namespace = this.namespace;
+    this.modalRef.content.poolName = this.poolName;
+    this.modalRef.content.imageName = this.rbdName;
+    this.modalRef.content.namespace = this.namespace;
     if (snapName) {
-      this.modalRef.componentInstance.setEditing();
+      this.modalRef.content.setEditing();
     } else {
       // Auto-create a name for the snapshot: <image_name>_<timestamp_ISO_8601>
       // https://en.wikipedia.org/wiki/ISO_8601
       snapName = `${this.rbdName}_${moment().toISOString(true)}`;
     }
-    this.modalRef.componentInstance.setSnapName(snapName);
-    this.modalRef.componentInstance.onSubmit.subscribe((snapshotName: string) => {
+    this.modalRef.content.setSnapName(snapName);
+    this.modalRef.content.onSubmit.subscribe((snapshotName: string) => {
       const executingTask = new ExecutingTask();
       executingTask.name = taskName;
       executingTask.metadata = {
@@ -245,7 +246,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
         executingTask.name = finishedTask.name;
         executingTask.metadata = finishedTask.metadata;
         this.summaryService.addRunningTask(executingTask);
-        this.modalRef.close();
+        this.modalRef.hide();
         this.ngOnChanges();
         this.taskManagerService.subscribe(
           executingTask.name,
@@ -256,7 +257,7 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
         );
       })
       .catch(() => {
-        this.modalRef.componentInstance.stopLoadingSpinner();
+        this.modalRef.content.stopLoadingSpinner();
       });
   }
 
@@ -264,8 +265,8 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
     const snapshotName = this.selection.selected[0].name;
     const imageSpec = new ImageSpec(this.poolName, this.namespace, this.rbdName).toString();
     const initialState = {
-      titleText: $localize`RBD snapshot rollback`,
-      buttonText: $localize`Rollback`,
+      titleText: this.i18n('RBD snapshot rollback'),
+      buttonText: this.i18n('Rollback'),
       bodyTpl: this.rollbackTpl,
       bodyData: {
         snapName: `${imageSpec}@${snapshotName}`
@@ -275,15 +276,17 @@ export class RbdSnapshotListComponent implements OnInit, OnChanges {
       }
     };
 
-    this.modalRef = this.modalService.show(ConfirmationModalComponent, initialState);
+    this.modalRef = this.modalService.show(ConfirmationModalComponent, { initialState });
   }
 
   deleteSnapshotModal() {
     const snapshotName = this.selection.selected[0].name;
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      itemDescription: $localize`RBD snapshot`,
-      itemNames: [snapshotName],
-      submitAction: () => this._asyncTask('deleteSnapshot', 'rbd/snap/delete', snapshotName)
+      initialState: {
+        itemDescription: this.i18n('RBD snapshot'),
+        itemNames: [snapshotName],
+        submitAction: () => this._asyncTask('deleteSnapshot', 'rbd/snap/delete', snapshotName)
+      }
     });
   }
 

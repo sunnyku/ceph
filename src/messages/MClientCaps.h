@@ -205,15 +205,11 @@ public:
     using ceph::decode;
     auto p = payload.cbegin();
     decode(head, p);
+    ceph_mds_caps_body_legacy body;
+    decode(body, p);
     if (head.op == CEPH_CAP_OP_EXPORT) {
-      ceph_mds_caps_export_body body;
-      decode(body, p);
       peer = body.peer;
-      p += (sizeof(ceph_mds_caps_non_export_body) -
-	    sizeof(ceph_mds_caps_export_body));
     } else {
-      ceph_mds_caps_non_export_body body;
-      decode(body, p);
       size = body.size;
       max_size = body.max_size;
       truncate_size = body.truncate_size;
@@ -278,16 +274,11 @@ public:
     head.xattr_len = xattrbl.length();
 
     encode(head, payload);
-    static_assert(sizeof(ceph_mds_caps_non_export_body) >
-		  sizeof(ceph_mds_caps_export_body));
+    ceph_mds_caps_body_legacy body;
     if (head.op == CEPH_CAP_OP_EXPORT) {
-      ceph_mds_caps_export_body body;
+      memset(&body, 0, sizeof(body));
       body.peer = peer;
-      encode(body, payload);
-      payload.append_zero(sizeof(ceph_mds_caps_non_export_body) -
-			  sizeof(ceph_mds_caps_export_body));
     } else {
-      ceph_mds_caps_non_export_body body;
       body.size = size;
       body.max_size = max_size;
       body.truncate_size = truncate_size;
@@ -297,8 +288,8 @@ public:
       ctime.encode_timeval(&body.ctime);
       layout.to_legacy(&body.layout);
       body.time_warp_seq = time_warp_seq;
-      encode(body, payload);
     }
+    encode(body, payload);
     ceph::encode_nohead(snapbl, payload);
 
     middle = xattrbl;

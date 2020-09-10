@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { AbstractControl, AsyncValidatorFn, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
 import { forkJoin } from 'rxjs';
 
 import { RgwBucketService } from '../../../shared/api/rgw-bucket.service';
@@ -51,12 +52,13 @@ export class RgwBucketFormComponent extends CdForm implements OnInit {
     private rgwSiteService: RgwSiteService,
     private rgwUserService: RgwUserService,
     private notificationService: NotificationService,
+    private i18n: I18n,
     public actionLabels: ActionLabelsI18n
   ) {
     super();
     this.editing = this.router.url.startsWith(`/rgw/bucket/${URLVerbs.EDIT}`);
     this.action = this.editing ? this.actionLabels.EDIT : this.actionLabels.CREATE;
-    this.resource = $localize`bucket`;
+    this.resource = this.i18n('bucket');
     this.createForm();
   }
 
@@ -93,7 +95,7 @@ export class RgwBucketFormComponent extends CdForm implements OnInit {
     };
 
     if (!this.editing) {
-      promises['getPlacementTargets'] = this.rgwSiteService.get('placement-targets');
+      promises['getPlacementTargets'] = this.rgwSiteService.getPlacementTargets();
     }
 
     // Process route parameters.
@@ -112,7 +114,7 @@ export class RgwBucketFormComponent extends CdForm implements OnInit {
           const placementTargets = data['getPlacementTargets'];
           this.zonegroup = placementTargets['zonegroup'];
           _.forEach(placementTargets['placement_targets'], (placementTarget) => {
-            placementTarget['description'] = `${placementTarget['name']} (${$localize`pool`}: ${
+            placementTarget['description'] = `${placementTarget['name']} (${this.i18n('pool')}: ${
               placementTarget['data_pool']
             })`;
             this.placementTargets.push(placementTarget);
@@ -187,7 +189,7 @@ export class RgwBucketFormComponent extends CdForm implements OnInit {
           () => {
             this.notificationService.show(
               NotificationType.success,
-              $localize`Updated Object Gateway bucket '${values.bid}'.`
+              this.i18n('Updated Object Gateway bucket "{{bid}}".', values)
             );
             this.goToListView();
           },
@@ -213,7 +215,7 @@ export class RgwBucketFormComponent extends CdForm implements OnInit {
           () => {
             this.notificationService.show(
               NotificationType.success,
-              $localize`Created Object Gateway bucket '${values.bid}'`
+              this.i18n('Created Object Gateway bucket "{{bid}}"', values)
             );
             this.goToListView();
           },

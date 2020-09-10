@@ -1,7 +1,6 @@
 =======
  Pools
 =======
-Pools are logical partitions for storing objects.
 
 When you first deploy a cluster without creating a pool, Ceph uses the default
 pools for storing data. A pool provides you with:

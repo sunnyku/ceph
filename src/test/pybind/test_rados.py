@@ -1,6 +1,5 @@
 from __future__ import print_function
 from nose import SkipTest
-from nose.plugins.attrib import attr
 from nose.tools import eq_ as eq, ok_ as ok, assert_raises
 from rados import (Rados, Error, RadosStateError, Object, ObjectExists,
                    ObjectNotFound, ObjectBusy, NotConnected, requires, opt,
@@ -14,6 +13,9 @@ import errno
 import os
 import re
 import sys
+
+# Are we running Python 2.x
+_python2 = sys.version_info[0] < 3
 
 def test_rados_init_error():
     assert_raises(Error, Rados, conffile='', rados_id='admin',
@@ -103,7 +105,7 @@ class TestRadosStateError(object):
         assert_raises(RadosStateError, rados.osd_command, 0, '', b'')
         assert_raises(RadosStateError, rados.pg_command, '', '', b'')
         assert_raises(RadosStateError, rados.wait_for_latest_osdmap)
-        assert_raises(RadosStateError, rados.blocklist_add, '127.0.0.1/123', 0)
+        assert_raises(RadosStateError, rados.blacklist_add, '127.0.0.1/123', 0)
 
     def test_configuring(self):
         rados = Rados(conffile='')
@@ -158,13 +160,20 @@ class TestRados(object):
         self.rados.delete_pool('foo')
 
     def test_create_utf8(self):
-        poolname = "\u9ec4"
+        if _python2:
+            # Use encoded bytestring
+            poolname = b"\351\273\204"
+        else:
+            poolname = "\u9ec4"
         self.rados.create_pool(poolname)
         assert self.rados.pool_exists(u"\u9ec4")
         self.rados.delete_pool(poolname)
 
     def test_pool_lookup_utf8(self):
-        poolname = '\u9ec4'
+        if _python2:
+            poolname = u'\u9ec4'
+        else:
+            poolname = '\u9ec4'
         self.rados.create_pool(poolname)
         try:
             poolid = self.rados.pool_lookup(poolname)
@@ -201,7 +210,6 @@ class TestRados(object):
         eq(set(['a' * 500]), self.list_non_default_pools())
         self.rados.delete_pool('a' * 500)
 
-    @attr('tier')
     def test_get_pool_base_tier(self):
         self.rados.create_pool('foo')
         try:
@@ -236,10 +244,9 @@ class TestRados(object):
         fsid = self.rados.get_fsid()
         assert re.match('[0-9a-f\-]{36}', fsid, re.I)
 
-    def test_blocklist_add(self):
-        self.rados.blocklist_add("1.2.3.4/123", 1)
+    def test_blacklist_add(self):
+        self.rados.blacklist_add("1.2.3.4/123", 1)
 
-    @attr('stats')
     def test_get_cluster_stats(self):
         stats = self.rados.get_cluster_stats()
         assert stats['kb'] > 0
@@ -393,17 +400,14 @@ class TestIoctx(object):
     def test_get_pool_name(self):
         eq(self.ioctx.get_pool_name(), 'test_pool')
 
-    @attr('snap')
     def test_create_snap(self):
         assert_raises(ObjectNotFound, self.ioctx.remove_snap, 'foo')
         self.ioctx.create_snap('foo')
         self.ioctx.remove_snap('foo')
 
-    @attr('snap')
     def test_list_snaps_empty(self):
         eq(list(self.ioctx.list_snaps()), [])
 
-    @attr('snap')
     def test_list_snaps(self):
         snaps = ['snap1', 'snap2', 'snap3']
         for snap in snaps:
@@ -411,19 +415,16 @@ class TestIoctx(object):
         listed_snaps = [snap.name for snap in self.ioctx.list_snaps()]
         eq(snaps, listed_snaps)
 
-    @attr('snap')
     def test_lookup_snap(self):
         self.ioctx.create_snap('foo')
         snap = self.ioctx.lookup_snap('foo')
         eq(snap.name, 'foo')
 
-    @attr('snap')
     def test_snap_timestamp(self):
         self.ioctx.create_snap('foo')
         snap = self.ioctx.lookup_snap('foo')
         snap.get_timestamp()
 
-    @attr('snap')
     def test_remove_snap(self):
         self.ioctx.create_snap('foo')
         (snap,) = self.ioctx.list_snaps()
@@ -431,7 +432,6 @@ class TestIoctx(object):
         self.ioctx.remove_snap('foo')
         eq(list(self.ioctx.list_snaps()), [])
 
-    @attr('snap')
     def test_snap_rollback(self):
         self.ioctx.write("insnap", b"contents1")
         self.ioctx.create_snap("snap1")
@@ -441,7 +441,6 @@ class TestIoctx(object):
         self.ioctx.remove_snap("snap1")
         self.ioctx.remove_object("insnap")
 
-    @attr('snap')
     def test_snap_read(self):
         self.ioctx.write("insnap", b"contents1")
         self.ioctx.create_snap("snap1")
@@ -518,27 +517,22 @@ class TestIoctx(object):
             write_op.new(0)
             self.ioctx.operate_write_op(write_op, "write_ops")
             eq(self.ioctx.read('write_ops'), b'')
-
             write_op.write_full(b'1')
             write_op.append(b'2')
             self.ioctx.operate_write_op(write_op, "write_ops")
             eq(self.ioctx.read('write_ops'), b'12')
-
             write_op.write_full(b'12345')
             write_op.write(b'x', 2)
             self.ioctx.operate_write_op(write_op, "write_ops")
             eq(self.ioctx.read('write_ops'), b'12x45')
-
             write_op.write_full(b'12345')
             write_op.zero(2, 2)
             self.ioctx.operate_write_op(write_op, "write_ops")
             eq(self.ioctx.read('write_ops'), b'12\x00\x005')
-
             write_op.write_full(b'12345')
             write_op.truncate(2)
             self.ioctx.operate_write_op(write_op, "write_ops")
             eq(self.ioctx.read('write_ops'), b'12')
-
             write_op.remove()
             self.ioctx.operate_write_op(write_op, "write_ops")
             with assert_raises(ObjectNotFound):
@@ -611,24 +605,20 @@ class TestIoctx(object):
             write_op.new(LIBRADOS_CREATE_EXCLUSIVE)
             for key, value in xattrs.items():
                 write_op.set_xattr(key, value)
-                self.ioctx.operate_write_op(write_op, 'abc')
+                self.ioctx.operate_write_op(write_op, "abc")
                 eq(self.ioctx.get_xattr('abc', key), value)
-
             stored_xattrs_1 = {}
             for key, value in self.ioctx.get_xattrs('abc'):
                 stored_xattrs_1[key] = value
             eq(stored_xattrs_1, xattrs)
-
             for key in xattrs.keys():
                 write_op.rm_xattr(key)
-                self.ioctx.operate_write_op(write_op, 'abc')
+                self.ioctx.operate_write_op(write_op, "abc")
             stored_xattrs_2 = {}
             for key, value in self.ioctx.get_xattrs('abc'):
                 stored_xattrs_2[key] = value
             eq(stored_xattrs_2, {})
-
             write_op.remove()
-            self.ioctx.operate_write_op(write_op, 'abc')
 
     def test_locator(self):
         self.ioctx.set_locator_key("bar")
@@ -830,7 +820,6 @@ class TestIoctx(object):
         r, _, _ = self.rados.mon_command(json.dumps(cmd), b'')
         eq(r, 0)
 
-    @attr('thrash')
     def test_aio_read(self):
         # this is a list so that the local cb() can modify it
         retval = [None]
@@ -1007,7 +996,6 @@ class TestIoctx(object):
         eq(self.ioctx.alignment(), None)
 
 
-@attr('ec')
 class TestIoctxEc(object):
 
     def setUp(self):
@@ -1112,7 +1100,6 @@ class TestObject(object):
         eq(self.object.read(3), b'bar')
         eq(self.object.read(3), b'baz')
 
-@attr('snap')
 class TestIoCtxSelfManagedSnaps(object):
     def setUp(self):
         self.rados = Rados(conffile='')
@@ -1205,7 +1192,6 @@ class TestCommand(object):
         e = json.loads(buf.decode("utf-8"))
         assert('release' in e)
 
-    @attr('bench')
     def test_osd_bench(self):
         cmd = dict(prefix='bench', size=4096, count=8192)
         ret, buf, err = self.rados.osd_command(0, json.dumps(cmd), b'',
@@ -1217,7 +1203,11 @@ class TestCommand(object):
         eq(out['bytes_written'], cmd['count'])
 
     def test_ceph_osd_pool_create_utf8(self):
-        poolname = "\u9ec5"
+        if _python2:
+            # Use encoded bytestring
+            poolname = b"\351\273\205"
+        else:
+            poolname = "\u9ec5"
 
         cmd = {"prefix": "osd pool create", "pg_num": 16, "pool": poolname}
         ret, buf, out = self.rados.mon_command(json.dumps(cmd), b'')

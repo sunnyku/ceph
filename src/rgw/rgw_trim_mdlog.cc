@@ -7,6 +7,7 @@
 #include "rgw_sync.h"
 #include "rgw_cr_rados.h"
 #include "rgw_cr_rest.h"
+#include "rgw_rados.h"
 #include "rgw_zone.h"
 #include "services/svc_zone.h"
 #include "services/svc_meta.h"

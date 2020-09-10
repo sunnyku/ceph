@@ -38,10 +38,7 @@ from rbd import (RBD, Group, Image, ImageNotFound, InvalidArgument, ImageExists,
                  RBD_MIRROR_PEER_ATTRIBUTE_NAME_KEY,
                  RBD_MIRROR_PEER_DIRECTION_RX, RBD_MIRROR_PEER_DIRECTION_RX_TX,
                  RBD_SNAP_REMOVE_UNPROTECT, RBD_SNAP_MIRROR_STATE_PRIMARY,
-                 RBD_SNAP_MIRROR_STATE_PRIMARY_DEMOTED,
-                 RBD_SNAP_CREATE_SKIP_QUIESCE,
-                 RBD_SNAP_CREATE_IGNORE_QUIESCE_ERROR,
-                 RBD_WRITE_ZEROES_FLAG_THICK_PROVISION)
+                 RBD_SNAP_MIRROR_STATE_PRIMARY_DEMOTED)
 
 rados = None
 ioctx = None
@@ -151,15 +148,15 @@ def require_features(required_features):
         return functools.wraps(fn)(_require_features)
     return wrapper
 
-def blocklist_features(blocklisted_features):
+def blacklist_features(blacklisted_features):
     def wrapper(fn):
-        def _blocklist_features(*args, **kwargs):
+        def _blacklist_features(*args, **kwargs):
             global features
-            for feature in blocklisted_features:
+            for feature in blacklisted_features:
                 if features is not None and feature & features == feature:
                     raise SkipTest
             return fn(*args, **kwargs)
-        return functools.wraps(fn)(_blocklist_features)
+        return functools.wraps(fn)(_blacklist_features)
     return wrapper
 
 def test_version():
@@ -528,7 +525,7 @@ class TestImage(object):
         self.image = None
 
     @require_new_format()
-    @blocklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
+    @blacklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
     def test_update_features(self):
         features = self.image.features()
         self.image.update_features(RBD_FEATURE_EXCLUSIVE_LOCK, True)
@@ -603,20 +600,6 @@ class TestImage(object):
         data = rand_data(256)
         self.image.write(data, 0, LIBRADOS_OP_FLAG_FADVISE_DONTNEED)
         self.image.write(data, 0, LIBRADOS_OP_FLAG_FADVISE_NOCACHE)
-
-    def test_write_zeroes(self):
-        data = rand_data(256)
-        self.image.write(data, 0)
-        self.image.write_zeroes(0, 256)
-        eq(self.image.read(256, 256), b'\0' * 256)
-        check_diff(self.image, 0, IMG_SIZE, None, [])
-
-    def test_write_zeroes_thick_provision(self):
-        data = rand_data(256)
-        self.image.write(data, 0)
-        self.image.write_zeroes(0, 256, RBD_WRITE_ZEROES_FLAG_THICK_PROVISION)
-        eq(self.image.read(256, 256), b'\0' * 256)
-        check_diff(self.image, 0, IMG_SIZE, None, [(0, 256, True)])
 
     def test_read(self):
         data = self.image.read(0, 20)
@@ -802,14 +785,6 @@ class TestImage(object):
         assert_raises(ImageExists, self.image.create_snap, 'snap1')
         self.image.remove_snap('snap1')
 
-    def test_create_snap_flags(self):
-        self.image.create_snap('snap1', 0)
-        self.image.remove_snap('snap1')
-        self.image.create_snap('snap1', RBD_SNAP_CREATE_SKIP_QUIESCE)
-        self.image.remove_snap('snap1')
-        self.image.create_snap('snap1', RBD_SNAP_CREATE_IGNORE_QUIESCE_ERROR)
-        self.image.remove_snap('snap1')
-
     def test_list_snaps(self):
         eq([], list(self.image.list_snaps()))
         self.image.create_snap('snap1')
@@ -907,13 +882,13 @@ class TestImage(object):
     def test_remove_with_exclusive_lock(self):
         assert_raises(ImageBusy, remove_image)
 
-    @blocklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
+    @blacklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
     def test_remove_with_snap(self):
         self.image.create_snap('snap1')
         assert_raises(ImageHasSnapshots, remove_image)
         self.image.remove_snap('snap1')
 
-    @blocklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
+    @blacklist_features([RBD_FEATURE_EXCLUSIVE_LOCK])
     def test_remove_with_watcher(self):
         data = rand_data(256)
         self.image.write(data, 0)
@@ -1211,20 +1186,6 @@ class TestImage(object):
         data = rand_data(256)
         self.image.write(data, 0)
         comp = self.image.aio_discard(0, 256, cb)
-        comp.wait_for_complete_and_cb()
-        eq(retval[0], 0)
-        eq(comp.get_return_value(), 0)
-        eq(sys.getrefcount(comp), 2)
-        eq(self.image.read(256, 256), b'\0' * 256)
-
-    def test_aio_write_zeroes(self):
-        retval = [None]
-        def cb(comp):
-            retval[0] = comp.get_return_value()
-
-        data = rand_data(256)
-        self.image.write(data, 0)
-        comp = self.image.aio_write_zeroes(0, 256, cb)
         comp.wait_for_complete_and_cb()
         eq(retval[0], 0)
         eq(comp.get_return_value(), 0)
@@ -1915,19 +1876,19 @@ class TestExclusiveLock(object):
             image.lock_release()
 
     def test_break_lock(self):
-        blocklist_rados = Rados(conffile='')
-        blocklist_rados.connect()
+        blacklist_rados = Rados(conffile='')
+        blacklist_rados.connect()
         try:
-            blocklist_ioctx = blocklist_rados.open_ioctx(pool_name)
+            blacklist_ioctx = blacklist_rados.open_ioctx(pool_name)
             try:
-                rados2.conf_set('rbd_blocklist_on_break_lock', 'true')
+                rados2.conf_set('rbd_blacklist_on_break_lock', 'true')
                 with Image(ioctx2, image_name) as image, \
-                     Image(blocklist_ioctx, image_name) as blocklist_image:
+                     Image(blacklist_ioctx, image_name) as blacklist_image:
 
                     lock_owners = list(image.lock_get_owners())
                     eq(0, len(lock_owners))
 
-                    blocklist_image.lock_acquire(RBD_LOCK_MODE_EXCLUSIVE)
+                    blacklist_image.lock_acquire(RBD_LOCK_MODE_EXCLUSIVE)
                     assert_raises(ReadOnlyImage, image.lock_acquire,
                                   RBD_LOCK_MODE_EXCLUSIVE)
                     lock_owners = list(image.lock_get_owners())
@@ -1937,23 +1898,23 @@ class TestExclusiveLock(object):
                                      lock_owners[0]['owner'])
 
                     assert_raises(ConnectionShutdown,
-                                  blocklist_image.is_exclusive_lock_owner)
+                                  blacklist_image.is_exclusive_lock_owner)
 
-                    blocklist_rados.wait_for_latest_osdmap()
+                    blacklist_rados.wait_for_latest_osdmap()
                     data = rand_data(256)
                     assert_raises(ConnectionShutdown,
-                                  blocklist_image.write, data, 0)
+                                  blacklist_image.write, data, 0)
 
                     image.lock_acquire(RBD_LOCK_MODE_EXCLUSIVE)
 
                     try:
-                        blocklist_image.close()
+                        blacklist_image.close()
                     except ConnectionShutdown:
                         pass
             finally:
-                blocklist_ioctx.close()
+                blacklist_ioctx.close()
         finally:
-            blocklist_rados.shutdown()
+            blacklist_rados.shutdown()
 
 class TestMirroring(object):
 
@@ -2165,8 +2126,7 @@ class TestMirroring(object):
         info['mode'] = RBD_MIRROR_IMAGE_MODE_SNAPSHOT;
         eq(info, entries[self.image.id()])
 
-        snap_id = self.image.mirror_image_create_snapshot(
-            RBD_SNAP_CREATE_SKIP_QUIESCE)
+        snap_id = self.image.mirror_image_create_snapshot()
 
         snaps = list(self.image.list_snaps())
         eq(2, len(snaps))

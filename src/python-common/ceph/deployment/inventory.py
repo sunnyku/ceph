@@ -40,8 +40,7 @@ class Device(object):
         'sys_api',
         'lvs',
         'human_readable_type',
-        'device_id',
-        'lsm_data',
+        'device_id'
     ]
 
     def __init__(self,
@@ -51,7 +50,6 @@ class Device(object):
                  rejected_reasons=None,  # type: Optional[List[str]]
                  lvs=None,  # type: Optional[List[str]]
                  device_id=None,  # type: Optional[str]
-                 lsm_data={},  # type: Dict[str, Dict[str, str]]
                  ):
         self.path = path
         self.sys_api = sys_api if sys_api is not None else {}  # type: Dict[str, Any]
@@ -59,7 +57,6 @@ class Device(object):
         self.rejected_reasons = rejected_reasons if rejected_reasons is not None else []
         self.lvs = lvs
         self.device_id = device_id
-        self.lsm_data = lsm_data
 
     def to_json(self):
         # type: () -> dict

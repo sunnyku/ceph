@@ -14,8 +14,8 @@ describe('IscsiService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(IscsiService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(IscsiService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

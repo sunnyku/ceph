@@ -51,12 +51,9 @@ sys.path.insert(0, os.path.abspath('_ext'))
 
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.graphviz',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.todo',
-    'sphinx-prompt',
     'sphinx_autodoc_typehints',
-    'sphinx_substitution_extensions',
+    'sphinx.ext.graphviz',
+    'sphinx.ext.todo',
     'breathe',
     'edit_on_github',
     'ceph_releases',
@@ -75,14 +72,7 @@ build_with_rtd = os.environ.get('READTHEDOCS') == 'True'
 if build_with_rtd:
     extensions += ['sphinx_search.extension']
 
-# sphinx.ext.todo
 todo_include_todos = True
-
-# sphinx_substitution_extensions
-# TODO: read from doc/releases/releases.yml
-rst_prolog = """
-.. |stable-release| replace:: octopus
-"""
 
 top_level = os.path.dirname(
     os.path.dirname(
@@ -100,11 +90,6 @@ breathe_projects_source = {
              ["rados_types.h", "librados.h"])
 }
 breathe_domain_by_extension = {'py': 'py', 'c': 'c', 'h': 'c', 'cc': 'cxx', 'hpp': 'cxx'}
-breathe_doxygen_config_options = {
-    'EXPAND_ONLY_PREDEF': 'YES',
-    'MACRO_EXPANSION': 'YES',
-    'PREDEFINED': 'CEPH_RADOS_API= '
-}
 
 # the docs are rendered with github links pointing to master. the javascript
 # snippet in _static/ceph.js rewrites the edit links when a page is loaded, to
@@ -114,7 +99,7 @@ edit_on_github_branch = 'master'
 
 # handles edit-on-github and old version warning display
 def setup(app):
-    app.add_js_file('js/ceph.js')
+    app.add_javascript('js/ceph.js')
     if ditaa is None:
         # add "ditaa" as an alias of "diagram"
         from plantweb.directive import DiagramDirective

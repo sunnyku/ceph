@@ -18,24 +18,21 @@
 
 void Anchor::encode(bufferlist &bl) const
 {
-  ENCODE_START(2, 1, bl);
+  ENCODE_START(1, 1, bl);
   encode(ino, bl);
   encode(dirino, bl);
   encode(d_name, bl);
   encode(d_type, bl);
-  encode(frags, bl);
   ENCODE_FINISH(bl);
 }
 
 void Anchor::decode(bufferlist::const_iterator &bl)
 {
-  DECODE_START(2, bl);
+  DECODE_START(1, bl);
   decode(ino, bl);
   decode(dirino, bl);
   decode(d_name, bl);
   decode(d_type, bl);
-  if (struct_v >= 2)
-    decode(frags, bl);
   DECODE_FINISH(bl);
 }
 

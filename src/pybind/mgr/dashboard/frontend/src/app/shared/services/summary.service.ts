@@ -1,12 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { BehaviorSubject, Observable, Subscription } from 'rxjs';
-import { filter, first } from 'rxjs/operators';
 
 import { ExecutingTask } from '../models/executing-task';
-import { Summary } from '../models/summary.model';
 import { TimerService } from './timer.service';
 
 @Injectable({
@@ -15,7 +13,7 @@ import { TimerService } from './timer.service';
 export class SummaryService {
   readonly REFRESH_INTERVAL = 5000;
   // Observable sources
-  private summaryDataSource = new BehaviorSubject<Summary>(null);
+  private summaryDataSource = new BehaviorSubject(null);
   // Observable streams
   summaryData$ = this.summaryDataSource.asObservable();
 
@@ -31,35 +29,29 @@ export class SummaryService {
     return this.retrieveSummaryObservable().subscribe(this.retrieveSummaryObserver());
   }
 
-  private retrieveSummaryObservable(): Observable<Summary> {
-    return this.http.get<Summary>('api/summary');
+  private retrieveSummaryObservable(): Observable<Object> {
+    return this.http.get('api/summary');
   }
 
-  private retrieveSummaryObserver(): (data: Summary) => void {
-    return (data: Summary) => {
+  private retrieveSummaryObserver(): (data: any) => void {
+    return (data: Object) => {
       this.summaryDataSource.next(data);
     };
   }
 
   /**
-   * Subscribes to the summaryData and receive only the first, non undefined, value.
+   * Returns the current value of summaryData
    */
-  subscribeOnce(next: (summary: Summary) => void, error?: (error: any) => void): Subscription {
-    return this.summaryData$
-      .pipe(
-        filter((value) => !!value),
-        first()
-      )
-      .subscribe(next, error);
+  getCurrentSummary(): { [key: string]: any; executing_tasks: object[] } {
+    return this.summaryDataSource.getValue();
   }
 
   /**
    * Subscribes to the summaryData,
    * which is updated periodically or when a new task is created.
-   * Will receive only non undefined values.
    */
-  subscribe(next: (summary: Summary) => void, error?: (error: any) => void): Subscription {
-    return this.summaryData$.pipe(filter((value) => !!value)).subscribe(next, error);
+  subscribe(next: (summary: any) => void, error?: (error: any) => void): Subscription {
+    return this.summaryData$.subscribe(next, error);
   }
 
   /**

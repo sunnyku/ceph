@@ -14,8 +14,8 @@ describe('TelemetryService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(TelemetryService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(TelemetryService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

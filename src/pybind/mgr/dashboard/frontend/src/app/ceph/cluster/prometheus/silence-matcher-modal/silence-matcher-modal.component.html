@@ -1,6 +1,6 @@
-<cd-modal [modalRef]="activeModal">
-  <span class="modal-title"
-        i18n>{editMode, select, true {Edit} other {Add}} Matcher</span>
+<cd-modal [modalRef]="bsModalRef">
+  <ng-container class="modal-title"
+                i18n>Matcher</ng-container>
 
   <ng-container class="modal-content">
     <form class="form"
@@ -38,12 +38,10 @@
                  i18n>Value</label>
           <div class="cd-col-form-input">
             <input id="value"
-                   (focus)="valueFocus.next($any($event).target.value)"
-                   (click)="valueClick.next($any($event).target.value)"
-                   container="body"
                    class="form-control"
                    type="text"
-                   [ngbTypeahead]="search"
+                   [typeahead]="possibleValues"
+                   [typeaheadMinLength]="0"
                    formControlName="value">
             <span *ngIf="form.showError('value', formDir, 'required')"
                   class="help-block"
@@ -78,9 +76,9 @@
       <div class="modal-footer">
         <cd-submit-button (submitAction)="onSubmit()"
                           [form]="form">
-          <span i18n>{editMode, select, true {Edit} other {Add}}</span>
+          <ng-container i18n>{editMode, select, 1 {Update} other {Add}}</ng-container>
         </cd-submit-button>
-        <cd-back-button [back]="activeModal.close"
+        <cd-back-button [back]="bsModalRef.hide"
                         name="Close"
                         i18n-name>
         </cd-back-button>

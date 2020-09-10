@@ -3,7 +3,10 @@ Samba
 """
 import contextlib
 import logging
+import sys
 import time
+
+import six
 
 from teuthology import misc as teuthology
 from teuthology.orchestra import run
@@ -21,7 +24,7 @@ def get_sambas(ctx, roles):
     :param roles: roles for this test (extracted from yaml files)
     """
     for role in roles:
-        assert isinstance(role, str)
+        assert isinstance(role, six.string_types)
         PREFIX = 'samba.'
         assert role.startswith(PREFIX)
         id_ = role[len(PREFIX):]
@@ -185,17 +188,17 @@ def task(ctx, config):
         yield
     finally:
         log.info('Stopping smbd processes...')
-        exc = None
+        exc_info = (None, None, None)
         for d in ctx.daemons.iter_daemons_of_role('smbd'):
             try:
                 d.stop()
             except (run.CommandFailedError,
                     run.CommandCrashedError,
-                    run.ConnectionLostError) as e:
-                exc = e
+                    run.ConnectionLostError):
+                exc_info = sys.exc_info()
                 log.exception('Saw exception from %s.%s', d.role, d.id_)
-        if exc is not None:
-            raise exc
+        if exc_info != (None, None, None):
+            six.reraise(exc_info[0], exc_info[1], exc_info[2])
 
         for id_, remote in samba_servers:
             remote.run(

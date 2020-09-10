@@ -7,7 +7,7 @@ roles:
 - [mon.a, mgr.x, osd.0, osd.1, osd.2, client.0]
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - is full
       - overall HEALTH_
       - \(POOL_FULL\)

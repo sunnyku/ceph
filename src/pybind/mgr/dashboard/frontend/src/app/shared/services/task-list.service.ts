@@ -3,7 +3,6 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
 
 import { ExecutingTask } from '../models/executing-task';
-import { Summary } from '../models/summary.model';
 import { SummaryService } from './summary.service';
 import { TaskMessageService } from './task-message.service';
 
@@ -18,7 +17,6 @@ export class TaskListService implements OnDestroy {
   taskFilter: (task: ExecutingTask) => boolean;
   itemFilter: (item: any, task: ExecutingTask) => boolean;
   builders: object;
-  summary: Summary;
 
   constructor(
     private taskMessageService: TaskMessageService,
@@ -58,15 +56,12 @@ export class TaskListService implements OnDestroy {
     this.itemFilter = itemFilter;
     this.builders = builders || {};
 
-    this.summaryDataSubscription = this.summaryService.subscribe((summary) => {
-      this.summary = summary;
-      this.fetch();
-    }, this.onFetchError);
-  }
-
-  fetch() {
-    this.getUpdate().subscribe((resp: any) => {
-      this.updateData(resp, this.summary['executing_tasks'].filter(this.taskFilter));
+    this.summaryDataSubscription = this.summaryService.subscribe((tasks: any) => {
+      if (tasks) {
+        this.getUpdate().subscribe((resp: any) => {
+          this.updateData(resp, tasks.executing_tasks.filter(this.taskFilter));
+        }, this.onFetchError);
+      }
     }, this.onFetchError);
   }
 

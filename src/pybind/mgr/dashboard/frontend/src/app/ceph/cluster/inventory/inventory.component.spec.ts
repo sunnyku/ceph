@@ -7,7 +7,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { ToastrModule } from 'ngx-toastr';
 import { of } from 'rxjs';
 
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { OrchestratorService } from '../../../shared/api/orchestrator.service';
 import { SharedModule } from '../../../shared/shared.module';
 import { InventoryDevicesComponent } from './inventory-devices/inventory-devices.component';
@@ -27,13 +27,14 @@ describe('InventoryComponent', () => {
       RouterTestingModule,
       ToastrModule.forRoot()
     ],
+    providers: [i18nProviders],
     declarations: [InventoryComponent, InventoryDevicesComponent]
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(InventoryComponent);
     component = fixture.componentInstance;
-    orchService = TestBed.inject(OrchestratorService);
+    orchService = TestBed.get(OrchestratorService);
     spyOn(orchService, 'status').and.returnValue(of({ available: true }));
     spyOn(orchService, 'inventoryDeviceList').and.callThrough();
   });

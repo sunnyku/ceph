@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import * as _ from 'lodash';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { OsdService } from '../../../../shared/api/osd.service';
 import { ActionLabelsI18n, URLVerbs } from '../../../../shared/constants/app.constants';
@@ -15,7 +15,7 @@ import { TaskWrapperService } from '../../../../shared/services/task-wrapper.ser
   templateUrl: './osd-creation-preview-modal.component.html',
   styleUrls: ['./osd-creation-preview-modal.component.scss']
 })
-export class OsdCreationPreviewModalComponent {
+export class OsdCreationPreviewModalComponent implements OnInit {
   @Input()
   driveGroups: Object[] = [];
 
@@ -26,7 +26,7 @@ export class OsdCreationPreviewModalComponent {
   formGroup: CdFormGroup;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     public actionLabels: ActionLabelsI18n,
     private formBuilder: CdFormBuilder,
     private osdService: OsdService,
@@ -35,6 +35,8 @@ export class OsdCreationPreviewModalComponent {
     this.action = actionLabels.CREATE;
     this.createForm();
   }
+
+  ngOnInit() {}
 
   createForm() {
     this.formGroup = this.formBuilder.group({});
@@ -48,14 +50,15 @@ export class OsdCreationPreviewModalComponent {
         }),
         call: this.osdService.create(this.driveGroups)
       })
-      .subscribe({
-        error: () => {
+      .subscribe(
+        undefined,
+        () => {
           this.formGroup.setErrors({ cdSubmitButton: true });
         },
-        complete: () => {
+        () => {
           this.submitAction.emit();
-          this.activeModal.close();
+          this.bsModalRef.hide();
         }
-      });
+      );
   }
 }

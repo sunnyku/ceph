@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
 import { forkJoin as observableForkJoin } from 'rxjs';
 
 import { MgrModuleService } from '../../../../shared/api/mgr-module.service';
@@ -28,7 +29,8 @@ export class MgrModuleFormComponent extends CdForm implements OnInit {
     private router: Router,
     private formBuilder: CdFormBuilder,
     private mgrModuleService: MgrModuleService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private i18n: I18n
   ) {
     super();
   }
@@ -127,7 +129,7 @@ export class MgrModuleFormComponent extends CdForm implements OnInit {
       () => {
         this.notificationService.show(
           NotificationType.success,
-          $localize`Updated options for module '${this.moduleName}'.`
+          this.i18n('Updated options for module "{{name}}".', { name: this.moduleName })
         );
         this.goToListView();
       },

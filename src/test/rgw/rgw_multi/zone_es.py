@@ -8,7 +8,10 @@ import boto.s3.connection
 import dateutil.parser
 
 from nose.tools import eq_ as eq
-from itertools import zip_longest  # type: ignore
+try:
+    from itertools import izip_longest as zip_longest  # type: ignore
+except ImportError:
+    from itertools import zip_longest
 
 from .multisite import *
 from .tools import *

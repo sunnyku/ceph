@@ -177,10 +177,9 @@ int pidfh::open(std::string_view pid_file)
       derr << __func__ << ": failed to lock pidfile "
 	   << pf_path << "': " << cpp_strerror(errno) << dendl;
     }
-    const auto lock_errno = errno;
     ::close(pf_fd);
     reset();
-    return -lock_errno;
+    return -errno;
   }
   return 0;
 }

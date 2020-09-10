@@ -1,7 +1,5 @@
 overrides:
   ceph:
-    log-ignorelist:
-    - \(PG_AVAILABILITY\)
     conf:
       osd:
         osd_class_load_list: "*"

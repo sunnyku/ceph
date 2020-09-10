@@ -1,7 +1,4 @@
-overrides:
-  ceph:
-    log-ignorelist:
-      - Replacing daemon mds.a
+
 tasks:
   - cephfs_test_runner:
       modules:

@@ -15,7 +15,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <experimental/iterator>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -136,7 +135,7 @@ int ConfFile::parse_file(const std::string &fname,
   std::ifstream ifs{fname};
   const std::string buffer{std::istreambuf_iterator<char>(ifs),
 			   std::istreambuf_iterator<char>()};
-  if (parse_buffer(buffer, warnings)) {
+  if (load_from_buffer(buffer, warnings)) {
     return 0;
   } else {
     return -EINVAL;
@@ -247,9 +246,8 @@ struct IniGrammer : qi::grammar<Iterator, ConfFile(), Skipper>
 };
 }
 
-bool ConfFile::parse_buffer(std::string_view buf, std::ostream* err)
+bool ConfFile::load_from_buffer(std::string_view buf, std::ostream* err)
 {
-  assert(err);
   if (int err_pos = check_utf8(buf.data(), buf.size()); err_pos > 0) {
     *err << "parse error: invalid UTF-8 found at line "
 	 << std::count(buf.begin(), std::next(buf.begin(), err_pos), '\n') + 1;
@@ -272,7 +270,7 @@ int ConfFile::parse_bufferlist(ceph::bufferlist *bl,
   if (!warnings) {
     warnings = &oss;
   }
-  return parse_buffer({bl->c_str(), bl->length()}, warnings) ? 0 : -EINVAL;
+  return load_from_buffer({bl->c_str(), bl->length()}, warnings) ? 0 : -EINVAL;
 }
 
 int ConfFile::read(const std::string& section_name,
@@ -303,27 +301,6 @@ std::string ConfFile::normalize_key_name(std::string_view key)
   std::string k{key};
   boost::algorithm::trim_fill_if(k, "_", isspace);
   return k;
-}
-
-void ConfFile::check_old_style_section_names(const std::vector<std::string>& prefixes,
-					     std::ostream& os)
-{
-  // Warn about section names that look like old-style section names
-  std::vector<std::string> old_style_section_names;
-  for (auto& [name, section] : *this) {
-    for (auto& prefix : prefixes) {
-      if (name.find(prefix) == 0 && name.size() > 3 && name[3] != '.') {
-	old_style_section_names.push_back(name);
-      }
-    }
-  }
-  if (!old_style_section_names.empty()) {
-    os << "ERROR! old-style section name(s) found: ";
-    std::copy(std::begin(old_style_section_names),
-              std::end(old_style_section_names),
-              std::experimental::make_ostream_joiner(os, ", "));
-    os << ". Please use the new style section names that include a period.";
-  }
 }
 
 std::ostream &operator<<(std::ostream &oss, const ConfFile &cf)

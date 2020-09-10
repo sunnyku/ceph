@@ -11,15 +11,15 @@ import os
 import pkgutil
 import re
 import sys
-import urllib
 
-from functools import wraps
+import six
+from six.moves.urllib.parse import unquote
 
 # pylint: disable=wrong-import-position
 import cherrypy
 
 from ..security import Scope, Permission
-from ..tools import getargspec, TaskManager, get_request_body_params
+from ..tools import wraps, getargspec, TaskManager, get_request_body_params
 from ..exceptions import ScopeNotValid, PermissionNotValid
 from ..services.auth import AuthManager, JwtManager
 from ..plugins import PLUGIN_MANAGER
@@ -481,7 +481,6 @@ class BaseController(object):
         """
         An instance of this class represents an endpoint.
         """
-
         def __init__(self, ctrl, func):
             self.ctrl = ctrl
             self.inst = None
@@ -656,8 +655,8 @@ class BaseController(object):
         @wraps(func)
         def inner(*args, **kwargs):
             for key, value in kwargs.items():
-                if isinstance(value, str):
-                    kwargs[key] = urllib.parse.unquote(value)
+                if isinstance(value, six.text_type):
+                    kwargs[key] = unquote(value)
 
             # Process method arguments.
             params = get_request_body_params(cherrypy.request)
@@ -949,18 +948,4 @@ def UpdatePermission(func):  # noqa: N802
     :raises PermissionNotValid: If the permission is missing.
     """
     _set_func_permissions(func, Permission.UPDATE)
-    return func
-
-
-# Empty request body decorator
-
-def allow_empty_body(func):  # noqa: N802
-    """
-    The POST/PUT request methods decorated with ``@allow_empty_body``
-    are allowed to send empty request body.
-    """
-    try:
-        func._cp_config['tools.json_in.force'] = False
-    except (AttributeError, KeyError):
-        func._cp_config = {'tools.json_in.force': False}
     return func

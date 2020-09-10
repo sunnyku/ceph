@@ -1,4 +1,4 @@
-button.disabled {
-  cursor: default !important;
+.dropdown-menu > .disabled > a {
   pointer-events: auto;
+  cursor: default !important;
 }

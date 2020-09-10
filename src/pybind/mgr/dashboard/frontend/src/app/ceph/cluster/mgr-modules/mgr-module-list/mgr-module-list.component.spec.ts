@@ -3,11 +3,15 @@ import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testin
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 import { of as observableOf, throwError as observableThrowError } from 'rxjs';
 
-import { configureTestBed, PermissionHelper } from '../../../../../testing/unit-test-helper';
+import {
+  configureTestBed,
+  i18nProviders,
+  PermissionHelper
+} from '../../../../../testing/unit-test-helper';
 import { MgrModuleService } from '../../../../shared/api/mgr-module.service';
 import { TableActionsComponent } from '../../../../shared/datatable/table-actions/table-actions.component';
 import { CdTableSelection } from '../../../../shared/models/cd-table-selection';
@@ -29,17 +33,17 @@ describe('MgrModuleListComponent', () => {
       RouterTestingModule,
       SharedModule,
       HttpClientTestingModule,
-      NgbNavModule,
+      TabsModule.forRoot(),
       ToastrModule.forRoot()
     ],
-    providers: [MgrModuleService, NotificationService]
+    providers: [MgrModuleService, NotificationService, i18nProviders]
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(MgrModuleListComponent);
     component = fixture.componentInstance;
-    mgrModuleService = TestBed.inject(MgrModuleService);
-    notificationService = TestBed.inject(NotificationService);
+    mgrModuleService = TestBed.get(MgrModuleService);
+    notificationService = TestBed.get(NotificationService);
   });
 
   it('should create', () => {

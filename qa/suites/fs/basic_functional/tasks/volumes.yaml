@@ -1,9 +1,6 @@
 overrides:
   ceph:
-    conf:
-      mgr:
-        debug client: 10
-    log-ignorelist:
+    log-whitelist:
       - OSD full dropping all updates
       - OSD near full
       - pausewr flag
@@ -15,6 +12,5 @@ overrides:
 
 tasks:
   - cephfs_test_runner:
-      fail_on_skip: false
       modules:
         - tasks.cephfs.test_volumes

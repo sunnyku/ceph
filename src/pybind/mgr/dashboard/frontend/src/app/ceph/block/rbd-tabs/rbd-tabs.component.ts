@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { Permission } from '../../../shared/models/permissions';
@@ -9,11 +9,19 @@ import { AuthStorageService } from '../../../shared/services/auth-storage.servic
   templateUrl: './rbd-tabs.component.html',
   styleUrls: ['./rbd-tabs.component.scss']
 })
-export class RbdTabsComponent {
+export class RbdTabsComponent implements OnInit {
   grafanaPermission: Permission;
   url: string;
 
-  constructor(private authStorageService: AuthStorageService, public router: Router) {
+  constructor(private authStorageService: AuthStorageService, private router: Router) {
     this.grafanaPermission = this.authStorageService.getPermissions().grafana;
+  }
+
+  ngOnInit() {
+    this.url = this.router.url;
+  }
+
+  navigateTo(url: string) {
+    this.router.navigate([url]);
   }
 }

@@ -1,7 +1,7 @@
 
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - client session with non-allowable root
 
 tasks:
