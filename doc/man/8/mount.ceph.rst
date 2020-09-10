@@ -82,15 +82,15 @@ Basic
     path to file containing the secret key to use with CephX
 
 :command:`recover_session=<no|clean>`
-    Set auto reconnect mode in the case where the client is blacklisted. The
+    Set auto reconnect mode in the case where the client is blocklisted. The
     available modes are ``no`` and ``clean``. The default is ``no``.
 
     - ``no``: never attempt to reconnect when client detects that it has been
-       blacklisted. Blacklisted clients will not attempt to reconnect and
+       blocklisted. Blocklisted clients will not attempt to reconnect and
        their operations will fail too.
 
     - ``clean``: client reconnects to the Ceph cluster automatically when it
-      detects that it has been blacklisted. During reconnect, client drops
+      detects that it has been blocklisted. During reconnect, client drops
       dirty data/metadata, invalidates page caches and writable file handles.
       After reconnect, file locks become stale because the MDS loses track of
       them. If an inode contains any stale file locks, read/write on the inode
@@ -193,8 +193,11 @@ Mount only part of the namespace/file system::
     mount.ceph :/some/directory/in/cephfs /mnt/mycephfs
 
 Mount non-default FS, in case cluster has multiple FSs::
-
-    mount -t ceph :/ /mnt/mycephfs2 -o mds_namespace=mycephfs2
+    mount -t ceph :/ /mnt/mycephfs2 -o fs=mycephfs2
+    
+    or
+    
+    mount -t ceph :/ /mnt/mycephfs2 -o mds_namespace=mycephfs2 # This option name is deprecated.
 
 Pass the monitor host's IP address, optionally::
 

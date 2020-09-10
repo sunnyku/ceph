@@ -3,7 +3,7 @@
 SCRIPT_NAME=$(basename ${BASH_SOURCE[0]})
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CEPHADM_SRC_DIR=${SCRIPT_DIR}/../../../src/cephadm
-CORPUS_COMMIT=97996ce562731a7260ab9d90649af3ff4b5fff3f
+CORPUS_COMMIT=9cd9ad020d93b0b420924fec55da307aff8bd422
 
 [ -z "$SUDO" ] && SUDO=sudo
 if [ -z "$CEPHADM" ]; then
@@ -21,7 +21,6 @@ if [ -z "$PYTHON_KLUDGE" ]; then
     # see which pythons we should test with
     PYTHONS=""
     which python3 && PYTHONS="$PYTHONS python3"
-    which python2 && PYTHONS="$PYTHONS python2"
     echo "PYTHONS $PYTHONS"
     if [ -z "$PYTHONS" ]; then
 	echo "No PYTHONS found!"

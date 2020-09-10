@@ -90,8 +90,7 @@ static void log_subop_stats(
   PerfCounters *logger,
   OpRequestRef op, int subop)
 {
-  utime_t now = ceph_clock_now();
-  utime_t latency = now;
+  utime_t latency = ceph_clock_now();
   latency -= op->get_req()->get_recv_stamp();
 
 
@@ -882,7 +881,7 @@ void ReplicatedBackend::_do_pull_response(OpRequestRef op)
     reply->pgid = get_info().pgid;
     reply->map_epoch = m->map_epoch;
     reply->min_epoch = m->min_epoch;
-    reply->set_pulls(&replies);
+    reply->set_pulls(std::move(replies));
     reply->compute_cost(cct);
 
     t.register_on_complete(
@@ -1847,7 +1846,7 @@ bool ReplicatedBackend::handle_pull_response(
 		   &usable_intervals,
 		   &usable_data);
   data_included = usable_intervals;
-  data.claim(usable_data);
+  data = std::move(usable_data);
 
 
   pi.recovery_progress = pop.after_progress;
@@ -2004,7 +2003,7 @@ void ReplicatedBackend::send_pulls(int prio, map<pg_shard_t, vector<PullOp> > &p
     msg->pgid = get_parent()->primary_spg_t();
     msg->map_epoch = get_osdmap_epoch();
     msg->min_epoch = get_parent()->get_last_peering_reset_epoch();
-    msg->set_pulls(&i->second);
+    msg->set_pulls(std::move(i->second));
     msg->compute_cost(cct);
     get_parent()->send_message_osd_cluster(msg, con);
   }

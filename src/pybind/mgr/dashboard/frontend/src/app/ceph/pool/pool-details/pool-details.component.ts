@@ -1,8 +1,6 @@
-import { Component, Input, OnChanges, ViewChild } from '@angular/core';
+import { Component, Input, OnChanges } from '@angular/core';
 
-import { I18n } from '@ngx-translate/i18n-polyfill';
-import * as _ from 'lodash';
-import { TabsetComponent } from 'ngx-bootstrap/tabs';
+import _ from 'lodash';
 
 import { PoolService } from '../../../shared/api/pool.service';
 import { CdTableColumn } from '../../../shared/models/cd-table-column';
@@ -23,40 +21,38 @@ export class PoolDetailsComponent implements OnChanges {
   permissions: Permissions;
   @Input()
   cacheTiers: any[];
-  @ViewChild(TabsetComponent)
-  tabsetChild: TabsetComponent;
   selectedPoolConfiguration: RbdConfigurationEntry[];
 
-  constructor(private i18n: I18n, private poolService: PoolService) {
+  constructor(private poolService: PoolService) {
     this.cacheTierColumns = [
       {
         prop: 'pool_name',
-        name: this.i18n('Name'),
+        name: $localize`Name`,
         flexGrow: 3
       },
       {
         prop: 'cache_mode',
-        name: this.i18n('Cache Mode'),
+        name: $localize`Cache Mode`,
         flexGrow: 2
       },
       {
         prop: 'cache_min_evict_age',
-        name: this.i18n('Min Evict Age'),
+        name: $localize`Min Evict Age`,
         flexGrow: 2
       },
       {
         prop: 'cache_min_flush_age',
-        name: this.i18n('Min Flush Age'),
+        name: $localize`Min Flush Age`,
         flexGrow: 2
       },
       {
         prop: 'target_max_bytes',
-        name: this.i18n('Target Max Bytes'),
+        name: $localize`Target Max Bytes`,
         flexGrow: 2
       },
       {
         prop: 'target_max_objects',
-        name: this.i18n('Target Max Objects'),
+        name: $localize`Target Max Objects`,
         flexGrow: 2
       }
     ];

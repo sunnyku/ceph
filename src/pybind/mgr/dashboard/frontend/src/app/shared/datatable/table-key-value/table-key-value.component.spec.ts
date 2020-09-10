@@ -2,8 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 
+import { NgbDropdownModule, NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
-import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
 
 import { configureTestBed } from '../../../../testing/unit-test-helper';
 import { ComponentsModule } from '../../components/components.module';
@@ -25,8 +25,9 @@ describe('TableKeyValueComponent', () => {
       NgxDatatableModule,
       ComponentsModule,
       RouterTestingModule,
-      BsDropdownModule.forRoot(),
-      PipesModule
+      NgbDropdownModule,
+      PipesModule,
+      NgbTooltipModule
     ]
   });
 
@@ -166,7 +167,7 @@ describe('TableKeyValueComponent', () => {
     let datePipe: CdDatePipe;
 
     beforeEach(() => {
-      datePipe = TestBed.get(CdDatePipe);
+      datePipe = TestBed.inject(CdDatePipe);
       spyOn(datePipe, 'transform').and.callThrough();
     });
 

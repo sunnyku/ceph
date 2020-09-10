@@ -13,6 +13,7 @@
 #include "rgw_http_client.h"
 #include "rgw_sal.h"
 
+#include "rgw_datalog.h"
 #include "rgw_sync_module.h"
 #include "rgw_sync_trace.h"
 #include "rgw_sync_policy.h"
@@ -348,7 +349,6 @@ struct RGWDataSyncCtx {
 };
 
 class RGWRados;
-class RGWDataChangesLogInfo;
 
 class RGWRemoteDataLog : public RGWCoroutinesManager {
   const DoutPrefixProvider *dpp;
@@ -655,7 +655,7 @@ public:
 
   static string status_oid(const rgw_zone_id& source_zone, const rgw_bucket_sync_pair_info& bs);
   static string obj_status_oid(const rgw_bucket_sync_pipe& sync_pipe,
-                               const rgw_zone_id& source_zone, const rgw_obj& obj); /* specific source obj sync status,
+                               const rgw_zone_id& source_zone, const rgw::sal::RGWObject* obj); /* specific source obj sync status,
                                                                                        can be used by sync modules */
 
   // implements DoutPrefixProvider

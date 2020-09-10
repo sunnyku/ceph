@@ -15,7 +15,7 @@ class ProgressContext;
 struct MockImageWatcher {
   MOCK_METHOD0(is_registered, bool());
   MOCK_METHOD0(is_unregistered, bool());
-  MOCK_METHOD0(is_blacklisted, bool());
+  MOCK_METHOD0(is_blocklisted, bool());
   MOCK_METHOD0(unregister_watch, void());
   MOCK_METHOD1(flush, void(Context *));
 
@@ -25,7 +25,7 @@ struct MockImageWatcher {
   MOCK_METHOD0(notify_released_lock, void());
   MOCK_METHOD0(notify_request_lock, void());
 
-  MOCK_METHOD3(notify_quiesce, void(uint64_t, ProgressContext &, Context *));
+  MOCK_METHOD3(notify_quiesce, void(uint64_t *, ProgressContext &, Context *));
   MOCK_METHOD2(notify_unquiesce, void(uint64_t, Context *));
 };
 

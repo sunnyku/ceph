@@ -28,6 +28,13 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
+            "allowedCommonJsDependencies": [
+              "chart.js",
+              "core-js",
+              "file-saver",
+              "lodash"
+            ],
+            "i18nLocale": "en",
             "aot": true,
             "i18nMissingTranslation": "ignore",
             "outputPath": "dist",
@@ -51,16 +58,11 @@
             ],
             "styles": [
               "node_modules/ngx-toastr/toastr.css",
-              "node_modules/ngx-bootstrap/datepicker/bs-datepicker.css",
-              "src/styles.scss",
-              "src/styles/vendor.overrides.scss"
+              "src/styles.scss"
             ],
-            "scripts": [
-              "node_modules/chart.js/dist/Chart.bundle.js"
-            ],
+            "scripts": ["node_modules/chart.js/dist/Chart.bundle.js"],
             "stylePreprocessorOptions": {
               "includePaths": [
-                "src/styles",
                 "src"
               ]
             }
@@ -172,11 +174,11 @@
             "pt": {
               "browserTarget": "ceph-dashboard:build:pt"
             },
-            "zh-CN": {
-              "browserTarget": "ceph-dashboard:build:zh-CN"
+            "zh-Hans": {
+              "browserTarget": "ceph-dashboard:build:zh-Hans"
             },
-            "zh-TW": {
-              "browserTarget": "ceph-dashboard:build:zh-TW"
+            "zh-Hant": {
+              "browserTarget": "ceph-dashboard:build:zh-Hant"
             }
           }
         },
@@ -191,7 +193,8 @@
           "options": {
             "tsConfig": [
               "src/tsconfig.app.json",
-              "tsconfig.spec.json"
+              "tsconfig.spec.json",
+              "cypress/tsconfig.json"
             ],
             "exclude": [
               "**/node_modules/**"

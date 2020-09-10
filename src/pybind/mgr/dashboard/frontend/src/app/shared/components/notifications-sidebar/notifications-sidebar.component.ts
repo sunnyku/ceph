@@ -9,8 +9,8 @@ import {
 } from '@angular/core';
 
 import { Mutex } from 'async-mutex';
-import * as _ from 'lodash';
-import * as moment from 'moment';
+import _ from 'lodash';
+import moment from 'moment';
 import { Subscription } from 'rxjs';
 
 import { Icons } from '../../enum/icons.enum';
@@ -108,15 +108,12 @@ export class NotificationsSidebarComponent implements OnInit, OnDestroy {
     );
 
     this.subs.add(
-      this.summaryService.subscribe((data: any) => {
-        if (!data) {
-          return;
-        }
-        this._handleTasks(data.executing_tasks);
+      this.summaryService.subscribe((summary) => {
+        this._handleTasks(summary.executing_tasks);
 
         this.mutex.acquire().then((release) => {
           _.filter(
-            data.finished_tasks,
+            summary.finished_tasks,
             (task: FinishedTask) => !this.last_task || moment(task.end_time).isAfter(this.last_task)
           ).forEach((task) => {
             const config = this.notificationService.finishedTaskToNotification(task, task.success);

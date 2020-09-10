@@ -1,6 +1,5 @@
 import { Component, Input, OnChanges, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { I18n } from '@ngx-translate/i18n-polyfill';
 import {
   ITreeOptions,
   TreeComponent,
@@ -8,7 +7,7 @@ import {
   TreeNode,
   TREE_ACTIONS
 } from 'angular-tree-component';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import { TableComponent } from '../../../shared/datatable/table/table.component';
 import { Icons } from '../../../shared/enum/icons.enum';
@@ -61,7 +60,6 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
   };
 
   constructor(
-    private i18n: I18n,
     private iscsiBackstorePipe: IscsiBackstorePipe,
     private booleanTextPipe: BooleanTextPipe
   ) {}
@@ -70,19 +68,19 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
     this.columns = [
       {
         prop: 'displayName',
-        name: this.i18n('Name'),
+        name: $localize`Name`,
         flexGrow: 1,
         cellTemplate: this.highlightTpl
       },
       {
         prop: 'current',
-        name: this.i18n('Current'),
+        name: $localize`Current`,
         flexGrow: 1,
         cellTemplate: this.highlightTpl
       },
       {
         prop: 'default',
-        name: this.i18n('Default'),
+        name: $localize`Default`,
         flexGrow: 1,
         cellTemplate: this.highlightTpl
       }
@@ -280,7 +278,7 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
       const tempData = this.metadata[node.data.cdId] || {};
 
       if (node.data.cdId === 'root') {
-        this.columns[2].isHidden = false;
+        this.detailTable?.toggleColumn({ prop: 'default', isHidden: true });
         this.data = _.map(this.settings.target_default_controls, (value, key) => {
           value = this.format(value);
           return {
@@ -300,7 +298,7 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
           });
         }
       } else if (node.data.cdId.toString().startsWith('disk_')) {
-        this.columns[2].isHidden = false;
+        this.detailTable?.toggleColumn({ prop: 'default', isHidden: true });
         this.data = _.map(this.settings.disk_default_controls[tempData.backstore], (value, key) => {
           value = this.format(value);
           return {
@@ -326,7 +324,7 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
           }
         });
       } else {
-        this.columns[2].isHidden = true;
+        this.detailTable?.toggleColumn({ prop: 'default', isHidden: false });
         this.data = _.map(tempData, (value, key) => {
           return {
             displayName: key,
@@ -339,9 +337,7 @@ export class IscsiTargetDetailsComponent implements OnChanges, OnInit {
       this.data = undefined;
     }
 
-    if (this.detailTable) {
-      this.detailTable.updateColumns();
-    }
+    this.detailTable?.updateColumns();
   }
 
   onUpdateData() {

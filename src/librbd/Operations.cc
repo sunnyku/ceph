@@ -6,7 +6,6 @@
 #include "common/dout.h"
 #include "common/errno.h"
 #include "common/perf_counters.h"
-#include "common/WorkQueue.h"
 #include "osdc/Striper.h"
 
 #include "librbd/ExclusiveLock.h"
@@ -17,6 +16,7 @@
 #include "librbd/Types.h"
 #include "librbd/Utils.h"
 #include "librbd/api/Config.h"
+#include "librbd/asio/ContextWQ.h"
 #include "librbd/journal/DisabledPolicy.h"
 #include "librbd/journal/StandardPolicy.h"
 #include "librbd/operation/DisableFeaturesRequest.h"
@@ -38,7 +38,7 @@
 #include "librbd/operation/SnapshotLimitRequest.h"
 #include "librbd/operation/SparsifyRequest.h"
 #include <set>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/scope_exit.hpp>
 
 #define dout_subsys ceph_subsys_rbd
@@ -46,6 +46,8 @@
 #define dout_prefix *_dout << "librbd::Operations: "
 
 namespace librbd {
+
+using namespace boost::placeholders;
 
 namespace {
 
@@ -232,7 +234,7 @@ struct C_InvokeAsyncRequest : public Context {
     ldout(cct, 20) << __func__ << ": r=" << r << dendl;
 
     if (r < 0) {
-      complete(r == -EBLACKLISTED ? -EBLACKLISTED : -EROFS);
+      complete(r == -EBLOCKLISTED ? -EBLOCKLISTED : -EROFS);
       return;
     }
 
@@ -687,7 +689,8 @@ void Operations<I>::execute_resize(uint64_t size, bool allow_shrink, ProgressCon
 
 template <typename I>
 int Operations<I>::snap_create(const cls::rbd::SnapshotNamespace &snap_namespace,
-			       const std::string& snap_name) {
+			       const std::string& snap_name, uint64_t flags,
+                               ProgressContext &prog_ctx) {
   if (m_image_ctx.read_only) {
     return -EROFS;
   }
@@ -698,7 +701,7 @@ int Operations<I>::snap_create(const cls::rbd::SnapshotNamespace &snap_namespace
   }
 
   C_SaferCond ctx;
-  snap_create(snap_namespace, snap_name, &ctx);
+  snap_create(snap_namespace, snap_name, flags, prog_ctx, &ctx);
   r = ctx.wait();
 
   if (r < 0) {
@@ -711,8 +714,8 @@ int Operations<I>::snap_create(const cls::rbd::SnapshotNamespace &snap_namespace
 
 template <typename I>
 void Operations<I>::snap_create(const cls::rbd::SnapshotNamespace &snap_namespace,
-				const std::string& snap_name,
-				Context *on_finish) {
+				const std::string& snap_name, uint64_t flags,
+                                ProgressContext &prog_ctx, Context *on_finish) {
   CephContext *cct = m_image_ctx.cct;
   ldout(cct, 5) << this << " " << __func__ << ": snap_name=" << snap_name
                 << dendl;
@@ -730,22 +733,15 @@ void Operations<I>::snap_create(const cls::rbd::SnapshotNamespace &snap_namespac
   }
   m_image_ctx.image_lock.unlock_shared();
 
-  auto prog_ctx = new NoOpProgressContext();
-  on_finish = new LambdaContext(
-    [prog_ctx, on_finish](int r) {
-      delete prog_ctx;
-      on_finish->complete(r);
-    });
-
   uint64_t request_id = ++m_async_request_seq;
   C_InvokeAsyncRequest<I> *req = new C_InvokeAsyncRequest<I>(
     m_image_ctx, "snap_create", exclusive_lock::OPERATION_REQUEST_TYPE_GENERAL,
     true,
     boost::bind(&Operations<I>::execute_snap_create, this, snap_namespace, snap_name,
-		_1, 0, false, boost::ref(*prog_ctx)),
+		_1, 0, flags, boost::ref(prog_ctx)),
     boost::bind(&ImageWatcher<I>::notify_snap_create, m_image_ctx.image_watcher,
-                request_id, snap_namespace, snap_name, boost::ref(*prog_ctx),
-                _1),
+                request_id, snap_namespace, snap_name, flags,
+                boost::ref(prog_ctx), _1),
     {-EEXIST}, on_finish);
   req->send();
 }
@@ -755,7 +751,7 @@ void Operations<I>::execute_snap_create(const cls::rbd::SnapshotNamespace &snap_
 					const std::string &snap_name,
                                         Context *on_finish,
                                         uint64_t journal_op_tid,
-                                        bool skip_object_map,
+                                        uint64_t flags,
                                         ProgressContext &prog_ctx) {
   ceph_assert(ceph_mutex_is_locked(m_image_ctx.owner_lock));
   ceph_assert(m_image_ctx.exclusive_lock == nullptr ||
@@ -778,12 +774,10 @@ void Operations<I>::execute_snap_create(const cls::rbd::SnapshotNamespace &snap_
   }
   m_image_ctx.image_lock.unlock_shared();
 
-  uint64_t request_id = ++m_async_request_seq;
   operation::SnapshotCreateRequest<I> *req =
     new operation::SnapshotCreateRequest<I>(
       m_image_ctx, new C_NotifyUpdate<I>(m_image_ctx, on_finish),
-      snap_namespace, snap_name, journal_op_tid, request_id, skip_object_map,
-      prog_ctx);
+      snap_namespace, snap_name, journal_op_tid, flags, prog_ctx);
   req->send();
 }
 

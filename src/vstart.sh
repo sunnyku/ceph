@@ -162,7 +162,7 @@ rgw_frontend="beast"
 rgw_compression=""
 lockdep=${LOCKDEP:-1}
 spdk_enabled=0 #disable SPDK by default
-pci_id=""
+zoned_enabled=0
 
 with_mgr_dashboard=true
 if [[ "$(get_cmake_variable WITH_MGR_DASHBOARD_FRONTEND)" != "ON" ]] ||
@@ -221,13 +221,14 @@ usage=$usage"\t--short: short object names only; necessary for ext4 dev\n"
 usage=$usage"\t--nolockdep disable lockdep\n"
 usage=$usage"\t--multimds <count> allow multimds with maximum active count\n"
 usage=$usage"\t--without-dashboard: do not run using mgr dashboard\n"
-usage=$usage"\t--bluestore-spdk <vendor>:<device>: enable SPDK and specify the PCI-ID of the NVME device\n"
+usage=$usage"\t--bluestore-spdk: enable SPDK and with a comma-delimited list of PCI-IDs of NVME device (e.g, 0000:81:00.0)\n"
 usage=$usage"\t--msgr1: use msgr1 only\n"
 usage=$usage"\t--msgr2: use msgr2 only\n"
 usage=$usage"\t--msgr21: use msgr2 and msgr1\n"
 usage=$usage"\t--crimson: use crimson-osd instead of ceph-osd\n"
 usage=$usage"\t--osd-args: specify any extra osd specific options\n"
 usage=$usage"\t--bluestore-devs: comma-separated list of blockdevs to use for bluestore\n"
+usage=$usage"\t--bluestore-zoned: blockdevs listed by --bluestore-devs are zoned devices (HM-SMR HDD or ZNS SSD)\n"
 usage=$usage"\t--inc-osd: append some more osds into existing vcluster\n"
 usage=$usage"\t--cephadm: enable cephadm orchestrator with ~/.ssh/id_rsa[.pub]\n"
 usage=$usage"\t--no-parallel: dont start all OSDs in parallel\n"
@@ -425,7 +426,7 @@ case $1 in
         ;;
     --bluestore-spdk )
         [ -z "$2" ] && usage_exit
-        pci_id="$2"
+        IFS=',' read -r -a bluestore_spdk_dev <<< "$2"
         spdk_enabled=1
         shift
         ;;
@@ -438,6 +439,9 @@ case $1 in
             fi
         done
         shift
+        ;;
+    --bluestore-zoned )
+        zoned_enabled=1
         ;;
     * )
         usage_exit
@@ -510,14 +514,6 @@ wconf() {
     fi
 }
 
-get_pci_selector() {
-    which_pci=$1
-    lspci -mm -n -D -d $pci_id | cut -d ' ' -f 1 | sed -n $which_pci'p'
-}
-
-get_pci_selector_num() {
-    lspci -mm -n -D -d $pci_id | cut -d' ' -f 1 | wc -l
-}
 
 do_rgw_conf() {
 
@@ -632,14 +628,6 @@ EOF
     fi
     if [ "$objectstore" == "bluestore" ]; then
         if [ "$spdk_enabled" -eq 1 ]; then
-            if [ "$(get_pci_selector_num)" -eq 0 ]; then
-                echo "Not find the specified NVME device, please check." >&2
-                exit
-            fi
-            if [ $(get_pci_selector_num) -lt $CEPH_NUM_OSD ]; then
-                echo "OSD number ($CEPH_NUM_OSD) is greater than NVME SSD number ($(get_pci_selector_num)), please check." >&2
-                exit
-            fi
             BLUESTORE_OPTS="        bluestore_block_db_path = \"\"
         bluestore_block_db_size = 0
         bluestore_block_db_create = false
@@ -654,6 +642,14 @@ EOF
         bluestore block wal path = $CEPH_DEV_DIR/osd\$id/block.wal.file
         bluestore block wal size = 1048576000
         bluestore block wal create = true"
+        fi
+        if [ "$zoned_enabled" -eq 1 ]; then
+            BLUESTORE_OPTS="${BLUESTORE_OPTS}
+        bluestore min alloc size = 65536
+        bluestore prefer deferred size = 0
+        bluestore prefer deferred size hdd = 0
+        bluestore prefer deferred size ssd = 0
+        bluestore allocator = zoned"
         fi
     fi
     wconf <<EOF
@@ -829,7 +825,7 @@ start_osd() {
 EOF
             if [ "$spdk_enabled" -eq 1 ]; then
                 wconf <<EOF
-        bluestore_block_path = spdk:$(get_pci_selector $((osd+1)))
+        bluestore_block_path = spdk:${bluestore_spdk_dev[$osd]}
 EOF
             fi
 
@@ -975,11 +971,17 @@ EOF
 
     if [ "$cephadm" -eq 1 ]; then
         debug echo Enabling cephadm orchestrator
+	if [ "$new" -eq 1 ]; then
+		digest=$(curl -s \
+		https://registry.hub.docker.com/v2/repositories/ceph/daemon-base/tags/latest-master-devel \
+		| jq -r '.images[].digest')
+		ceph_adm config set global container_image "docker.io/ceph/daemon-base@$digest"
+	fi
         ceph_adm config-key set mgr/cephadm/ssh_identity_key -i ~/.ssh/id_rsa
         ceph_adm config-key set mgr/cephadm/ssh_identity_pub -i ~/.ssh/id_rsa.pub
         ceph_adm mgr module enable cephadm
         ceph_adm orch set backend cephadm
-        ceph_adm orch host add $HOSTNAME
+        ceph_adm orch host add "$(hostname)"
         ceph_adm orch apply crash '*'
         ceph_adm config set mgr mgr/cephadm/allow_ptrace true
     fi
@@ -1051,15 +1053,33 @@ EOF
 }
 
 # Ganesha Daemons requires nfs-ganesha nfs-ganesha-ceph nfs-ganesha-rados-grace
-# (version 2.7.6-2 and above) packages installed. On Fedora>=30 these packages
-# can be installed directly with 'dnf'. For CentOS>=8 the packages need to be
-# downloaded first from  https://download.nfs-ganesha.org/2.7/2.7.6/CentOS/ and
-# then install it. Similarly for Ubuntu 16.04 follow the instructions on
-# https://launchpad.net/~nfs-ganesha/+archive/ubuntu/nfs-ganesha-2.7
+# nfs-ganesha-rados-urls (version 3.3 and above) packages installed. On
+# Fedora>=31 these packages can be installed directly with 'dnf'. For CentOS>=8
+# the packages are available at
+# https://wiki.centos.org/SpecialInterestGroup/Storage
+# Similarly for Ubuntu>=16.04 follow the instructions on
+# https://launchpad.net/~nfs-ganesha
 
 start_ganesha() {
+    cluster_id="vstart"
     GANESHA_PORT=$(($CEPH_PORT + 4000))
     local ganesha=0
+    test_user="ganesha-$cluster_id"
+    pool_name="nfs-ganesha"
+    namespace=$cluster_id
+    url="rados://$pool_name/$namespace/conf-nfs.$test_user"
+
+    prun ceph_adm auth get-or-create client.$test_user \
+        mon "allow r" \
+        osd "allow rw pool=$pool_name namespace=$namespace, allow rw tag cephfs data=a" \
+        mds "allow rw path=/" \
+        >> "$keyring_fn"
+
+    ceph_adm mgr module enable test_orchestrator
+    ceph_adm orch set backend test_orchestrator
+    ceph_adm test_orchestrator load_data -i $CEPH_ROOT/src/pybind/mgr/test_orchestrator/dummy_data.json
+    prun ceph_adm nfs cluster create cephfs $cluster_id
+    prun ceph_adm nfs export create cephfs "a" $cluster_id "/cephfs"
 
     for name in a b c d e f g h i j k l m n o p
     do
@@ -1068,18 +1088,8 @@ start_ganesha() {
         port=$(($GANESHA_PORT + ganesha))
         ganesha=$(($ganesha + 1))
         ganesha_dir="$CEPH_DEV_DIR/ganesha.$name"
-        test_user="ganesha-$name"
-        pool_name="nfs-ganesha"
-        namespace=$name
-
         prun rm -rf $ganesha_dir
         prun mkdir -p $ganesha_dir
-        prun ceph_adm auth get-or-create client.$test_user \
-            mon "allow r" \
-            osd "allow rw pool=$pool_name namespace=$namespace, allow rw tag cephfs data=a" \
-            mds "allow rw path=/" \
-            >> "$keyring_fn"
-        prun ceph_adm nfs cluster create cephfs $name
 
         echo "NFS_CORE_PARAM {
             Enable_NLM = false;
@@ -1088,10 +1098,8 @@ start_ganesha() {
             NFS_Port = $port;
         }
 
-        CACHEINODE {
+        MDCACHE {
            Dir_Chunk = 0;
-           NParts = 1;
-           Cache_Size = 1;
         }
 
         NFSv4 {
@@ -1099,7 +1107,7 @@ start_ganesha() {
            Minor_Versions = 1, 2;
         }
 
-        %url rados://$pool_name/$namespace/conf-nfs
+        %url $url
 
         RADOS_KV {
            pool = $pool_name;
@@ -1110,39 +1118,37 @@ start_ganesha() {
 
         RADOS_URLS {
 	   Userid = $test_user;
-        }" > "$ganesha_dir/ganesha.conf"
+	   watch_url = \"$url\";
+        }" > "$ganesha_dir/ganesha-$name.conf"
 	wconf <<EOF
 [ganesha.$name]
         host = $HOSTNAME
         ip = $IP
         port = $port
         ganesha data = $ganesha_dir
-        pid file = $ganesha_dir/ganesha.pid
+        pid file = $ganesha_dir/ganesha-$name.pid
 EOF
 
-        prun ceph_adm nfs export create cephfs "a" "/cephfs" $name
-        prun ganesha-rados-grace -p $pool_name -n $namespace add $name
-        prun ganesha-rados-grace -p $pool_name -n $namespace
+        prun env CEPH_CONF="${conf_fn}" ganesha-rados-grace --userid $test_user -p $pool_name -n $namespace add $name
+        prun env CEPH_CONF="${conf_fn}" ganesha-rados-grace --userid $test_user -p $pool_name -n $namespace
 
-        prun env CEPH_CONF="${conf_fn}" /usr/bin/ganesha.nfsd -L "$ganesha_dir/ganesha.log" -f "$ganesha_dir/ganesha.conf" -p "$ganesha_dir/ganesha.pid" -N NIV_DEBUG
+        prun env CEPH_CONF="${conf_fn}" ganesha.nfsd -L "$CEPH_OUT_DIR/ganesha-$name.log" -f "$ganesha_dir/ganesha-$name.conf" -p "$CEPH_OUT_DIR/ganesha-$name.pid" -N NIV_DEBUG
 
         # Wait few seconds for grace period to be removed
         sleep 2
 
-        prun ganesha-rados-grace -p $pool_name -n $namespace
+        prun env CEPH_CONF="${conf_fn}" ganesha-rados-grace --userid $test_user -p $pool_name -n $namespace
 
         if $with_mgr_dashboard; then
-            $CEPH_BIN/rados -p $pool_name put "conf-$name" "$ganesha_dir/ganesha.conf"
+            $CEPH_BIN/rados -p $pool_name put "conf-$name" "$ganesha_dir/ganesha-$name.conf"
         fi
 
-        echo "$test_user started on port: $port"
+        echo "$test_user ganesha daemon $name started on port: $port"
     done
 
     if $with_mgr_dashboard; then
         ceph_adm dashboard set-ganesha-clusters-rados-pool-namespace $pool_name
     fi
-
-    echo "Mount using: mount -t nfs -o port=<ganesha-port-num> <address>:<ganesha pseudo path>"
 }
 
 if [ "$debug" -eq 0 ]; then
@@ -1186,7 +1192,7 @@ fi
 [ -d $CEPH_OUT_DIR  ] || mkdir -p $CEPH_OUT_DIR
 [ -d $CEPH_DEV_DIR  ] || mkdir -p $CEPH_DEV_DIR
 if [ $inc_osd_num -eq 0 ]; then
-    $SUDO rm -rf $CEPH_OUT_DIR/*
+    $SUDO find "$CEPH_OUT_DIR" -type f -delete
 fi
 [ -d gmon ] && $SUDO rm -rf gmon/*
 
@@ -1298,6 +1304,11 @@ mds_debug_scatterstat = true
 mds_verify_scatter = true
 EOF
     fi
+    if [ "$cephadm" -gt 0 ]; then
+        debug echo Setting mon public_network ...
+        public_network=$(ip route list | grep -w "$IP" | awk '{print $1}')
+        ceph_adm config set mon public_network $public_network
+    fi
 fi
 
 if [ $CEPH_NUM_MGR -gt 0 ]; then
@@ -1351,7 +1362,17 @@ fi
 
 # Ganesha Daemons
 if [ $GANESHA_DAEMON_NUM -gt 0 ]; then
-    start_ganesha
+    pseudo_path="/cephfs"
+    if [ "$cephadm" -gt 0 ]; then
+        cluster_id="vstart"
+        prun ceph_adm nfs cluster create cephfs $cluster_id
+        prun ceph_adm nfs export create cephfs "a" $cluster_id $pseudo_path
+        port="2049"
+    else
+        start_ganesha
+        port="<ganesha-port-num>"
+    fi
+    echo "Mount using: mount -t nfs -o port=$port $IP:$pseudo_path mountpoint"
 fi
 
 do_cache() {

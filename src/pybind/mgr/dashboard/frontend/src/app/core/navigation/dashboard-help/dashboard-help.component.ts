@@ -1,11 +1,11 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 
-import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
+import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 
 import { Icons } from '../../../shared/enum/icons.enum';
-import { CephReleaseNamePipe } from '../../../shared/pipes/ceph-release-name.pipe';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { SummaryService } from '../../../shared/services/summary.service';
+import { DocService } from '../../../shared/services/doc.service';
+import { ModalService } from '../../../shared/services/modal.service';
 import { AboutComponent } from '../about/about.component';
 
 @Component({
@@ -17,34 +17,23 @@ export class DashboardHelpComponent implements OnInit {
   @ViewChild('docsForm', { static: true })
   docsFormElement: any;
   docsUrl: string;
-  modalRef: BsModalRef;
+  modalRef: NgbModalRef;
   icons = Icons;
 
   constructor(
-    private summaryService: SummaryService,
-    private cephReleaseNamePipe: CephReleaseNamePipe,
-    private modalService: BsModalService,
-    private authStorageService: AuthStorageService
+    private modalService: ModalService,
+    private authStorageService: AuthStorageService,
+    private docService: DocService
   ) {}
 
   ngOnInit() {
-    const subs = this.summaryService.subscribe((summary: any) => {
-      if (!summary) {
-        return;
-      }
-
-      const releaseName = this.cephReleaseNamePipe.transform(summary.version);
-      this.docsUrl = `http://docs.ceph.com/docs/${releaseName}/mgr/dashboard/`;
-
-      setTimeout(() => {
-        subs.unsubscribe();
-      }, 0);
+    this.docService.subscribeOnce('dashboard', (url: string) => {
+      this.docsUrl = url;
     });
   }
 
   openAboutModal() {
-    this.modalRef = this.modalService.show(AboutComponent);
-    this.modalRef.setClass('modal-lg');
+    this.modalRef = this.modalService.show(AboutComponent, null, { size: 'lg' });
   }
 
   goToApiDocs() {

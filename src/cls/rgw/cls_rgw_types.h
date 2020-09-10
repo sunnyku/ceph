@@ -304,7 +304,7 @@ void decode_packed_val(T& val, ceph::buffer::list::const_iterator& bl)
       }
       break;
     default:
-      throw ceph::buffer::error();
+      throw ceph::buffer::malformed_input();
   }
 }
 
@@ -729,13 +729,10 @@ inline std::string to_string(const cls_rgw_reshard_status status)
   switch (status) {
   case cls_rgw_reshard_status::NOT_RESHARDING:
     return "not-resharding";
-    break;
   case cls_rgw_reshard_status::IN_PROGRESS:
     return "in-progress";
-    break;
   case cls_rgw_reshard_status::DONE:
     return "done";
-    break;
   };
   return "Unknown reshard status";
 }

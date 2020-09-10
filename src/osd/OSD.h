@@ -19,6 +19,7 @@
 
 #include "msg/Dispatcher.h"
 
+#include "common/async/context_pool.h"
 #include "common/Timer.h"
 #include "common/WorkQueue.h"
 #include "common/AsyncReserver.h"
@@ -90,7 +91,6 @@ class TestOpsSocketHook;
 struct C_FinishSplits;
 struct C_OpenPGs;
 class LogChannel;
-class MOSDOp;
 
 class MOSDPGCreate2;
 class MOSDPGQuery;
@@ -523,6 +523,7 @@ public:
   }
 
   // -- Objecter, for tiering reads/writes from/to other OSDs --
+  ceph::async::io_context_pool& poolctx;
   std::unique_ptr<Objecter> objecter;
   int m_objecter_finishers;
   std::vector<std::unique_ptr<Finisher>> objecter_finishers;
@@ -894,7 +895,7 @@ public:
   void dump_live_pgids();
 #endif
 
-  explicit OSDService(OSD *osd);
+  explicit OSDService(OSD *osd, ceph::async::io_context_pool& poolctx);
   ~OSDService() = default;
 };
 
@@ -1113,8 +1114,8 @@ protected:
   bool journal_is_rotational = true;
 
   ZTracer::Endpoint trace_endpoint;
-  void create_logger();
-  void create_recoverystate_perf();
+  PerfCounters* create_logger();
+  PerfCounters* create_recoverystate_perf();
   void tick();
   void tick_without_osd_lock();
   void _dispatch(Message *m);
@@ -1573,8 +1574,8 @@ protected:
 
   public:
     ShardedOpWQ(OSD *o,
-		time_t ti,
-		time_t si,
+		ceph::timespan ti,
+		ceph::timespan si,
 		ShardedThreadPool* tp)
       : ShardedThreadPool::ShardedWQ<OpSchedulerItem>(ti, si, tp),
         osd(o) {
@@ -1819,7 +1820,7 @@ protected:
 
   void send_full_update();
   
-  friend struct C_OSD_GetVersion;
+  friend struct CB_OSD_GetVersion;
 
   // -- alive --
   epoch_t up_thru_wanted;
@@ -1993,11 +1994,12 @@ private:
       Messenger *hb_front_server,
       Messenger *hb_back_server,
       Messenger *osdc_messenger,
-      MonClient *mc, const std::string &dev, const std::string &jdev);
+      MonClient *mc, const std::string &dev, const std::string &jdev,
+      ceph::async::io_context_pool& poolctx);
   ~OSD() override;
 
   // static bits
-  static int mkfs(CephContext *cct, ObjectStore *store, uuid_d fsid, int whoami);
+  static int mkfs(CephContext *cct, ObjectStore *store, uuid_d fsid, int whoami, std::string osdspec_affinity);
 
   /* remove any non-user xattrs from a std::map of them */
   void filter_xattrs(std::map<std::string, ceph::buffer::ptr>& attrs) {
@@ -2017,7 +2019,7 @@ private:
 
   static int write_meta(CephContext *cct,
 			ObjectStore *store,
-			uuid_d& cluster_fsid, uuid_d& osd_fsid, int whoami);
+			uuid_d& cluster_fsid, uuid_d& osd_fsid, int whoami, std::string& osdspec_affinity);
 
   void handle_scrub(class MOSDScrub *m);
   void handle_fast_scrub(class MOSDScrub2 *m);

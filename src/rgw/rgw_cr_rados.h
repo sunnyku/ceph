@@ -8,6 +8,7 @@
 #include "include/ceph_assert.h"
 #include "rgw_coroutine.h"
 #include "rgw_sal.h"
+#include "rgw_sal_rados.h"
 #include "common/WorkQueue.h"
 #include "common/Throttle.h"
 
@@ -75,7 +76,9 @@ protected:
 
   struct RGWWQ : public ThreadPool::WorkQueue<RGWAsyncRadosRequest> {
     RGWAsyncRadosProcessor *processor;
-    RGWWQ(RGWAsyncRadosProcessor *p, time_t timeout, time_t suicide_timeout, ThreadPool *tp)
+    RGWWQ(RGWAsyncRadosProcessor *p,
+	  ceph::timespan timeout, ceph::timespan suicide_timeout,
+	  ThreadPool *tp)
       : ThreadPool::WorkQueue<RGWAsyncRadosRequest>("RGWWQ", timeout, suicide_timeout, tp), processor(p) {}
 
     bool _enqueue(RGWAsyncRadosRequest *req) override;
@@ -1340,7 +1343,6 @@ class RGWSyncLogTrimCR : public RGWRadosTimelogTrimCR {
   CephContext *cct;
   std::string *last_trim_marker;
  public:
-  // a marker that compares greater than any timestamp-based index
   static constexpr const char* max_marker = "99999999";
 
   RGWSyncLogTrimCR(rgw::sal::RGWRadosStore *store, const std::string& oid,

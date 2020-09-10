@@ -9,7 +9,6 @@ import errno
 import fnmatch
 import mgr_util
 import prettytable
-import six
 import json
 
 from mgr_module import MgrModule, HandleCommandResult
@@ -64,7 +63,7 @@ class Module(MgrModule):
                 continue
 
             rank_table = PrettyTable(
-                ("RANK", "STATE", "MDS", "ACTIVITY", "DNS", "INOS"),
+                ("RANK", "STATE", "MDS", "ACTIVITY", "DNS", "INOS", "DIRS", "CAPS"),
                 border=False,
             )
             rank_table.left_padding_width = 0
@@ -81,6 +80,8 @@ class Module(MgrModule):
                     info = mdsmap['info']['gid_{0}'.format(gid)]
                     dns = self.get_latest("mds", info['name'], "mds_mem.dn")
                     inos = self.get_latest("mds", info['name'], "mds_mem.ino")
+                    dirs = self.get_latest("mds", info['name'], "mds_mem.dir")
+                    caps = self.get_latest("mds", info['name'], "mds_mem.cap")
 
                     if rank == 0:
                         client_count = self.get_latest("mds", info['name'],
@@ -111,8 +112,10 @@ class Module(MgrModule):
                         if output_format not in ('json', 'json-pretty'):
                             activity = "Reqs: " + mgr_util.format_dimless(rate, 5) + "/s"
 
-                    metadata = self.get_metadata('mds', info['name'])
-                    mds_versions[metadata.get('ceph_version', "unknown")].append(info['name'])
+                    defaults = defaultdict(lambda: None, {'version' : 'unknown'})
+                    metadata = self.get_metadata('mds', info['name'], default=defaults)
+                    mds_versions[metadata['ceph_version']].append(info['name'])
+
                     if output_format in ('json', 'json-pretty'):
                         json_output['mdsmap'].append({
                             'rank': rank,
@@ -120,14 +123,18 @@ class Module(MgrModule):
                             'state': state,
                             'rate': rate if state == "active" else "0",
                             'dns': dns,
-                            'inos': inos
+                            'inos': inos,
+                            'dirs': dirs,
+                            'caps': caps
                         })
                     else:
                         rank_table.add_row([
                             mgr_util.bold(rank.__str__()), c_state, info['name'],
                             activity,
                             mgr_util.format_dimless(dns, 5),
-                            mgr_util.format_dimless(inos, 5)
+                            mgr_util.format_dimless(inos, 5),
+                            mgr_util.format_dimless(dirs, 5),
+                            mgr_util.format_dimless(caps, 5)
                         ])
                 else:
                     if output_format in ('json', 'json-pretty'):
@@ -137,23 +144,26 @@ class Module(MgrModule):
                         })
                     else:
                         rank_table.add_row([
-                            rank, "failed", "", "", "", ""
+                            rank, "failed", "", "", "", "", "", ""
                         ])
 
             # Find the standby replays
-            for gid_str, daemon_info in six.iteritems(mdsmap['info']):
+            for gid_str, daemon_info in mdsmap['info'].items():
                 if daemon_info['state'] != "up:standby-replay":
                     continue
 
                 inos = self.get_latest("mds", daemon_info['name'], "mds_mem.ino")
                 dns = self.get_latest("mds", daemon_info['name'], "mds_mem.dn")
+                dirs = self.get_latest("mds", daemon_info['name'], "mds_mem.dir")
+                caps = self.get_latest("mds", daemon_info['name'], "mds_mem.cap")
 
                 events = self.get_rate("mds", daemon_info['name'], "mds_log.replayed")
                 if output_format not in ('json', 'json-pretty'):
                     activity = "Evts: " + mgr_util.format_dimless(events, 5) + "/s"
 
-                metadata = self.get_metadata('mds', daemon_info['name'])
-                mds_versions[metadata.get('ceph_version', "unknown")].append(daemon_info['name'])
+                defaults = defaultdict(lambda: None, {'version' : 'unknown'})
+                metadata = self.get_metadata('mds', daemon_info['name'], default=defaults)
+                mds_versions[metadata['ceph_version']].append(daemon_info['name'])
 
                 if output_format in ('json', 'json-pretty'):
                     json_output['mdsmap'].append({
@@ -162,14 +172,18 @@ class Module(MgrModule):
                         'state': 'standby-replay',
                         'events': events,
                         'dns': 5,
-                        'inos': 5
+                        'inos': 5,
+                        'dirs': 5,
+                        'caps': 5
                     })
                 else:
                     rank_table.add_row([
                         "{0}-s".format(daemon_info['rank']), "standby-replay",
                         daemon_info['name'], activity,
                         mgr_util.format_dimless(dns, 5),
-                        mgr_util.format_dimless(inos, 5)
+                        mgr_util.format_dimless(inos, 5),
+                        mgr_util.format_dimless(dirs, 5),
+                        mgr_util.format_dimless(caps, 5)
                     ])
 
             df = self.get("df")
@@ -221,8 +235,9 @@ class Module(MgrModule):
         standby_table.left_padding_width = 0
         standby_table.right_padding_width = 2
         for standby in fsmap['standbys']:
-            metadata = self.get_metadata('mds', standby['name'])
-            mds_versions[metadata.get('ceph_version', "unknown")].append(standby['name'])
+            defaults = defaultdict(lambda: None, {'version' : 'unknown'})
+            metadata = self.get_metadata('mds', standby['name'], default=defaults)
+            mds_versions[metadata['ceph_version']].append(standby['name'])
 
             if output_format in ('json', 'json-pretty'):
                 json_output['mdsmap'].append({
@@ -245,7 +260,7 @@ class Module(MgrModule):
                                         border=False)
             version_table.left_padding_width = 0
             version_table.right_padding_width = 2
-            for version, daemons in six.iteritems(mds_versions):
+            for version, daemons in mds_versions.items():
                 if output_format in ('json', 'json-pretty'):
                     json_output['mds_version'].append({
                         'version': version,
@@ -312,7 +327,8 @@ class Module(MgrModule):
             kb_avail = 0
 
             if osd_id in osd_stats:
-                metadata = self.get_metadata('osd', "%s" % osd_id)
+                defaults = defaultdict(lambda: None, {'hostname' : ''})
+                metadata = self.get_metadata('osd', str(osd_id), default=defaults)
                 stats = osd_stats[osd_id]
                 hostname = metadata['hostname']
                 kb_used = stats['kb_used'] * 1024

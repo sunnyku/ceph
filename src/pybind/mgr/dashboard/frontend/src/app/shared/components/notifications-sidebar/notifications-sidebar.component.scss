@@ -1,17 +1,17 @@
-@import 'defaults.scss';
+@use './src/styles/defaults/bootstrap-defaults' as bd;
 
 :host {
-  position: fixed;
-  top: $navbar-height + 10px;
   bottom: 10px;
-  right: -350px;
-
-  width: 350px;
   max-width: 90vw;
-
-  z-index: 9;
+  position: fixed;
+  right: -350px;
+  top: bd.$navbar-height + 10px;
 
   transition: all 0.6s;
+
+  width: 350px;
+
+  z-index: 9;
 }
 
 :host.active {
@@ -22,19 +22,23 @@
   height: 100%;
 }
 
+.card-body {
+  padding-left: 5px;
+}
+
 ngx-simplebar {
   height: calc(100% - 42.2px);
 }
 
 .separator {
+  background-color: bd.$gray-200;
+  color: bd.$gray-600;
+  font-size: 1rem;
   padding: 5px 12px;
-  color: $color-popover-seperator-text;
-  background-color: $color-popover-seperator-bg;
-  font-size: 12px;
 }
 
 .btn-link .fa-trash-o {
-  color: $color-black;
+  color: bd.$black;
 }
 
 table {
@@ -44,4 +48,8 @@ table {
 .row {
   margin-left: 0;
   margin-right: 0;
+}
+
+.fa-times {
+  margin-right: 10px;
 }

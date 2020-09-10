@@ -9,6 +9,7 @@
 #include "include/common_fwd.h"
 #include "osd_operation.h"
 #include "msg/MessageRef.h"
+#include "crimson/common/exception.h"
 #include "crimson/os/futurized_collection.h"
 #include "osd/PeeringState.h"
 #include "crimson/osd/osdmap_service.h"
@@ -43,6 +44,7 @@ namespace crimson::osd {
 class ShardServices : public md_config_obs_t {
   using cached_map_t = boost::local_shared_ptr<const OSDMap>;
   OSDMapService &osdmap_service;
+  const int whoami;
   crimson::net::Messenger &cluster_msgr;
   crimson::net::Messenger &public_msgr;
   crimson::mon::Client &monc;
@@ -60,6 +62,7 @@ class ShardServices : public md_config_obs_t {
 public:
   ShardServices(
     OSDMapService &osdmap_service,
+    const int whoami,
     crimson::net::Messenger &cluster_msgr,
     crimson::net::Messenger &public_msgr,
     crimson::mon::Client &monc,
@@ -90,8 +93,16 @@ public:
 
   template <typename T, typename... Args>
   auto start_operation(Args&&... args) {
+    if (__builtin_expect(stopping, false)) {
+      throw crimson::common::system_shutdown_exception();
+    }
     auto op = registry.create_operation<T>(std::forward<Args>(args)...);
     return std::make_pair(op, op->start());
+  }
+
+  seastar::future<> stop() {
+    stopping = true;
+    return registry.stop();
   }
 
   // Loggers
@@ -186,9 +197,20 @@ private:
       c->complete(0);
     }
   } finisher;
+  // prevent creating new osd operations when system is shutting down,
+  // this is necessary because there are chances that a new operation
+  // is created, after the interruption of all ongoing operations, and
+  // creats and waits on a new and may-never-resolve future, in which
+  // case the shutdown may never succeed.
+  bool stopping = false;
 public:
   AsyncReserver<spg_t, DirectFinisher> local_reserver;
   AsyncReserver<spg_t, DirectFinisher> remote_reserver;
+
+private:
+  epoch_t up_thru_wanted = 0;
+public:
+  seastar::future<> send_alive(epoch_t want);
 };
 
 }

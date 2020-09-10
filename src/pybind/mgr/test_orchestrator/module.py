@@ -7,14 +7,12 @@ import functools
 import itertools
 from subprocess import check_output, CalledProcessError
 
-from ceph.deployment.service_spec import NFSServiceSpec, ServiceSpec
+from ceph.deployment.service_spec import ServiceSpec, NFSServiceSpec, IscsiServiceSpec
 
 try:
     from typing import Callable, List, Sequence, Tuple
 except ImportError:
     pass  # type checking
-
-import six
 
 from ceph.deployment import inventory
 from ceph.deployment.drive_group import DriveGroupSpec
@@ -162,7 +160,7 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
     def _get_ceph_daemons(self):
         # type: () -> List[orchestrator.DaemonDescription]
         """ Return ceph daemons on the running host."""
-        types = ("mds", "osd", "mon", "rgw", "mgr")
+        types = ("mds", "osd", "mon", "rgw", "mgr", "nfs", "iscsi")
         out = map(str, check_output(['ps', 'aux']).splitlines())
         processes = [p for p in out if any(
             [('ceph-{} '.format(t) in p) for t in types])]
@@ -225,7 +223,7 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
         it returns the mgr we're running in.
         """
         if daemon_type:
-            daemon_types = ("mds", "osd", "mon", "rgw", "mgr", "iscsi", "crash")
+            daemon_types = ("mds", "osd", "mon", "rgw", "mgr", "iscsi", "crash", "nfs")
             assert daemon_type in daemon_types, daemon_type + " unsupported"
 
         daemons = self._daemons if self._daemons else self._get_ceph_daemons()
@@ -258,9 +256,15 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
         def run(all_hosts):
             # type: (List[orchestrator.HostSpec]) -> None
             drive_group.validate()
-            if drive_group.placement.host_pattern:
-                if not drive_group.placement.pattern_matches_hosts([h.hostname for h in all_hosts]):
-                    raise orchestrator.OrchestratorValidationError('failed to match')
+
+            def get_hosts_func(label=None, as_hostspec=False):
+                if as_hostspec:
+                    return all_hosts
+                return [h.hostname for h in all_hosts]
+
+            if not drive_group.placement.filter_matching_hosts(get_hosts_func):
+                raise orchestrator.OrchestratorValidationError('failed to match')
+
         return self.get_hosts().then(run).then(
             on_complete=orchestrator.ProgressReference(
                 message='create_osds',
@@ -271,12 +275,18 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
     def apply_drivegroups(self, specs):
         # type: (List[DriveGroupSpec]) -> TestCompletion
         drive_group = specs[0]
+
         def run(all_hosts):
             # type: (List[orchestrator.HostSpec]) -> None
             drive_group.validate()
-            if drive_group.placement.host_pattern:
-                if not drive_group.placement.pattern_matches_hosts([h.hostname for h in all_hosts]):
-                    raise orchestrator.OrchestratorValidationError('failed to match')
+
+            def get_hosts_func(label=None, as_hostspec=False):
+                if as_hostspec:
+                    return all_hosts
+                return [h.hostname for h in all_hosts]
+
+            if not drive_group.placement.filter_matching_hosts(get_hosts_func):
+                raise orchestrator.OrchestratorValidationError('failed to match')
         return self.get_hosts().then(run).then(
             on_complete=orchestrator.ProgressReference(
                 message='apply_drivesgroups',
@@ -303,7 +313,7 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
         pass
 
     @deferred_write("daemon_action")
-    def daemon_action(self, action, daemon_type, daemon_id):
+    def daemon_action(self, action, daemon_name, image=None):
         pass
 
     @deferred_write("Adding NFS service")
@@ -313,6 +323,16 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
 
     @deferred_write("apply_nfs")
     def apply_nfs(self, spec):
+        pass
+
+    @deferred_write("add_iscsi")
+    def add_iscsi(self, spec):
+        # type: (IscsiServiceSpec) -> None
+        pass
+
+    @deferred_write("apply_iscsi")
+    def apply_iscsi(self, spec):
+        # type: (IscsiServiceSpec) -> None
         pass
 
     @deferred_write("add_mds")
@@ -333,8 +353,10 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
     def add_host(self, spec):
         # type: (orchestrator.HostSpec) -> None
         host = spec.hostname
-        if host == 'raise_no_support':
+        if host == 'raise_validation_error':
             raise orchestrator.OrchestratorValidationError("MON count must be either 1, 3 or 5")
+        if host == 'raise_error':
+            raise orchestrator.OrchestratorError("host address is empty")
         if host == 'raise_bug':
             raise ZeroDivisionError()
         if host == 'raise_not_implemented':
@@ -343,11 +365,11 @@ class TestOrchestrator(MgrModule, orchestrator.Orchestrator):
             raise orchestrator.NoOrchestrator()
         if host == 'raise_import_error':
             raise ImportError("test_orchestrator not enabled")
-        assert isinstance(host, six.string_types)
+        assert isinstance(host, str)
 
     @deferred_write("remove_host")
     def remove_host(self, host):
-        assert isinstance(host, six.string_types)
+        assert isinstance(host, str)
 
     @deferred_write("apply_mgr")
     def apply_mgr(self, spec):

@@ -1,11 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
-import { BsModalService } from 'ngx-bootstrap/modal';
+import _ from 'lodash';
 
 import { AuthService } from '../../../shared/api/auth.service';
 import { Credentials } from '../../../shared/models/credentials';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
+import { ModalService } from '../../../shared/services/modal.service';
 
 @Component({
   selector: 'cd-login',
@@ -15,11 +16,13 @@ import { AuthStorageService } from '../../../shared/services/auth-storage.servic
 export class LoginComponent implements OnInit {
   model = new Credentials();
   isLoginActive = false;
+  returnUrl: string;
 
   constructor(
     private authService: AuthService,
     private authStorageService: AuthStorageService,
-    private bsModalService: BsModalService,
+    private modalService: ModalService,
+    private route: ActivatedRoute,
     private router: Router
   ) {}
 
@@ -30,10 +33,7 @@ export class LoginComponent implements OnInit {
       // Make sure all open modal dialogs are closed. This might be
       // necessary when the logged in user is redirected to the login
       // page after a 401.
-      const modalsCount = this.bsModalService.getModalsCount();
-      for (let i = 1; i <= modalsCount; i++) {
-        this.bsModalService.hide(i);
-      }
+      this.modalService.dismissAll();
 
       let token: string = null;
       if (window.location.hash.indexOf('access_token=') !== -1) {
@@ -64,7 +64,8 @@ export class LoginComponent implements OnInit {
 
   login() {
     this.authService.login(this.model).subscribe(() => {
-      this.router.navigate(['']);
+      const url = _.get(this.route.snapshot.queryParams, 'returnUrl', '/');
+      this.router.navigate([url]);
     });
   }
 }

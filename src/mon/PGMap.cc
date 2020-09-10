@@ -762,6 +762,7 @@ void PGMapDigest::dump_pool_stats_full(
   } else {
     tbl.define_column("POOL", TextTable::LEFT, TextTable::LEFT);
     tbl.define_column("ID", TextTable::LEFT, TextTable::RIGHT);
+    tbl.define_column("PGS", TextTable::LEFT, TextTable::RIGHT);
     tbl.define_column("STORED", TextTable::LEFT, TextTable::RIGHT);
     if (verbose) {
       tbl.define_column("(DATA)", TextTable::LEFT, TextTable::RIGHT);
@@ -793,6 +794,7 @@ void PGMapDigest::dump_pool_stats_full(
       continue;
 
     const string& pool_name = osd_map.get_pool_name(pool_id);
+    auto pool_pg_num = osd_map.get_pg_num(pool_id);
     const pool_stat_t &stat = pg_pool_sum.at(pool_id);
 
     const pg_pool_t *pool = osd_map.get_pg_pool(pool_id);
@@ -816,7 +818,8 @@ void PGMapDigest::dump_pool_stats_full(
       f->open_object_section("stats");
     } else {
       tbl << pool_name
-          << pool_id;
+          << pool_id
+          << pool_pg_num;
     }
     float raw_used_rate = osd_map.pool_raw_used_rate(pool_id);
     bool per_pool = use_per_pool_stats();
@@ -960,6 +963,7 @@ void PGMapDigest::dump_object_stat_sum(
       f->dump_int("compress_under_bytes", statfs.data_compressed_original);
       // Stored by user amplified by replication
       f->dump_int("stored_raw", stored_raw);
+      f->dump_unsigned("avail_raw", avail);
     }
   } else {
     tbl << stringify(byte_u_t(stored_normalized));
@@ -1178,7 +1182,7 @@ void PGMap::apply_incremental(CephContext *cct, const Incremental& inc)
 
     auto pool_statfs_iter =
       pool_statfs.find(std::make_pair(update_pool, update_osd));
-    if (pg_pool_sum.count(update_pool)) { 
+    if (pg_pool_sum.count(update_pool)) {
       pool_stat_t &pool_sum_ref = pg_pool_sum[update_pool];
       if (pool_statfs_iter == pool_statfs.end()) {
         pool_statfs.emplace(std::make_pair(update_pool, update_osd), statfs_inc);
@@ -1214,6 +1218,13 @@ void PGMap::apply_incremental(CephContext *cct, const Incremental& inc)
     bool pool_erased = false;
     if (s != pg_stat.end()) {
       pool_erased = stat_pg_sub(removed_pg, s->second);
+
+      // decrease pool stats if pg was removed
+      auto pool_stats_it = pg_pool_sum.find(removed_pg.pool());
+      if (pool_stats_it != pg_pool_sum.end()) {
+        pool_stats_it->second.sub(s->second);
+      }
+
       pg_stat.erase(s);
       if (pool_erased) {
         deleted_pools.insert(removed_pg.pool());
@@ -2527,7 +2538,11 @@ void PGMap::get_health_checks(
         if (pg_response.stuck_since) {
           // Delayed response, check for stuckness
           utime_t last_whatever = pg_response.stuck_since(pg_info);
-          if (last_whatever >= cutoff) {
+          if (last_whatever.is_zero() &&
+            pg_info.last_change >= cutoff) {
+            // still moving, ignore
+            continue;
+          } else if (last_whatever >= cutoff) {
             // Not stuck enough, ignore.
             continue;
           } else {
@@ -2825,6 +2840,7 @@ void PGMap::get_health_checks(
 
     list<string> detail_back;
     list<string> detail_front;
+    list<string> detail;
     set<mon_ping_item_t> back_sorted, front_sorted;
     for (auto i : osd_stat) {
       for (auto j : i.second.hb_pingtime) {
@@ -2855,6 +2871,19 @@ void PGMap::get_health_checks(
 	  front_sorted.emplace(front);
 	}
       }
+      if (i.second.num_shards_repaired >
+		      cct->_conf.get_val<uint64_t>("mon_osd_warn_num_repaired")) {
+        ostringstream ss;
+	ss << "osd." << i.first << " had " << i.second.num_shards_repaired << " reads repaired";
+        detail.push_back(ss.str());
+      }
+    }
+    if (!detail.empty()) {
+      ostringstream ss;
+      ss << "Too many repaired reads on " << detail.size() << " OSDs";
+      auto& d = checks->add("OSD_TOO_MANY_REPAIRS", HEALTH_WARN, ss.str(),
+		      detail.size());
+      d.detail.swap(detail);
     }
     int max_detail = 10;
     for (auto &sback : boost::adaptors::reverse(back_sorted)) {

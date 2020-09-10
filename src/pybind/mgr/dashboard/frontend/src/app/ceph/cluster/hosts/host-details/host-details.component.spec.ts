@@ -4,11 +4,9 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
 import { NgBootstrapFormValidationModule } from 'ng-bootstrap-form-validation';
-import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
-import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed, i18nProviders } from '../../../../../testing/unit-test-helper';
+import { configureTestBed, TabHelper } from '../../../../../testing/unit-test-helper';
 import { CoreModule } from '../../../../core/core.module';
 import { Permissions } from '../../../../shared/models/permissions';
 import { SharedModule } from '../../../../shared/shared.module';
@@ -24,8 +22,6 @@ describe('HostDetailsComponent', () => {
     imports: [
       BrowserAnimationsModule,
       HttpClientTestingModule,
-      TabsModule.forRoot(),
-      BsDropdownModule.forRoot(),
       NgBootstrapFormValidationModule.forRoot(),
       RouterTestingModule,
       CephModule,
@@ -33,9 +29,7 @@ describe('HostDetailsComponent', () => {
       CephSharedModule,
       SharedModule,
       ToastrModule.forRoot()
-    ],
-    declarations: [],
-    providers: [i18nProviders]
+    ]
   });
 
   beforeEach(() => {
@@ -59,17 +53,17 @@ describe('HostDetailsComponent', () => {
     });
 
     it('should recognize a tabset child', () => {
-      const tabsetChild = component.tabsetChild;
+      const tabsetChild = TabHelper.getNgbNav(fixture);
       expect(tabsetChild).toBeDefined();
     });
 
     it('should show tabs', () => {
-      expect(component.tabsetChild.tabs.map((t) => t.heading)).toEqual([
+      expect(TabHelper.getTextContents(fixture)).toEqual([
         'Devices',
-        'Device health',
         'Inventory',
         'Daemons',
-        'Performance Details'
+        'Performance Details',
+        'Device health'
       ]);
     });
   });

@@ -111,11 +111,9 @@ PyObject *ActivePyModules::list_servers_python()
       (const std::map<std::string, DaemonStateCollection> &all) {
     PyEval_RestoreThread(tstate);
 
-    for (const auto &i : all) {
-      const auto &hostname = i.first;
-
+    for (const auto &[hostname, daemon_state] : all) {
       f.open_object_section("server");
-      dump_server(hostname, i.second, &f);
+      dump_server(hostname, daemon_state, &f);
       f.close_section();
     }
   });
@@ -136,8 +134,8 @@ PyObject *ActivePyModules::get_metadata_python(
   std::lock_guard l(metadata->lock);
   PyFormatter f;
   f.dump_string("hostname", metadata->hostname);
-  for (const auto &i : metadata->metadata) {
-    f.dump_string(i.first.c_str(), i.second);
+  for (const auto &[key, val] : metadata->metadata) {
+    f.dump_string(key, val);
   }
 
   return f.get();
@@ -155,8 +153,8 @@ PyObject *ActivePyModules::get_daemon_status_python(
 
   std::lock_guard l(metadata->lock);
   PyFormatter f;
-  for (const auto &i : metadata->service_status) {
-    f.dump_string(i.first.c_str(), i.second);
+  for (const auto &[daemon, status] : metadata->service_status) {
+    f.dump_string(daemon, status);
   }
   return f.get();
 }
@@ -446,21 +444,22 @@ void ActivePyModules::start_one(PyModuleRef py_module)
   std::lock_guard l(lock);
 
   const auto name = py_module->get_name();
-  auto em = modules.emplace(name,
-      std::make_shared<ActivePyModule>(py_module, clog));
-  ceph_assert(em.second); // actually inserted
-  auto& active_module = em.first->second;
+  auto active_module = std::make_shared<ActivePyModule>(py_module, clog);
 
+  pending_modules.insert(name);
   // Send all python calls down a Finisher to avoid blocking
   // C++ code, and avoid any potential lock cycles.
   finisher.queue(new LambdaContext([this, active_module, name](int) {
     int r = active_module->load(this);
+    std::lock_guard l(lock);
+    pending_modules.erase(name);
     if (r != 0) {
       derr << "Failed to run module in active mode ('" << name << "')"
            << dendl;
-      std::lock_guard l(lock);
-      modules.erase(name);
     } else {
+      auto em = modules.emplace(name, active_module);
+      ceph_assert(em.second); // actually inserted
+
       dout(4) << "Starting thread for " << name << dendl;
       active_module->thread.create(active_module->get_thread_name());
     }

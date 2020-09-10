@@ -6,8 +6,8 @@
 #include "common/Timer.h"
 #include "common/debug.h"
 #include "common/errno.h"
-#include "common/WorkQueue.h"
 #include "librbd/Utils.h"
+#include "librbd/asio/ContextWQ.h"
 #include "ImageReplayer.h"
 #include "InstanceReplayer.h"
 #include "ServiceDaemon.h"
@@ -57,9 +57,9 @@ InstanceReplayer<I>::~InstanceReplayer() {
 }
 
 template <typename I>
-bool InstanceReplayer<I>::is_blacklisted() const {
+bool InstanceReplayer<I>::is_blocklisted() const {
   std::lock_guard locker{m_lock};
-  return m_blacklisted;
+  return m_blocklisted;
 }
 
 template <typename I>
@@ -274,9 +274,17 @@ void InstanceReplayer<I>::stop(Context *on_finish)
 {
   dout(10) << dendl;
 
+  if (on_finish == nullptr) {
+    on_finish = new C_TrackedOp(m_async_op_tracker, on_finish);
+  } else {
+    on_finish = new LambdaContext(
+      [this, on_finish] (int r) {
+        m_async_op_tracker.wait_for_ops(on_finish);
+      });
+  }
+
   auto cct = static_cast<CephContext *>(m_local_io_ctx.cct());
-  auto gather_ctx = new C_Gather(
-    cct, new C_TrackedOp(m_async_op_tracker, on_finish));
+  auto gather_ctx = new C_Gather(cct, on_finish);
   {
     std::lock_guard locker{m_lock};
 
@@ -327,10 +335,10 @@ void InstanceReplayer<I>::start_image_replayer(
   std::string global_image_id = image_replayer->get_global_image_id();
   if (!image_replayer->is_stopped()) {
     return;
-  } else if (image_replayer->is_blacklisted()) {
-    derr << "global_image_id=" << global_image_id << ": blacklisted detected "
+  } else if (image_replayer->is_blocklisted()) {
+    derr << "global_image_id=" << global_image_id << ": blocklisted detected "
          << "during image replay" << dendl;
-    m_blacklisted = true;
+    m_blocklisted = true;
     return;
   } else if (image_replayer->is_finished()) {
     // TODO temporary until policy integrated

@@ -1,3 +1,7 @@
+overrides:
+  ceph:
+    log-ignorelist:
+    - \(PG_AVAILABILITY\)
 tasks:
 - workunit:
     clients:

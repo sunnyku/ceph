@@ -1,16 +1,15 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { forkJoin as observableForkJoin, Observable, of as observableOf } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 
 import { cdEncode } from '../decorators/cd-encode';
-import { ApiModule } from './api.module';
 
 @cdEncode
 @Injectable({
-  providedIn: ApiModule
+  providedIn: 'root'
 })
 export class RgwUserService {
   private url = 'api/rgw/user';

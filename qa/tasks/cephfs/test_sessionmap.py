@@ -188,21 +188,20 @@ class TestSessionMap(CephFSTestCase):
             with self.assertRaises(CommandFailedError):
                 self.mount_b.mount_wait(mount_path="/foo/bar")
 
-    def test_session_evict_blacklisted(self):
+    def test_session_evict_blocklisted(self):
         """
-        Check that mds evicts blacklisted client
+        Check that mds evicts blocklisted client
         """
         if not isinstance(self.mount_a, FuseMount):
-            self.skipTest("Requires FUSE client to use is_blacklisted()")
+            self.skipTest("Requires FUSE client to use is_blocklisted()")
 
         self.fs.set_max_mds(2)
-        self.fs.wait_for_daemons()
-        status = self.fs.status()
+        status = self.fs.wait_for_daemons()
 
-        self.mount_a.run_shell(["mkdir", "d0", "d1"])
+        self.mount_a.run_shell_payload("mkdir {d0,d1} && touch {d0,d1}/file")
         self.mount_a.setfattr("d0", "ceph.dir.pin", "0")
         self.mount_a.setfattr("d1", "ceph.dir.pin", "1")
-        self._wait_subtrees(status, 0, [('/d0', 0), ('/d1', 1)])
+        self._wait_subtrees([('/d0', 0), ('/d1', 1)], status=status)
 
         self.mount_a.run_shell(["touch", "d0/f0"])
         self.mount_a.run_shell(["touch", "d1/f0"])
@@ -215,7 +214,7 @@ class TestSessionMap(CephFSTestCase):
         mount_a_client_id = self.mount_a.get_global_id()
         self.fs.mds_asok(['session', 'evict', "%s" % mount_a_client_id],
                          mds_id=self.fs.get_rank(rank=0, status=status)['name'])
-        self.wait_until_true(lambda: self.mount_a.is_blacklisted(), timeout=30)
+        self.wait_until_true(lambda: self.mount_a.is_blocklisted(), timeout=30)
 
         # 10 seconds should be enough for evicting client
         time.sleep(10)

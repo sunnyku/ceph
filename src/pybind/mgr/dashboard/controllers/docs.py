@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+from typing import Any, Dict, Union
 
 import logging
 import cherrypy
 
-from . import Controller, BaseController, Endpoint, ENDPOINT_MAP
+from . import Controller, BaseController, Endpoint, ENDPOINT_MAP, \
+    allow_empty_body
 from .. import mgr
 
 from ..tools import str_to_bool
@@ -31,7 +33,7 @@ class Docs(BaseController):
                 if endpoint.is_api or all_endpoints:
                     list_of_ctrl.add(endpoint.ctrl)
 
-        tag_map = {}
+        tag_map: Dict[str, str] = {}
         for ctrl in list_of_ctrl:
             tag_name = ctrl.__name__
             tag_descr = ""
@@ -183,7 +185,7 @@ class Docs(BaseController):
 
     @classmethod
     def _gen_responses(cls, method, resp_object=None):
-        resp = {
+        resp: Dict[str, Dict[str, Union[str, Any]]] = {
             '400': {
                 "description": "Operation exception. Please check the "
                                "response body for details."
@@ -252,7 +254,8 @@ class Docs(BaseController):
         return parameters
 
     @classmethod
-    def _gen_paths(cls, all_endpoints, base_url):
+    def _gen_paths(cls, all_endpoints):
+        # pylint: disable=R0912
         method_order = ['get', 'post', 'put', 'delete']
         paths = {}
         for path, endpoints in sorted(list(ENDPOINT_MAP.items()),
@@ -304,11 +307,18 @@ class Docs(BaseController):
                                 'application/json': {
                                     'schema': cls._gen_schema_for_content(body_params)}}}
 
+                    if endpoint.query_params:
+                        query_params = cls._add_param_info(endpoint.query_params, p_info)
+                        methods[method.lower()]['requestBody'] = {
+                            'content': {
+                                'application/json': {
+                                    'schema': cls._gen_schema_for_content(query_params)}}}
+
                 if endpoint.is_secure:
                     methods[method.lower()]['security'] = [{'jwt': []}]
 
             if not skip:
-                paths[path[len(base_url):]] = methods
+                paths[path] = methods
 
         return paths
 
@@ -320,7 +330,7 @@ class Docs(BaseController):
         host = host[host.index(':')+3:]
         logger.debug("Host: %s", host)
 
-        paths = self._gen_paths(all_endpoints, base_url)
+        paths = self._gen_paths(all_endpoints)
 
         if not base_url:
             base_url = "/"
@@ -363,11 +373,11 @@ class Docs(BaseController):
 
     @Endpoint(path="api.json")
     def api_json(self):
-        return self._gen_spec(False, "/api")
+        return self._gen_spec(False, "/")
 
     @Endpoint(path="api-all.json")
     def api_all_json(self):
-        return self._gen_spec(True, "/api")
+        return self._gen_spec(True, "/")
 
     def _swagger_ui_page(self, all_endpoints=False, token=None):
         base = cherrypy.request.base
@@ -448,5 +458,6 @@ class Docs(BaseController):
 
     @Endpoint('POST', path="/", json_response=False,
               query_params="{all_endpoints}")
+    @allow_empty_body
     def _with_token(self, token, all_endpoints=False):
         return self._swagger_ui_page(all_endpoints, token)

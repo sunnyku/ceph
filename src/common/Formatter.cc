@@ -75,6 +75,8 @@ FormatterAttrs::FormatterAttrs(const char *attr, ...)
   va_end(ap);
 }
 
+void Formatter::write_bin_data(const char*, int){}
+
 Formatter::Formatter() { }
 
 Formatter::~Formatter() { }
@@ -83,9 +85,10 @@ Formatter *Formatter::create(std::string_view type,
 			     std::string_view default_type,
 			     std::string_view fallback)
 {
-  std::string mytype(type);
-  if (mytype == "")
+  std::string_view mytype(type);
+  if (mytype.empty()) {
     mytype = default_type;
+  }
 
   if (mytype == "json")
     return new JSONFormatter(false);
@@ -542,6 +545,13 @@ int XMLFormatter::get_len() const
 void XMLFormatter::write_raw_data(const char *data)
 {
   m_ss << data;
+}
+
+void XMLFormatter::write_bin_data(const char* buff, int buf_len)
+{
+  std::stringbuf *pbuf = m_ss.rdbuf();
+  pbuf->sputn(buff, buf_len);
+  m_ss.seekg(buf_len);
 }
 
 void XMLFormatter::get_attrs_str(const FormatterAttrs *attrs, std::string& attrs_str)

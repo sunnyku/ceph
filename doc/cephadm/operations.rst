@@ -141,6 +141,21 @@ You will then need to restart the mgr daemon to reload the configuration with::
 
   ceph mgr fail
 
+Configuring a different SSH user
+----------------------------------
+
+Cephadm must be able to log into all the Ceph cluster nodes as an user
+that has enough privileges to download container images, start containers
+and execute commands without prompting for a password. If you do not want
+to use the "root" user (default option in cephadm), you must provide
+cephadm the name of the user that is going to be used to perform all the
+cephadm operations. Use the command::
+
+  ceph cephadm set-user <user>
+
+Prior to running this the cluster ssh key needs to be added to this users
+authorized_keys file and non-root users must have passwordless sudo access.
+
 
 Customizing the SSH configuration
 ---------------------------------
@@ -193,6 +208,8 @@ Resume cephadm work with::
 
   ceph orch resume
 
+.. _cephadm-stray-host:
+
 CEPHADM_STRAY_HOST
 ------------------
 
@@ -215,6 +232,9 @@ managed by *cephadm*.
 You can also disable this warning entirely with::
 
   ceph config set mgr mgr/cephadm/warn_on_stray_hosts false
+
+See :ref:`cephadm-fqdn` for more information about host names and
+domain names.
 
 CEPHADM_STRAY_DAEMON
 --------------------
@@ -258,19 +278,30 @@ You can disable this health warning with::
 /etc/ceph/ceph.conf
 ===================
 
-Cephadm uses a minimized ``ceph.conf`` that only contains 
+Cephadm distributes a minimized ``ceph.conf`` that only contains 
 a minimal set of information to connect to the Ceph cluster.
 
-To update the configuration settings, use::
+To update the configuration settings, instead of manually editing
+the ``ceph.conf`` file, use the config database instead::
 
   ceph config set ...
 
+See :ref:`ceph-conf-database` for details. 
 
-To set up an initial configuration before calling
-`bootstrap`, create an initial ``ceph.conf`` file. For example::
+By default, cephadm does not deploy that minimized ``ceph.conf`` across the
+cluster. To enable the management of ``/etc/ceph/ceph.conf`` files on all
+hosts, please enable this by running::
+
+  ceph config set mgr mgr/cephadm/manage_etc_ceph_ceph_conf true
+
+To set up an initial configuration before bootstrapping 
+the cluster, create an initial ``ceph.conf`` file. For example::
 
   cat <<EOF > /etc/ceph/ceph.conf
   [global]
   osd crush chooseleaf type = 0
   EOF
+
+Then, run bootstrap referencing this file::
+
   cephadm bootstrap -c /root/ceph.conf ...

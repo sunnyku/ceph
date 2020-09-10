@@ -34,7 +34,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifndef __CYGWIN__
+#if !defined(__CYGWIN__) && !defined(_WIN32)
 # include <sys/mman.h>
 #endif
 
@@ -53,6 +53,7 @@
 #include "page.h"
 #include "crc32c.h"
 #include "buffer_fwd.h"
+
 
 #ifdef __CEPH__
 # include "include/ceph_assert.h"
@@ -101,32 +102,12 @@ struct unique_leakable_ptr : public std::unique_ptr<T, ceph::nop_delete<T>> {
 namespace buffer CEPH_BUFFER_API {
 inline namespace v15_2_0 {
 
-  /*
-   * exceptions
-   */
-
-  struct error : public std::exception{
-    const char *what() const throw () override;
-  };
-  struct bad_alloc : public error {
-    const char *what() const throw () override;
-  };
-  struct end_of_buffer : public error {
-    const char *what() const throw () override;
-  };
-  struct malformed_input : public error {
-    explicit malformed_input(const std::string& w) {
-      snprintf(buf, sizeof(buf), "buffer::malformed_input: %s", w.c_str());
-    }
-    const char *what() const throw () override;
-  private:
-    char buf[256];
-  };
-  struct error_code : public malformed_input {
-    explicit error_code(int error);
-    int code;
-  };
-
+/// Actual definitions in common/error_code.h
+struct error;
+struct bad_alloc;
+struct end_of_buffer;
+struct malformed_input;
+struct error_code;
 
   /// count of cached crc hits (matching input)
   int get_cached_crc();
@@ -227,12 +208,7 @@ inline namespace v15_2_0 {
 	}
       }
 
-      iterator_impl& operator+=(size_t len) {
-	pos += len;
-	if (pos > end_ptr)
-	  throw end_of_buffer();
-        return *this;
-      }
+      iterator_impl& operator+=(size_t len);
 
       const char *get_pos() {
 	return pos;
@@ -291,7 +267,7 @@ inline namespace v15_2_0 {
 
     // misc
     bool is_aligned(unsigned align) const {
-      return ((long)c_str() & (align-1)) == 0;
+      return ((uintptr_t)c_str() & (align-1)) == 0;
     }
     bool is_page_aligned() const { return is_aligned(CEPH_PAGE_SIZE); }
     bool is_n_align_sized(unsigned align) const
@@ -387,7 +363,7 @@ inline namespace v15_2_0 {
     };
     struct disposer {
       void operator()(ptr_node* const delete_this) {
-	if (!dispose_if_hypercombined(delete_this)) {
+	if (!__builtin_expect(dispose_if_hypercombined(delete_this), 0)) {
 	  delete delete_this;
 	}
       }
@@ -1088,8 +1064,13 @@ inline namespace v15_2_0 {
 
     void reserve(size_t prealloc);
 
-    void claim(list& bl);
+    [[deprecated("in favor of operator=(list&&)")]] void claim(list& bl) {
+      *this = std::move(bl);
+    }
     void claim_append(list& bl);
+    void claim_append(list&& bl) {
+      claim_append(bl);
+    }
     // only for bl is bufferlist::page_aligned_appender
     void claim_append_piecewise(list& bl);
 
@@ -1151,12 +1132,17 @@ inline namespace v15_2_0 {
     void append(ptr&& bp);
     void append(const ptr& bp, unsigned off, unsigned len);
     void append(const list& bl);
+    /// append each non-empty line from the stream and add '\n',
+    /// so a '\n' will be added even the stream does not end with EOL.
+    ///
+    /// For example, if the stream contains "ABC\n\nDEF", "ABC\nDEF\n" is
+    /// actually appended.
     void append(std::istream& in);
     contiguous_filler append_hole(unsigned len);
     void append_zero(unsigned len);
     void prepend_zero(unsigned len);
 
-    reserve_t obtain_contiguous_space(unsigned len);
+    reserve_t obtain_contiguous_space(const unsigned len);
 
     /*
      * get a char
@@ -1271,8 +1257,6 @@ std::ostream& operator<<(std::ostream& out, const buffer::raw &r);
 
 std::ostream& operator<<(std::ostream& out, const buffer::list& bl);
 
-std::ostream& operator<<(std::ostream& out, const buffer::error& e);
-
 inline bufferhash& operator<<(bufferhash& l, const bufferlist &r) {
   l.update(r);
   return l;
@@ -1281,5 +1265,6 @@ inline bufferhash& operator<<(bufferhash& l, const bufferlist &r) {
 } // namespace buffer
 
 } // namespace ceph
+
 
 #endif

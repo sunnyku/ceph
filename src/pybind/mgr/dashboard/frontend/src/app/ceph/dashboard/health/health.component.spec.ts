@@ -3,11 +3,10 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
-import * as _ from 'lodash';
-import { PopoverModule } from 'ngx-bootstrap/popover';
+import _ from 'lodash';
 import { of } from 'rxjs';
 
-import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
+import { configureTestBed } from '../../../../testing/unit-test-helper';
 import { HealthService } from '../../../shared/api/health.service';
 import { Permissions } from '../../../shared/models/permissions';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
@@ -49,7 +48,7 @@ describe('HealthComponent', () => {
   let fakeFeatureTogglesService: jasmine.Spy;
 
   configureTestBed({
-    imports: [SharedModule, HttpClientTestingModule, PopoverModule.forRoot()],
+    imports: [SharedModule, HttpClientTestingModule],
     declarations: [
       HealthComponent,
       HealthPieComponent,
@@ -60,7 +59,6 @@ describe('HealthComponent', () => {
     ],
     schemas: [NO_ERRORS_SCHEMA],
     providers: [
-      i18nProviders,
       { provide: AuthStorageService, useValue: fakeAuthStorageService },
       PgCategoryService,
       RefreshIntervalService
@@ -68,7 +66,7 @@ describe('HealthComponent', () => {
   });
 
   beforeEach(() => {
-    fakeFeatureTogglesService = spyOn(TestBed.get(FeatureTogglesService), 'get').and.returnValue(
+    fakeFeatureTogglesService = spyOn(TestBed.inject(FeatureTogglesService), 'get').and.returnValue(
       of({
         rbd: true,
         mirroring: true,
@@ -79,7 +77,7 @@ describe('HealthComponent', () => {
     );
     fixture = TestBed.createComponent(HealthComponent);
     component = fixture.componentInstance;
-    getHealthSpy = spyOn(TestBed.get(HealthService), 'getMinimalHealth');
+    getHealthSpy = spyOn(TestBed.inject(HealthService), 'getMinimalHealth');
     getHealthSpy.and.returnValue(of(healthPayload));
   });
 
@@ -94,7 +92,7 @@ describe('HealthComponent', () => {
     expect(infoGroups.length).toBe(3);
 
     const infoCards = fixture.debugElement.nativeElement.querySelectorAll('cd-info-card');
-    expect(infoCards.length).toBe(18);
+    expect(infoCards.length).toBe(17);
   });
 
   describe('features disabled', () => {
@@ -119,7 +117,7 @@ describe('HealthComponent', () => {
       expect(infoGroups.length).toBe(3);
 
       const infoCards = fixture.debugElement.nativeElement.querySelectorAll('cd-info-card');
-      expect(infoCards.length).toBe(15);
+      expect(infoCards.length).toBe(14);
     });
   });
 
@@ -141,7 +139,7 @@ describe('HealthComponent', () => {
     expect(infoGroups.length).toBe(2);
 
     const infoCards = fixture.debugElement.nativeElement.querySelectorAll('cd-info-card');
-    expect(infoCards.length).toBe(10);
+    expect(infoCards.length).toBe(9);
   });
 
   it('should render all except "Performance" group and cards', () => {
@@ -172,7 +170,7 @@ describe('HealthComponent', () => {
     expect(infoGroups.length).toBe(2);
 
     const infoCards = fixture.debugElement.nativeElement.querySelectorAll('cd-info-card');
-    expect(infoCards.length).toBe(13);
+    expect(infoCards.length).toBe(12);
   });
 
   it('should render all groups and 1 card per group', () => {
@@ -256,17 +254,25 @@ describe('HealthComponent', () => {
   });
 
   describe('preparePgStatus', () => {
-    const calcPercentage = (data: number) => Math.round((data / 10) * 100) || 0;
-
-    const expectedChart = (data: number[]) => ({
+    const expectedChart = (data: number[], label: string = null) => ({
       labels: [
-        `Clean (${calcPercentage(data[0])}%)`,
-        `Working (${calcPercentage(data[1])}%)`,
-        `Warning (${calcPercentage(data[2])}%)`,
-        `Unknown (${calcPercentage(data[3])}%)`
+        `Clean: ${component['dimless'].transform(data[0])}`,
+        `Working: ${component['dimless'].transform(data[1])}`,
+        `Warning: ${component['dimless'].transform(data[2])}`,
+        `Unknown: ${component['dimless'].transform(data[3])}`
       ],
       options: {},
-      dataset: [{ data: data }]
+      dataset: [
+        {
+          data: data.map((i) =>
+            component['calcPercentage'](
+              i,
+              data.reduce((j, k) => j + k)
+            )
+          ),
+          label: label
+        }
+      ]
     });
 
     it('gets no data', () => {
@@ -274,7 +280,7 @@ describe('HealthComponent', () => {
       component.preparePgStatus(chart, {
         pg_info: {}
       });
-      expect(chart).toEqual(expectedChart([undefined, undefined, undefined, undefined]));
+      expect(chart).toEqual(expectedChart([0, 0, 0, 0], '0\nPGs'));
     });
 
     it('gets data from all categories', () => {
@@ -289,7 +295,7 @@ describe('HealthComponent', () => {
           }
         }
       });
-      expect(chart).toEqual(expectedChart([1, 2, 3, 4]));
+      expect(chart).toEqual(expectedChart([1, 2, 3, 4], '10\nPGs'));
     });
   });
 

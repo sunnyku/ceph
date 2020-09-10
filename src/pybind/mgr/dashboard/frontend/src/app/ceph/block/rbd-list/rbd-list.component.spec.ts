@@ -3,21 +3,17 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { AlertModule } from 'ngx-bootstrap/alert';
-import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
-import { ModalModule } from 'ngx-bootstrap/modal';
-import { TabsModule } from 'ngx-bootstrap/tabs';
-import { TooltipModule } from 'ngx-bootstrap/tooltip';
+import { NgbNavModule, NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrModule } from 'ngx-toastr';
 import { BehaviorSubject, of } from 'rxjs';
 
 import {
   configureTestBed,
   expectItemTasks,
-  i18nProviders,
   PermissionHelper
 } from '../../../../testing/unit-test-helper';
 import { RbdService } from '../../../shared/api/rbd.service';
+import { TableStatusViewCache } from '../../../shared/classes/table-status-view-cache';
 import { TableActionsComponent } from '../../../shared/datatable/table-actions/table-actions.component';
 import { ViewCacheStatus } from '../../../shared/enum/view-cache-status.enum';
 import { ExecutingTask } from '../../../shared/models/executing-task';
@@ -45,12 +41,9 @@ describe('RbdListComponent', () => {
     imports: [
       BrowserAnimationsModule,
       SharedModule,
-      BsDropdownModule.forRoot(),
-      TabsModule.forRoot(),
-      ModalModule.forRoot(),
-      TooltipModule.forRoot(),
+      NgbNavModule,
+      NgbTooltipModule,
       ToastrModule.forRoot(),
-      AlertModule.forRoot(),
       RouterTestingModule,
       HttpClientTestingModule
     ],
@@ -61,14 +54,14 @@ describe('RbdListComponent', () => {
       RbdConfigurationListComponent,
       RbdTabsComponent
     ],
-    providers: [TaskListService, i18nProviders]
+    providers: [TaskListService]
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(RbdListComponent);
     component = fixture.componentInstance;
-    summaryService = TestBed.get(SummaryService);
-    rbdService = TestBed.get(RbdService);
+    summaryService = TestBed.inject(SummaryService);
+    rbdService = TestBed.inject(RbdService);
 
     // this is needed because summaryService isn't being reset after each test.
     summaryService['summaryDataSource'] = new BehaviorSubject(null);
@@ -99,7 +92,9 @@ describe('RbdListComponent', () => {
       spyOn(component.table, 'reset');
       summaryService['summaryDataSource'].error(undefined);
       expect(component.table.reset).toHaveBeenCalled();
-      expect(component.viewCacheStatusList).toEqual([{ status: ViewCacheStatus.ValueException }]);
+      expect(component.tableStatus).toEqual(
+        new TableStatusViewCache(ViewCacheStatus.ValueException)
+      );
     });
   });
 
@@ -138,7 +133,7 @@ describe('RbdListComponent', () => {
           }
         ]
       });
-      expect(component.getDeleteDisableDesc()).toBe(
+      expect(component.getDeleteDisableDesc(component.selection)).toBe(
         'This RBD has cloned snapshots. Please delete related RBDs before deleting this RBD.'
       );
     });

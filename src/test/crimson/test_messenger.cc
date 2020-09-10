@@ -66,12 +66,15 @@ static seastar::future<> test_echo(unsigned rounds,
         msgr->set_require_authorizer(false);
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->bind(entity_addrvec_t{addr}).then([this] {
-          return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->bind(entity_addrvec_t{addr}).then([this, chained_dispatchers]() mutable {
+          return msgr->start(chained_dispatchers);
         });
       }
       seastar::future<> shutdown() {
         ceph_assert(msgr);
+	msgr->remove_dispatcher(*this);
         return msgr->shutdown();
       }
     };
@@ -104,13 +107,12 @@ static seastar::future<> test_echo(unsigned rounds,
         return found->second;
       }
 
-      seastar::future<> ms_handle_connect(crimson::net::ConnectionRef conn) override {
+      void ms_handle_connect(crimson::net::ConnectionRef conn) override {
         auto session = seastar::make_shared<PingSession>();
         auto [i, added] = sessions.emplace(conn.get(), session);
         std::ignore = i;
         ceph_assert(added);
         session->connected_time = mono_clock::now();
-        return seastar::now();
       }
       seastar::future<> ms_dispatch(crimson::net::Connection* c,
                                     MessageRef m) override {
@@ -137,11 +139,14 @@ static seastar::future<> test_echo(unsigned rounds,
         msgr->set_default_policy(crimson::net::SocketPolicy::lossy_client(0));
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->start(chained_dispatchers);
       }
 
       seastar::future<> shutdown() {
         ceph_assert(msgr);
+	msgr->remove_dispatcher(*this);
         return msgr->shutdown();
       }
 
@@ -227,12 +232,14 @@ static seastar::future<> test_echo(unsigned rounds,
       client1->init(entity_name_t::OSD(2), "client1", 3),
       client2->init(entity_name_t::OSD(3), "client2", 4)
   // dispatch pingpoing
-  ).then([client1, client2, server1, server2] {
+  ).then_unpack([client1, client2, server1, server2] {
     return seastar::when_all_succeed(
         // test connecting in parallel, accepting in parallel
         client1->dispatch_pingpong(server2->msgr->get_myaddr()),
         client2->dispatch_pingpong(server1->msgr->get_myaddr()));
   // shutdown
+  }).then_unpack([] {
+    return seastar::now();
   }).finally([client1] {
     logger().info("client1 shutdown...");
     return client1->shutdown();
@@ -287,8 +294,10 @@ static seastar::future<> test_concurrent_dispatch(bool v2)
         msgr->set_default_policy(crimson::net::SocketPolicy::stateless_server(0));
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->bind(entity_addrvec_t{addr}).then([this] {
-          return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->bind(entity_addrvec_t{addr}).then([this, chained_dispatchers]() mutable {
+          return msgr->start(chained_dispatchers);
         });
       }
     };
@@ -305,7 +314,9 @@ static seastar::future<> test_concurrent_dispatch(bool v2)
         msgr->set_default_policy(crimson::net::SocketPolicy::lossy_client(0));
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->start(chained_dispatchers);
       }
     };
   };
@@ -324,7 +335,7 @@ static seastar::future<> test_concurrent_dispatch(bool v2)
   return seastar::when_all_succeed(
       server->init(entity_name_t::OSD(4), "server3", 5, addr),
       client->init(entity_name_t::OSD(5), "client3", 6)
-  ).then([server, client] {
+  ).then_unpack([server, client] {
     auto conn = client->msgr->connect(server->msgr->get_myaddr(),
                                       entity_name_t::TYPE_OSD);
     // send two messages
@@ -335,9 +346,11 @@ static seastar::future<> test_concurrent_dispatch(bool v2)
     return server->wait();
   }).finally([client] {
     logger().info("client shutdown...");
+    client->msgr->remove_dispatcher(*client);
     return client->msgr->shutdown();
   }).finally([server] {
     logger().info("server shutdown...");
+    server->msgr->remove_dispatcher(*server);
     return server->msgr->shutdown();
   }).finally([server, client] {
     logger().info("test_concurrent_dispatch() done!\n");
@@ -365,14 +378,17 @@ seastar::future<> test_preemptive_shutdown(bool v2) {
         msgr->set_default_policy(crimson::net::SocketPolicy::stateless_server(0));
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->bind(entity_addrvec_t{addr}).then([this] {
-          return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->bind(entity_addrvec_t{addr}).then([this, chained_dispatchers]() mutable {
+          return msgr->start(chained_dispatchers);
         });
       }
       entity_addr_t get_addr() const {
         return msgr->get_myaddr();
       }
       seastar::future<> shutdown() {
+	msgr->remove_dispatcher(*this);
         return msgr->shutdown();
       }
     };
@@ -398,7 +414,9 @@ seastar::future<> test_preemptive_shutdown(bool v2) {
         msgr->set_default_policy(crimson::net::SocketPolicy::lossy_client(0));
         msgr->set_auth_client(&dummy_auth);
         msgr->set_auth_server(&dummy_auth);
-        return msgr->start(this);
+	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+	chained_dispatchers->push_back(*this);
+        return msgr->start(chained_dispatchers);
       }
       void send_pings(const entity_addr_t& addr) {
         auto conn = msgr->connect(addr, entity_name_t::TYPE_OSD);
@@ -415,6 +433,7 @@ seastar::future<> test_preemptive_shutdown(bool v2) {
         });
       }
       seastar::future<> shutdown() {
+	msgr->remove_dispatcher(*this);
         return msgr->shutdown().then([this] {
           stop_send = true;
           return stopped_send_promise.get_future();
@@ -437,7 +456,7 @@ seastar::future<> test_preemptive_shutdown(bool v2) {
   return seastar::when_all_succeed(
     server->init(entity_name_t::OSD(6), "server4", 7, addr),
     client->init(entity_name_t::OSD(7), "client4", 8)
-  ).then([server, client] {
+  ).then_unpack([server, client] {
     client->send_pings(server->get_addr());
     return seastar::sleep(100ms);
   }).then([client] {
@@ -580,7 +599,7 @@ struct ConnResult {
                   "  cnt_accept_dispatched: {}\n"
                   "  cnt_reset_dispatched: {}\n"
                   "  cnt_remote_reset_dispatched: {}\n",
-                  this,
+                  static_cast<const void*>(this),
                   index, *conn,
                   state,
                   connect_attempts,
@@ -804,7 +823,7 @@ class FailoverSuite : public Dispatcher {
     return seastar::now();
   }
 
-  seastar::future<> ms_handle_accept(ConnectionRef conn) override {
+  void ms_handle_accept(ConnectionRef conn) override {
     auto result = interceptor.find_result(conn);
     if (result == nullptr) {
       logger().error("Untracked accepted connection: {}", *conn);
@@ -824,10 +843,10 @@ class FailoverSuite : public Dispatcher {
     ++result->cnt_accept_dispatched;
     logger().info("[Test] got accept (cnt_accept_dispatched={}), track [{}] {}",
                   result->cnt_accept_dispatched, result->index, *conn);
-    return flush_pending_send();
+    std::ignore = flush_pending_send();
   }
 
-  seastar::future<> ms_handle_connect(ConnectionRef conn) override {
+  void ms_handle_connect(ConnectionRef conn) override {
     auto result = interceptor.find_result(conn);
     if (result == nullptr) {
       logger().error("Untracked connected connection: {}", *conn);
@@ -844,10 +863,9 @@ class FailoverSuite : public Dispatcher {
     ++result->cnt_connect_dispatched;
     logger().info("[Test] got connected (cnt_connect_dispatched={}) -- [{}] {}",
                   result->cnt_connect_dispatched, result->index, *conn);
-    return seastar::now();
   }
 
-  seastar::future<> ms_handle_reset(ConnectionRef conn, bool is_replace) override {
+  void ms_handle_reset(ConnectionRef conn, bool is_replace) override {
     auto result = interceptor.find_result(conn);
     if (result == nullptr) {
       logger().error("Untracked reset connection: {}", *conn);
@@ -866,10 +884,9 @@ class FailoverSuite : public Dispatcher {
     ++result->cnt_reset_dispatched;
     logger().info("[Test] got reset (cnt_reset_dispatched={}), untrack [{}] {}",
                   result->cnt_reset_dispatched, result->index, *conn);
-    return seastar::now();
   }
 
-  seastar::future<> ms_handle_remote_reset(ConnectionRef conn) override {
+  void ms_handle_remote_reset(ConnectionRef conn) override {
     auto result = interceptor.find_result(conn);
     if (result == nullptr) {
       logger().error("Untracked remotely reset connection: {}", *conn);
@@ -886,7 +903,6 @@ class FailoverSuite : public Dispatcher {
     ++result->cnt_remote_reset_dispatched;
     logger().info("[Test] got remote reset (cnt_remote_reset_dispatched={}) -- [{}] {}",
                   result->cnt_remote_reset_dispatched, result->index, *conn);
-    return seastar::now();
   }
 
  private:
@@ -895,8 +911,10 @@ class FailoverSuite : public Dispatcher {
     test_msgr->set_auth_client(&dummy_auth);
     test_msgr->set_auth_server(&dummy_auth);
     test_msgr->interceptor = &interceptor;
-    return test_msgr->bind(entity_addrvec_t{addr}).then([this] {
-      return test_msgr->start(this);
+    auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+    chained_dispatchers->push_back(*this);
+    return test_msgr->bind(entity_addrvec_t{addr}).then([this, chained_dispatchers]() mutable {
+      return test_msgr->start(chained_dispatchers);
     });
   }
 
@@ -1017,6 +1035,7 @@ class FailoverSuite : public Dispatcher {
   }
 
   seastar::future<> shutdown() {
+    test_msgr->remove_dispatcher(*this);
     return test_msgr->shutdown();
   }
 
@@ -1239,7 +1258,9 @@ class FailoverTest : public Dispatcher {
     cmd_msgr->set_default_policy(SocketPolicy::lossy_client(0));
     cmd_msgr->set_auth_client(&dummy_auth);
     cmd_msgr->set_auth_server(&dummy_auth);
-    return cmd_msgr->start(this).then([this, cmd_peer_addr] {
+    auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+    chained_dispatchers->push_back(*this);
+    return cmd_msgr->start(chained_dispatchers).then([this, cmd_peer_addr] {
       logger().info("CmdCli connect to CmdSrv({}) ...", cmd_peer_addr);
       cmd_conn = cmd_msgr->connect(cmd_peer_addr, entity_name_t::TYPE_OSD);
       return pingpong();
@@ -1262,6 +1283,7 @@ class FailoverTest : public Dispatcher {
     return cmd_conn->send(m).then([] {
       return seastar::sleep(200ms);
     }).finally([this] {
+      cmd_msgr->remove_dispatcher(*this);
       return cmd_msgr->shutdown();
     });
   }
@@ -1376,20 +1398,19 @@ class FailoverSuitePeer : public Dispatcher {
     return op_callback();
   }
 
-  seastar::future<> ms_handle_accept(ConnectionRef conn) override {
+  void ms_handle_accept(ConnectionRef conn) override {
     logger().info("[TestPeer] got accept from Test");
     ceph_assert(!tracked_conn ||
                 tracked_conn->is_closed() ||
                 tracked_conn == conn);
     tracked_conn = conn;
-    return flush_pending_send();
+    std::ignore = flush_pending_send();
   }
 
-  seastar::future<> ms_handle_reset(ConnectionRef conn, bool is_replace) override {
+  void ms_handle_reset(ConnectionRef conn, bool is_replace) override {
     logger().info("[TestPeer] got reset from Test");
     ceph_assert(tracked_conn == conn);
     tracked_conn = nullptr;
-    return seastar::now();
   }
 
  private:
@@ -1397,8 +1418,10 @@ class FailoverSuitePeer : public Dispatcher {
     peer_msgr->set_default_policy(policy);
     peer_msgr->set_auth_client(&dummy_auth);
     peer_msgr->set_auth_server(&dummy_auth);
-    return peer_msgr->bind(entity_addrvec_t{addr}).then([this] {
-      return peer_msgr->start(this);
+    auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+    return peer_msgr->bind(entity_addrvec_t{addr}).then([this, chained_dispatchers]() mutable {
+      chained_dispatchers->push_back(*this);
+      return peer_msgr->start(chained_dispatchers);
     });
   }
 
@@ -1430,6 +1453,7 @@ class FailoverSuitePeer : public Dispatcher {
     : peer_msgr(peer_msgr), op_callback(op_callback) { }
 
   seastar::future<> shutdown() {
+    peer_msgr->remove_dispatcher(*this);
     return peer_msgr->shutdown();
   }
 
@@ -1505,6 +1529,7 @@ class FailoverTestPeer : public Dispatcher {
       if (cmd == cmd_t::shutdown) {
         logger().info("CmdSrv shutdown...");
         // forwarded to FailoverTestPeer::wait()
+	cmd_msgr->remove_dispatcher(*this);
         (void) cmd_msgr->shutdown();
         return seastar::now();
       }
@@ -1518,9 +1543,8 @@ class FailoverTestPeer : public Dispatcher {
     }
   }
 
-  seastar::future<> ms_handle_accept(ConnectionRef conn) override {
+  void ms_handle_accept(ConnectionRef conn) override {
     cmd_conn = conn;
-    return seastar::now();
   }
 
  private:
@@ -1573,8 +1597,10 @@ class FailoverTestPeer : public Dispatcher {
     cmd_msgr->set_default_policy(SocketPolicy::stateless_server(0));
     cmd_msgr->set_auth_client(&dummy_auth);
     cmd_msgr->set_auth_server(&dummy_auth);
-    return cmd_msgr->bind(entity_addrvec_t{cmd_peer_addr}).then([this] {
-      return cmd_msgr->start(this);
+    auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
+    chained_dispatchers->push_back(*this);
+    return cmd_msgr->bind(entity_addrvec_t{cmd_peer_addr}).then([this, chained_dispatchers]() mutable {
+      return cmd_msgr->start(chained_dispatchers);
     });
   }
 

@@ -69,9 +69,11 @@ include_directories(
   ${PROJECT_BINARY_DIR}/src/include
   ${PROJECT_SOURCE_DIR}/src)
 
-if(OFED_PREFIX)
-  include_directories(SYSTEM ${OFED_PREFIX}/include)
-  link_directories(${OFED_PREFIX}/lib)
+if(WIN32)
+  include_directories(
+    ${PROJECT_SOURCE_DIR}/src/include/win32)
+  # Boost complains if winsock2.h (or windows.h) is included before asio.hpp.
+  add_compile_options(-include winsock_wrapper.h)
 endif()
 
 if(FREEBSD)
@@ -86,6 +88,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+include(GNUInstallDirs)
 include(CephChecks)
 
 set(CEPH_MAN_DIR "share/man" CACHE STRING "Install location for man pages (relative to prefix).")
@@ -187,6 +190,10 @@ if(WITH_BLUESTORE)
 endif()
 
 include(CMakeDependentOption)
+
+CMAKE_DEPENDENT_OPTION(WITH_ZBD "Enable libzbd bluestore backend" OFF
+  "WITH_BLUESTORE" OFF)
+
 CMAKE_DEPENDENT_OPTION(WITH_LIBURING "Enable io_uring bluestore backend" OFF
   "WITH_BLUESTORE;HAVE_LIBAIO" OFF)
 set(HAVE_LIBURING ${WITH_LIBURING})
@@ -342,6 +349,7 @@ endif()
 
 option(WITH_BLKIN "Use blkin to emit LTTng tracepoints for Zipkin" OFF)
 if(WITH_BLKIN)
+  find_package(LTTngUST REQUIRED)
   set(BLKIN_LIBRARIES blkin ${LTTNGUST_LIBRARIES} lttng-ust-fork)
   include_directories(SYSTEM src/blkin/blkin-lib)
 endif(WITH_BLKIN)
@@ -424,12 +432,7 @@ option(WITH_CEPHFS "CephFS is enabled" ON)
 
 # Please specify 3.[0-7] if you want to build with a certain version of python3.
 set(WITH_PYTHON3 "3" CACHE STRING "build with specified python3 version")
-if(NOT WITH_PYTHON3)
-  message(FATAL_ERROR "WITH_PYTHON3 should always be enabled")
-elseif(WITH_PYTHON3 MATCHES "^(1|ON|YES|TRUE|Y)$")
-  set(WITH_PYTHON3 "3")
-  message(NOTICE "Please specify a Python3 version instead of a BOOLEAN")
-elseif(NOT WITH_PYTHON3 STREQUAL "3")
+if(NOT WITH_PYTHON3 STREQUAL "3")
   set(find_python3_exact "EXACT")
 endif()
 find_package(Python3 ${WITH_PYTHON3} ${find_python3_exact} REQUIRED
@@ -459,8 +462,6 @@ option(WITH_REENTRANT_STRSIGNAL "strsignal is reentrant" OFF)
 if(WITH_REENTRANT_STRSIGNAL)
   set(HAVE_REENTRANT_STRSIGNAL 1 CACHE INTERNAL "Reentrant strsignal is supported.")
 endif()
-
-set(HAVE_LIBROCKSDB 1)
 
 # -lz link into kv
 find_package(ZLIB REQUIRED)
@@ -543,10 +544,10 @@ endif()
 
 if(sanitizers)
   find_package(Sanitizers REQUIRED ${sanitizers})
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Sanitizers_COMPILE_OPTIONS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Sanitizers_COMPILE_OPTIONS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${Sanitizers_COMPILE_OPTIONS}")
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${Sanitizers_COMPILE_OPTIONS}")
+  add_compile_options(${Sanitizers_COMPILE_OPTIONS})
+  string(REPLACE ";" " " sanitiers_compile_flags "${Sanitizers_COMPILE_OPTIONS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${sanitiers_compile_flags}")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${sanitiers_compile_flags}")
 endif()
 
 # Rocksdb
@@ -590,6 +591,10 @@ if(WITH_SYSTEM_BOOST)
     set(BOOST_LIBRARYDIR "${BOOST_ROOT}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
   endif()
   find_package(Boost 1.67 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+  if(NOT ENABLE_SHARED)
+    set_property(TARGET Boost::iostreams APPEND PROPERTY
+      INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
+  endif()
 else()
   set(BOOST_J 1 CACHE STRING
     "max jobs for Boost build") # override w/-DBOOST_J=<n>
@@ -672,7 +677,7 @@ add_tags(ctags
   SRC_DIR src
   TAG_FILE tags
   EXCLUDE_OPTS ${CTAG_EXCLUDES}
-  EXCLUDES "*.js" "*.css")
+  EXCLUDES "*.js" "*.css" ".tox" "python-common/build")
 add_custom_target(tags DEPENDS ctags)
 
 set(VERSION 15.2.0)

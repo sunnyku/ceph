@@ -5,7 +5,6 @@
 #include "rgw_rest_client.h"
 #include "rgw_auth_s3.h"
 #include "rgw_http_errors.h"
-#include "rgw_rados.h"
 
 #include "common/armor.h"
 #include "common/strtol.h"
@@ -279,7 +278,16 @@ int RGWRESTSimpleRequest::forward_request(RGWAccessKey& key, req_info& info, siz
   RGWEnv new_env;
   req_info new_info(cct, &new_env);
   new_info.rebuild_from(info);
-
+  string bucket_encode;
+  string request_uri_encode;
+  size_t pos = new_info.request_uri.substr(1, new_info.request_uri.size() - 1).find("/");
+  string bucket = new_info.request_uri.substr(1, pos);
+  url_encode(bucket, bucket_encode);
+  if (std::string::npos != pos)
+    request_uri_encode = string("/") + bucket_encode + new_info.request_uri.substr(pos + 1);
+  else
+    request_uri_encode = string("/") + bucket_encode;
+  new_info.request_uri = request_uri_encode;
   new_env.set("HTTP_DATE", date_str.c_str());
 
   int ret = sign_request(cct, key, new_env, new_info);
@@ -335,7 +343,7 @@ int RGWRESTSimpleRequest::forward_request(RGWAccessKey& key, req_info& info, siz
   response.append((char)0); /* NULL terminate response */
 
   if (outbl) {
-    outbl->claim(response);
+    *outbl = std::move(response);
   }
 
   return status;
@@ -557,17 +565,17 @@ int RGWRESTGenerateHTTPHeaders::sign(RGWAccessKey& key)
   return 0;
 }
 
-void RGWRESTStreamS3PutObj::send_init(rgw_obj& obj)
+void RGWRESTStreamS3PutObj::send_init(rgw::sal::RGWObject* obj)
 {
   string resource_str;
   string resource;
   string new_url = url;
 
   if (host_style == VirtualStyle) {
-    resource_str = obj.get_oid();
-    new_url = obj.bucket.name + "."  + new_url;
+    resource_str = obj->get_oid();
+    new_url = obj->get_bucket()->get_name() + "."  + new_url;
   } else {
-    resource_str = obj.bucket.name + "/" + obj.get_oid();
+    resource_str = obj->get_bucket()->get_name() + "/" + obj->get_oid();
   }
 
   //do not encode slash in object key name
@@ -617,7 +625,7 @@ int RGWRESTStreamS3PutObj::send_ready(RGWAccessKey& key, bool send)
   return 0;
 }
 
-int RGWRESTStreamS3PutObj::put_obj_init(RGWAccessKey& key, rgw_obj& obj, uint64_t obj_size, map<string, bufferlist>& attrs, bool send)
+int RGWRESTStreamS3PutObj::put_obj_init(RGWAccessKey& key, rgw::sal::RGWObject* obj, uint64_t obj_size, map<string, bufferlist>& attrs, bool send)
 {
   send_init(obj);
   return send_ready(key, attrs, send);

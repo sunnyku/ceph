@@ -28,7 +28,6 @@ set(librgw_common_srcs
   services/svc_bucket_sync_sobj.cc
   services/svc_cls.cc
   services/svc_config_key_rados.cc
-  services/svc_datalog_rados.cc
   services/svc_mdlog.cc
   services/svc_meta.cc
   services/svc_meta_be.cc
@@ -63,6 +62,7 @@ set(librgw_common_srcs
   rgw_cache.cc
   rgw_common.cc
   rgw_compression.cc
+  rgw_etag_verifier.cc
   rgw_cors.cc
   rgw_cors_s3.cc
   rgw_dencoder.cc
@@ -130,6 +130,7 @@ set(librgw_common_srcs
   rgw_rest_s3.cc
   rgw_role.cc
   rgw_sal.cc
+  rgw_sal_rados.cc
   rgw_string.cc
   rgw_tag.cc
   rgw_tag_s3.cc
@@ -147,10 +148,14 @@ set(librgw_common_srcs
   rgw_sts.cc
   rgw_rest_sts.cc
   rgw_perf_counters.cc
+  rgw_rest_oidc_provider.cc
   rgw_rest_iam.cc
   rgw_object_lock.cc
   rgw_kms.cc
-  rgw_url.cc)
+  rgw_url.cc
+  rgw_oidc_provider
+  rgw_datalog.cc
+  cls_fifo_legacy.cc)
 
 if(WITH_RADOSGW_AMQP_ENDPOINT)
   list(APPEND librgw_common_srcs rgw_amqp.cc)
@@ -164,6 +169,7 @@ add_library(rgw_common OBJECT ${librgw_common_srcs})
 target_include_directories(rgw_common SYSTEM PUBLIC "services")
 target_include_directories(rgw_common PUBLIC "${CMAKE_SOURCE_DIR}/src/dmclock/support/src")
 target_include_directories(rgw_common PUBLIC "${CMAKE_SOURCE_DIR}/src/fmt/include")
+target_include_directories(rgw_common PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw")
 
 if(WITH_BOOST_CONTEXT)
   target_include_directories(rgw_common PRIVATE
@@ -222,6 +228,7 @@ add_dependencies(rgw_a civetweb_h)
 target_compile_definitions(rgw_a PUBLIC "-DCLS_CLIENT_HIDE_IOCTX")
 target_include_directories(rgw_a PUBLIC "${CMAKE_SOURCE_DIR}/src/dmclock/support/src")
 target_include_directories(rgw_a SYSTEM PUBLIC "../rapidjson/include")
+target_include_directories(rgw_a SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw")
 
 if(WITH_RADOSGW_AMQP_ENDPOINT)
   find_package(RabbitMQ REQUIRED)
@@ -234,7 +241,7 @@ target_link_libraries(rgw_a
   PRIVATE
   librados cls_otp_client cls_lock_client cls_rgw_client cls_refcount_client
   cls_log_client cls_timeindex_client cls_version_client cls_cmpomap_client
-  cls_user_client cls_rgw_gc_client ceph-common common_utf8 global
+  cls_user_client cls_rgw_gc_client cls_2pc_queue_client ceph-common common_utf8 global
   ${CURL_LIBRARIES}
   ${EXPAT_LIBRARIES}
   ${OPENLDAP_LIBRARIES} ${CRYPTO_LIBS}
@@ -310,7 +317,7 @@ install(TARGETS radosgw DESTINATION ${CMAKE_INSTALL_LIBDIR})
 add_executable(radosgwd radosgw.cc)
 target_link_libraries(radosgwd radosgw librados
   cls_rgw_client cls_otp_client cls_lock_client cls_refcount_client
-  cls_log_client cls_timeindex_client
+  cls_log_client cls_timeindex_client neorados_cls_fifo
   cls_version_client cls_user_client
   global
   ${FCGI_LIBRARY} ${LIB_RESOLV}
@@ -325,7 +332,7 @@ set(radosgw_admin_srcs
 add_executable(radosgw-admin ${radosgw_admin_srcs})
 target_link_libraries(radosgw-admin ${rgw_libs} librados
   cls_rgw_client cls_otp_client cls_lock_client cls_refcount_client
-  cls_log_client cls_timeindex_client
+  cls_log_client cls_timeindex_client neorados_cls_fifo
   cls_version_client cls_user_client
   global ${FCGI_LIBRARY} ${LIB_RESOLV}
   ${CURL_LIBRARIES} ${EXPAT_LIBRARIES} ${BLKID_LIBRARIES})
@@ -336,7 +343,7 @@ set(radosgw_es_srcs
 add_executable(radosgw-es ${radosgw_es_srcs})
 target_link_libraries(radosgw-es ${rgw_libs} librados
   cls_rgw_client cls_otp_client cls_lock_client cls_refcount_client
-  cls_log_client cls_timeindex_client
+  cls_log_client cls_timeindex_client neorados_cls_fifo
   cls_version_client cls_user_client
   global ${FCGI_LIBRARY} ${LIB_RESOLV}
   ${CURL_LIBRARIES} ${EXPAT_LIBRARIES} ${BLKID_LIBRARIES})
@@ -354,7 +361,7 @@ set(radosgw_object_expirer_srcs
 add_executable(radosgw-object-expirer ${radosgw_object_expirer_srcs})
 target_link_libraries(radosgw-object-expirer ${rgw_libs} librados
   cls_rgw_client cls_otp_client cls_lock_client cls_refcount_client
-  cls_log_client cls_timeindex_client
+  cls_log_client cls_timeindex_client neorados_cls_fifo
   cls_version_client cls_user_client
   global ${FCGI_LIBRARY} ${LIB_RESOLV}
   ${CURL_LIBRARIES} ${EXPAT_LIBRARIES})
@@ -374,6 +381,7 @@ target_link_libraries(rgw
   cls_refcount_client
   cls_log_client
   cls_timeindex_client
+  neorados_cls_fifo
   cls_version_client
   cls_user_client
   global

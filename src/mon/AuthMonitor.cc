@@ -1276,7 +1276,14 @@ bool AuthMonitor::valid_caps(
     if (!moncap.parse(caps, out)) {
       return false;
     }
-  } else if (type == "mgr") {
+    return true;
+  }
+
+  if (!g_conf().get_val<bool>("mon_auth_validate_all_caps")) {
+    return true;
+  }
+
+  if (type == "mgr") {
     MgrCap mgrcap;
     if (!mgrcap.parse(caps, out)) {
       return false;
@@ -1802,7 +1809,7 @@ bool AuthMonitor::_upgrade_format_to_dumpling()
     // set daemon profiles
     if ((p->first.is_osd() || p->first.is_mds()) &&
         mon_caps == "allow rwx") {
-      new_caps = string("allow profile ") + p->first.get_type_name();
+      new_caps = string("allow profile ") + std::string(p->first.get_type_name());
     }
 
     // update bootstrap keys

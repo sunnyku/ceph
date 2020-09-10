@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import { ExecutingTask } from '../models/executing-task';
 import { FinishedTask } from '../models/finished-task';
@@ -26,12 +26,9 @@ export class TaskManagerService {
   subscriptions: Array<TaskSubscription> = [];
 
   init(summaryService: SummaryService) {
-    return summaryService.subscribe((data: any) => {
-      if (!data) {
-        return;
-      }
-      const executingTasks = data.executing_tasks;
-      const finishedTasks = data.finished_tasks;
+    return summaryService.subscribe((summary) => {
+      const executingTasks = summary.executing_tasks;
+      const finishedTasks = summary.finished_tasks;
       const newSubscriptions: Array<TaskSubscription> = [];
       for (const subscription of this.subscriptions) {
         const finishedTask = <FinishedTask>this._getTask(subscription, finishedTasks);

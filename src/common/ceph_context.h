@@ -25,11 +25,15 @@
 #include <typeinfo>
 #include <typeindex>
 
-#include "include/common_fwd.h"
+#include <boost/intrusive_ptr.hpp>
+
 #include "include/any.h"
+#include "include/common_fwd.h"
+#include "include/compat.h"
 
 #include "common/cmdparse.h"
 #include "common/code_environment.h"
+#include "msg/msg_types.h"
 #if defined(WITH_SEASTAR) && !defined(WITH_ALIEN)
 #include "crimson/common/config_proxy.h"
 #include "crimson/common/perf_counters_collection.h"
@@ -45,6 +49,7 @@
 class AdminSocket;
 class CryptoHandler;
 class CryptoRandom;
+class MonMap;
 
 namespace ceph::common {
   class CephContextServiceThread;
@@ -258,6 +263,21 @@ public:
   void notify_pre_fork();
   void notify_post_fork();
 
+  /**
+   * update CephContext with a copy of the passed in MonMap mon addrs
+   *
+   * @param mm MonMap to extract and update mon addrs
+   */
+  void set_mon_addrs(const MonMap& mm);
+  void set_mon_addrs(const std::vector<entity_addrvec_t>& in) {
+    auto ptr = std::make_shared<std::vector<entity_addrvec_t>>(in);
+    atomic_store_explicit(&_mon_addrs, std::move(ptr), std::memory_order_relaxed);
+  }
+  std::shared_ptr<std::vector<entity_addrvec_t>> get_mon_addrs() const {
+    auto ptr = atomic_load_explicit(&_mon_addrs, std::memory_order_relaxed);
+    return ptr;
+  }
+
 private:
 
 
@@ -274,6 +294,8 @@ private:
   std::string _set_gid_string;
 
   int _crypto_inited;
+
+  std::shared_ptr<std::vector<entity_addrvec_t>> _mon_addrs;
 
   /* libcommon service thread.
    * SIGHUP wakes this thread, which then reopens logfiles */
@@ -375,4 +397,17 @@ private:
 #endif
 #endif	// WITH_SEASTAR
 
+#if !(defined(WITH_SEASTAR) && !defined(WITH_ALIEN)) && defined(__cplusplus)
+namespace ceph::common {
+inline void intrusive_ptr_add_ref(CephContext* cct)
+{
+  cct->get();
+}
+
+inline void intrusive_ptr_release(CephContext* cct)
+{
+  cct->put();
+}
+}
+#endif // !(defined(WITH_SEASTAR) && !defined(WITH_ALIEN)) && defined(__cplusplus)
 #endif

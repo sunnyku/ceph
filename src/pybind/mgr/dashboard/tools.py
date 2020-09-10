@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import sys
 import inspect
 import json
-import functools
-import ipaddress
 import logging
 
 import collections
@@ -14,14 +11,11 @@ from distutils.util import strtobool
 import fnmatch
 import time
 import threading
-import six
-from six.moves import urllib
+import urllib
+
 import cherrypy
 
-try:
-    from urlparse import urljoin
-except ImportError:
-    from urllib.parse import urljoin
+from ceph.deployment.utils import wrap_ipv6
 
 from . import mgr
 from .exceptions import ViewCacheNoDataException
@@ -693,16 +687,7 @@ def build_url(host, scheme=None, port=None):
     :type port: int
     :rtype: str
     """
-    try:
-        try:
-            u_host = six.u(host)
-        except TypeError:
-            u_host = host
-
-        ipaddress.IPv6Address(u_host)
-        netloc = '[{}]'.format(host)
-    except ValueError:
-        netloc = host
+    netloc = wrap_ipv6(host)
     if port:
         netloc += ':{}'.format(port)
     pr = urllib.parse.ParseResult(
@@ -719,7 +704,7 @@ def prepare_url_prefix(url_prefix):
     """
     return '' if no prefix, or '/prefix' without slash in the end.
     """
-    url_prefix = urljoin('/', url_prefix)
+    url_prefix = urllib.parse.urljoin('/', url_prefix)
     return url_prefix.rstrip('/')
 
 
@@ -757,20 +742,6 @@ def dict_get(obj, path, default=None):
     return current
 
 
-if sys.version_info > (3, 0):
-    wraps = functools.wraps
-    _getargspec = inspect.getfullargspec
-else:
-    def wraps(func):
-        def decorator(wrapper):
-            new_wrapper = functools.wraps(func)(wrapper)
-            new_wrapper.__wrapped__ = func  # set __wrapped__ even for Python 2
-            return new_wrapper
-        return decorator
-
-    _getargspec = inspect.getargspec
-
-
 def getargspec(func):
     try:
         while True:
@@ -778,7 +749,7 @@ def getargspec(func):
     except AttributeError:
         pass
     # pylint: disable=deprecated-method
-    return _getargspec(func)
+    return inspect.getfullargspec(func)
 
 
 def str_to_bool(val):

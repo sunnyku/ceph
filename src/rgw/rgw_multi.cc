@@ -12,6 +12,7 @@
 #include "rgw_multi.h"
 #include "rgw_op.h"
 #include "rgw_sal.h"
+#include "rgw_sal_rados.h"
 
 #include "services/svc_sys_obj.h"
 #include "services/svc_tier_rados.h"
@@ -194,7 +195,7 @@ int list_multipart_parts(rgw::sal::RGWRadosStore *store, struct req_state *s,
 			 int *next_marker, bool *truncated,
 			 bool assume_unsorted)
 {
-  return list_multipart_parts(store, s->bucket_info, s->cct, upload_id,
+  return list_multipart_parts(store, s->bucket->get_info(), s->cct, upload_id,
 			      meta_oid, num_parts, marker, parts,
 			      next_marker, truncated, assume_unsorted);
 }

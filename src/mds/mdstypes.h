@@ -20,7 +20,6 @@
 #include "include/frag.h"
 #include "include/xlist.h"
 #include "include/interval_set.h"
-#include "include/compact_map.h"
 #include "include/compact_set.h"
 #include "include/fs_types.h"
 
@@ -397,12 +396,12 @@ public:
   inline_data_t() {}
   inline_data_t(const inline_data_t& o) : version(o.version) {
     if (o.blp)
-      get_data() = *o.blp;
+      set_data(*o.blp);
   }
   inline_data_t& operator=(const inline_data_t& o) {
     version = o.version;
     if (o.blp)
-      get_data() = *o.blp;
+      set_data(*o.blp);
     else
       free_data();
     return *this;
@@ -411,10 +410,16 @@ public:
   void free_data() {
     blp.reset();
   }
-  ceph::buffer::list& get_data() {
+  void get_data(ceph::buffer::list& ret) const {
+    if (blp)
+      ret = *blp;
+    else
+      ret.clear();
+  }
+  void set_data(const ceph::buffer::list& bl) {
     if (!blp)
       blp.reset(new ceph::buffer::list);
-    return *blp;
+    *blp = bl;
   }
   size_t length() const { return blp ? blp->length() : 0; }
 
@@ -488,6 +493,11 @@ struct inode_t {
   }
 
   bool is_dirty_rstat() const { return !(rstat == accounted_rstat); }
+
+  uint64_t get_client_range(client_t client) const {
+    auto it = client_ranges.find(client);
+    return it != client_ranges.end() ? it->second.range.last : 0;
+  }
 
   uint64_t get_max_size() const {
     uint64_t max = 0;
@@ -596,6 +606,9 @@ struct inode_t {
 
   mds_rank_t export_pin = MDS_RANK_NONE;
 
+  double export_ephemeral_random_pin = 0;
+  bool export_ephemeral_distributed_pin = false;
+
   // special stuff
   version_t version = 0;           // auth only
   version_t file_data_version = 0; // auth only
@@ -618,7 +631,7 @@ private:
 template<template<typename> class Allocator>
 void inode_t<Allocator>::encode(ceph::buffer::list &bl, uint64_t features) const
 {
-  ENCODE_START(15, 6, bl);
+  ENCODE_START(16, 6, bl);
 
   encode(ino, bl);
   encode(rdev, bl);
@@ -670,13 +683,16 @@ void inode_t<Allocator>::encode(ceph::buffer::list &bl, uint64_t features) const
 
   encode(export_pin, bl);
 
+  encode(export_ephemeral_random_pin, bl);
+  encode(export_ephemeral_distributed_pin, bl);
+
   ENCODE_FINISH(bl);
 }
 
 template<template<typename> class Allocator>
 void inode_t<Allocator>::decode(ceph::buffer::list::const_iterator &p)
 {
-  DECODE_START_LEGACY_COMPAT_LEN(15, 6, 6, p);
+  DECODE_START_LEGACY_COMPAT_LEN(16, 6, 6, p);
 
   decode(ino, p);
   decode(rdev, p);
@@ -766,6 +782,14 @@ void inode_t<Allocator>::decode(ceph::buffer::list::const_iterator &p)
     export_pin = MDS_RANK_NONE;
   }
 
+  if (struct_v >= 16) {
+    decode(export_ephemeral_random_pin, p);
+    decode(export_ephemeral_distributed_pin, p);
+  } else {
+    export_ephemeral_random_pin = 0;
+    export_ephemeral_distributed_pin = false;
+  }
+
   DECODE_FINISH(p);
 }
 
@@ -803,6 +827,8 @@ void inode_t<Allocator>::dump(ceph::Formatter *f) const
   f->dump_unsigned("time_warp_seq", time_warp_seq);
   f->dump_unsigned("change_attr", change_attr);
   f->dump_int("export_pin", export_pin);
+  f->dump_int("export_ephemeral_random_pin", export_ephemeral_random_pin);
+  f->dump_bool("export_ephemeral_distributed_pin", export_ephemeral_distributed_pin);
 
   f->open_array_section("client_ranges");
   for (const auto &p : client_ranges) {
@@ -991,11 +1017,11 @@ template<template<typename> class Allocator>
 using alloc_string = std::basic_string<char,std::char_traits<char>,Allocator<char>>;
 
 template<template<typename> class Allocator>
-using xattr_map = compact_map<alloc_string<Allocator>,
-			      ceph::bufferptr,
-			      std::less<alloc_string<Allocator>>,
-			      Allocator<std::pair<const alloc_string<Allocator>,
-						  ceph::bufferptr>>>; // FIXME bufferptr not in mempool
+using xattr_map = std::map<alloc_string<Allocator>,
+			   ceph::bufferptr,
+			   std::less<alloc_string<Allocator>>,
+			   Allocator<std::pair<const alloc_string<Allocator>,
+					       ceph::bufferptr>>>; // FIXME bufferptr not in mempool
 
 template<template<typename> class Allocator>
 inline void decode_noshare(xattr_map<Allocator>& xattrs, ceph::buffer::list::const_iterator &p)
@@ -1090,6 +1116,7 @@ struct fnode_t {
   void encode(ceph::buffer::list &bl) const;
   void decode(ceph::buffer::list::const_iterator& bl);
   void dump(ceph::Formatter *f) const;
+  void decode_json(JSONObj *obj);
   static void generate_test_instances(std::list<fnode_t*>& ls);
 
   version_t version = 0;
@@ -1154,8 +1181,30 @@ public:
       return false;
     return _vec[bit / bits_per_block] & ((block_type)1 << (bit % bits_per_block));
   }
+  void insert(size_t bit) {
+    size_t n = bit / bits_per_block;
+    if (n >= _vec.size())
+      _vec.resize(n + 1);
+    _vec[n] |= ((block_type)1 << (bit % bits_per_block));
+  }
+  void erase(size_t bit) {
+    size_t n = bit / bits_per_block;
+    if (n >= _vec.size())
+      return;
+    _vec[n] &= ~((block_type)1 << (bit % bits_per_block));
+    if (n + 1 == _vec.size()) {
+      while (!_vec.empty() && _vec.back() == 0)
+	_vec.pop_back();
+    }
+  }
   void clear() {
     _vec.clear();
+  }
+  bool operator==(const feature_bitset_t& other) const {
+    return _vec == other._vec;
+  }
+  bool operator!=(const feature_bitset_t& other) const {
+    return _vec != other._vec;
   }
   void encode(ceph::buffer::list& bl) const;
   void decode(ceph::buffer::list::const_iterator &p);
@@ -1474,7 +1523,7 @@ struct cap_reconnect_t {
     capinfo.pathbase = pino;
     capinfo.flock_len = 0;
     snap_follows = sf;
-    flockbl.claim(lb);
+    flockbl = std::move(lb);
   }
   void encode(ceph::buffer::list& bl) const;
   void decode(ceph::buffer::list::const_iterator& bl);
@@ -1870,7 +1919,7 @@ struct keys_and_values
       query =  pair >> *(qi::lit(' ') >> pair);
       pair  =  key >> '=' >> value;
       key   =  qi::char_("a-zA-Z_") >> *qi::char_("a-zA-Z_0-9");
-      value = +qi::char_("a-zA-Z_0-9");
+      value = +qi::char_("a-zA-Z0-9-_.");
     }
   qi::rule<Iterator, std::map<std::string, std::string>()> query;
   qi::rule<Iterator, std::pair<std::string, std::string>()> pair;

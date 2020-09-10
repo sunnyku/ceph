@@ -5,10 +5,11 @@ import base64
 import logging
 import time
 
+from urllib import parse
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.twofactor.totp import TOTP
 from cryptography.hazmat.primitives.hashes import SHA1
-from six.moves.urllib import parse
 
 from .helper import DashboardTestCase, JObj, JList, JLeaf
 
@@ -110,6 +111,27 @@ class RgwApiCredentialsTest(RgwTestCase):
         self.assertFalse(data['available'])
         self.assertIn('The user "xyz" is unknown to the Object Gateway.',
                       data['message'])
+
+
+class RgwSiteTest(RgwTestCase):
+
+    AUTH_ROLES = ['rgw-manager']
+
+    def test_get_placement_targets(self):
+        data = self._get('/api/rgw/site?query=placement-targets')
+        self.assertStatus(200)
+        self.assertSchema(data, JObj({
+            'zonegroup': str,
+            'placement_targets': JList(JObj({
+                'name': str,
+                'data_pool': str
+            }))
+        }))
+
+    def test_get_realms(self):
+        data = self._get('/api/rgw/site?query=realms')
+        self.assertStatus(200)
+        self.assertSchema(data, JList(str))
 
 
 class RgwBucketTest(RgwTestCase):
@@ -488,6 +510,11 @@ class RgwUserTest(RgwTestCase):
         self.assertStatus(200)
         self.assertGreaterEqual(len(data), 1)
         self.assertIn('admin', data)
+
+    def test_get_emails(self):
+        data = self._get('/api/rgw/user/get_emails')
+        self.assertStatus(200)
+        self.assertSchema(data, JList(str))
 
     def test_create_get_update_delete(self):
         # Create a new user.
