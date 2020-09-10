@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
 class RGWCoroutine;
 class RGWRados;
 class RGWHTTPManager;

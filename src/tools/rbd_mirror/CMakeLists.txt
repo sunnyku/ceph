@@ -77,7 +77,6 @@ target_link_libraries(rbd-mirror
   rbd_internal
   rbd_types
   journal
-  libneorados
   librados
   osdc
   cls_rbd_client

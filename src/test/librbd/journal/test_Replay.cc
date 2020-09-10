@@ -338,10 +338,9 @@ TEST_F(TestJournalReplay, SnapCreate) {
 					     "snap"));
   }
 
-  // verify lock ordering constraints  
-  librbd::NoOpProgressContext no_op_progress;
+  // verify lock ordering constraints
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap2", 0, no_op_progress));
+					     "snap2"));
 }
 
 TEST_F(TestJournalReplay, SnapProtect) {
@@ -352,9 +351,8 @@ TEST_F(TestJournalReplay, SnapProtect) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
 
   // get current commit position
   int64_t initial_tag;
@@ -385,7 +383,7 @@ TEST_F(TestJournalReplay, SnapProtect) {
 
   // verify lock ordering constraints
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap2", 0, no_op_progress));
+					     "snap2"));
   ASSERT_EQ(0, ictx->operations->snap_protect(cls::rbd::UserSnapshotNamespace(),
 					      "snap2"));
 }
@@ -398,9 +396,8 @@ TEST_F(TestJournalReplay, SnapUnprotect) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
   uint64_t snap_id;
   {
     std::shared_lock image_locker{ictx->image_lock};
@@ -439,7 +436,7 @@ TEST_F(TestJournalReplay, SnapUnprotect) {
 
   // verify lock ordering constraints
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap2", 0, no_op_progress));
+					     "snap2"));
   ASSERT_EQ(0, ictx->operations->snap_protect(cls::rbd::UserSnapshotNamespace(),
 					      "snap2"));
   ASSERT_EQ(0, ictx->operations->snap_unprotect(cls::rbd::UserSnapshotNamespace(),
@@ -454,9 +451,8 @@ TEST_F(TestJournalReplay, SnapRename) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
   uint64_t snap_id;
   {
     std::shared_lock image_locker{ictx->image_lock};
@@ -504,9 +500,8 @@ TEST_F(TestJournalReplay, SnapRollback) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
 
   // get current commit position
   int64_t initial_tag;
@@ -532,6 +527,7 @@ TEST_F(TestJournalReplay, SnapRollback) {
   ASSERT_EQ(initial_entry + 2, current_entry);
 
   // verify lock ordering constraints
+  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_rollback(cls::rbd::UserSnapshotNamespace(),
 					       "snap",
 					       no_op_progress));
@@ -545,9 +541,8 @@ TEST_F(TestJournalReplay, SnapRemove) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
 
   // get current commit position
   int64_t initial_tag;
@@ -581,7 +576,7 @@ TEST_F(TestJournalReplay, SnapRemove) {
 
   // verify lock ordering constraints
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
   ASSERT_EQ(0, ictx->operations->snap_remove(cls::rbd::UserSnapshotNamespace(),
 					     "snap"));
 }
@@ -658,9 +653,8 @@ TEST_F(TestJournalReplay, Flatten) {
 
   librbd::ImageCtx *ictx;
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
-  librbd::NoOpProgressContext no_op_progress;
   ASSERT_EQ(0, ictx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					     "snap", 0, no_op_progress));
+					     "snap"));
   ASSERT_EQ(0, ictx->operations->snap_protect(cls::rbd::UserSnapshotNamespace(),
 					      "snap"));
 

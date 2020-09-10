@@ -152,6 +152,10 @@ public:
                 }));
   }
 
+  void expect_destroy(librbd::MockTestImageCtx& mock_image_ctx) {
+    EXPECT_CALL(mock_image_ctx, destroy());
+  }
+
   librbd::ImageCtx *m_local_image_ctx;
 };
 
@@ -194,6 +198,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, SuccessJournal) {
                      0);
 
   expect_close(mock_image_ctx, 0);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -235,6 +240,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, SuccessSnapshot) {
                      0);
 
   expect_close(mock_image_ctx, 0);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -258,6 +264,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, OpenError) {
   InSequence seq;
   expect_set_journal_policy(mock_image_ctx);
   expect_open(mock_image_ctx, -EPERM);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -283,6 +290,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, AcquireLockError) {
   expect_open(mock_image_ctx, 0);
   expect_acquire_lock(mock_image_ctx, -EPERM);
   expect_close(mock_image_ctx, -EINVAL);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -316,6 +324,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, SnapUnprotectBusy) {
                         "snap1", -EBUSY);
 
   expect_close(mock_image_ctx, -EINVAL);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -349,6 +358,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, SnapUnprotectError) {
                         "snap1", -EPERM);
 
   expect_close(mock_image_ctx, -EINVAL);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -383,6 +393,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, SnapRemoveError) {
                      -EINVAL);
 
   expect_close(mock_image_ctx, -EPERM);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,
@@ -417,6 +428,7 @@ TEST_F(TestMockImageDeleterSnapshotPurgeRequest, CloseError) {
                      0);
 
   expect_close(mock_image_ctx, -EINVAL);
+  expect_destroy(mock_image_ctx);
 
   C_SaferCond ctx;
   auto req = MockSnapshotPurgeRequest::create(m_local_io_ctx, mock_image_ctx.id,

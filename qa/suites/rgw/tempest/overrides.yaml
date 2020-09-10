@@ -4,4 +4,3 @@ overrides:
       client:
         setuser: ceph
         setgroup: ceph
-        debug rgw: 20

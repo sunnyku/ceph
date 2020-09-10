@@ -4,13 +4,11 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbTypeaheadModule } from '@ng-bootstrap/ng-bootstrap';
+import { TypeaheadModule } from 'ngx-bootstrap/typeahead';
 import { ToastrModule } from 'ngx-toastr';
-import { of } from 'rxjs';
 
 import { ActivatedRouteStub } from '../../../../testing/activated-route-stub';
-import { configureTestBed } from '../../../../testing/unit-test-helper';
-import { LoadingPanelComponent } from '../../../shared/components/loading-panel/loading-panel.component';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { CephReleaseNamePipe } from '../../../shared/pipes/ceph-release-name.pipe';
 import { SummaryService } from '../../../shared/services/summary.service';
 import { SharedModule } from '../../../shared/shared.module';
@@ -23,42 +21,40 @@ describe('NfsFormComponent', () => {
   let httpTesting: HttpTestingController;
   let activatedRoute: ActivatedRouteStub;
 
-  configureTestBed(
-    {
-      declarations: [NfsFormComponent, NfsFormClientComponent],
-      imports: [
-        HttpClientTestingModule,
-        ReactiveFormsModule,
-        RouterTestingModule,
-        SharedModule,
-        ToastrModule.forRoot(),
-        NgbTypeaheadModule
-      ],
-      providers: [
-        {
-          provide: ActivatedRoute,
-          useValue: new ActivatedRouteStub({ cluster_id: undefined, export_id: undefined })
-        },
-        SummaryService,
-        CephReleaseNamePipe
-      ]
-    },
-    [LoadingPanelComponent]
-  );
+  configureTestBed({
+    declarations: [NfsFormComponent, NfsFormClientComponent],
+    imports: [
+      HttpClientTestingModule,
+      ReactiveFormsModule,
+      RouterTestingModule,
+      SharedModule,
+      ToastrModule.forRoot(),
+      TypeaheadModule.forRoot()
+    ],
+    providers: [
+      {
+        provide: ActivatedRoute,
+        useValue: new ActivatedRouteStub({ cluster_id: undefined, export_id: undefined })
+      },
+      i18nProviders,
+      SummaryService,
+      CephReleaseNamePipe
+    ]
+  });
 
   beforeEach(() => {
-    const summaryService = TestBed.inject(SummaryService);
+    const summaryService = TestBed.get(SummaryService);
     spyOn(summaryService, 'refresh').and.callFake(() => true);
-    spyOn(summaryService, 'subscribeOnce').and.callFake(() =>
-      of({
+    spyOn(summaryService, 'getCurrentSummary').and.callFake(() => {
+      return {
         version: 'master'
-      })
-    );
+      };
+    });
 
     fixture = TestBed.createComponent(NfsFormComponent);
     component = fixture.componentInstance;
-    httpTesting = TestBed.inject(HttpTestingController);
-    activatedRoute = <ActivatedRouteStub>TestBed.inject(ActivatedRoute);
+    httpTesting = TestBed.get(HttpTestingController);
+    activatedRoute = TestBed.get(ActivatedRoute);
     fixture.detectChanges();
 
     httpTesting.expectOne('api/nfs-ganesha/daemon').flush([

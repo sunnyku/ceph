@@ -4,6 +4,7 @@
 #include "common/dout.h"
 #include "common/errno.h"
 #include "common/Timer.h"
+#include "common/WorkQueue.h"
 #include "journal/Settings.h"
 #include "include/ceph_assert.h"
 #include "librbd/Utils.h"

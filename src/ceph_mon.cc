@@ -101,7 +101,7 @@ int obtain_monmap(MonitorDBStore &store, bufferlist &bl)
 	if (b.get_epoch() > latest_ver) {
 	  dout(10) << __func__ << " using stashed monmap " << b.get_epoch()
 		   << " instead" << dendl;
-	  bl = std::move(bl2);
+	  bl.claim(bl2);
 	} else {
 	  dout(10) << __func__ << " ignoring stashed monmap " << b.get_epoch()
 		   << dendl;
@@ -738,7 +738,8 @@ int main(int argc, const char **argv)
     ipaddrs = monmap.get_addrs(g_conf()->name.get_id());
 
     // print helpful warning if the conf file doesn't match
-    std::vector<std::string> my_sections = g_conf().get_my_sections();
+    std::vector <std::string> my_sections;
+    g_conf().get_my_sections(my_sections);
     std::string mon_addr_str;
     if (g_conf().get_val_from_conf_file(my_sections, "mon addr",
 				       mon_addr_str, true) == 0) {

@@ -31,6 +31,10 @@ public:
 
 protected:
   bool should_complete(int r) override;
+  int filter_return_code(int r) const override{
+    // never propagate an error back to the caller
+    return 0;
+  }
 
 private:
   uint64_t m_snap_id;

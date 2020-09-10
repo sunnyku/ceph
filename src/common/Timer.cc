@@ -107,8 +107,7 @@ void SafeTimer::timer_thread()
     if (schedule.empty()) {
       cond.wait(l);
     } else {
-      auto when = schedule.begin()->first;
-      cond.wait_until(l, when);
+      cond.wait_until(l, schedule.begin()->first);
     }
     ldout(cct,20) << "timer_thread awake" << dendl;
   }

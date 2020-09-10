@@ -23,9 +23,10 @@ describe('Configuration page', () => {
       configuration.getTableSelectedCount().should('eq', 1);
     });
 
-    it('should check that details table opens (w/o tab header)', () => {
+    it('should check that details table opens and tab is correct', () => {
       configuration.getStatusTables().should('be.visible');
-      configuration.getTabs().should('not.exist');
+      configuration.getTabsCount().should('eq', 1);
+      configuration.getTabText(0).should('eq', 'Details');
     });
   });
 

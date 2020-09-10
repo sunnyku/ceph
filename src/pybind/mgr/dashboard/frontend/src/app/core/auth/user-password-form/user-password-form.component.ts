@@ -2,7 +2,8 @@ import { Component } from '@angular/core';
 import { Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
 
 import { UserService } from '../../../shared/api/user.service';
 import { ActionLabelsI18n } from '../../../shared/constants/app.constants';
@@ -30,6 +31,7 @@ export class UserPasswordFormComponent {
   icons = Icons;
 
   constructor(
+    public i18n: I18n,
     public actionLabels: ActionLabelsI18n,
     public notificationService: NotificationService,
     public userService: UserService,
@@ -39,7 +41,7 @@ export class UserPasswordFormComponent {
     public passwordPolicyService: PasswordPolicyService
   ) {
     this.action = this.actionLabels.CHANGE;
-    this.resource = $localize`password`;
+    this.resource = this.i18n('password');
     this.createForm();
   }
 
@@ -113,7 +115,11 @@ export class UserPasswordFormComponent {
    * Override this in derived classes to change the behaviour.
    */
   onPasswordChange() {
-    this.notificationService.show(NotificationType.success, $localize`Updated user password"`);
-    this.router.navigate(['/login']);
+    this.notificationService.show(NotificationType.success, this.i18n('Updated user password"'));
+    // Theoretically it is not necessary to navigate to '/logout' because
+    // the auth token gets invalid after changing the password in the
+    // backend, thus the user would be automatically logged out after the
+    // next periodically API request is executed.
+    this.router.navigate(['/logout']);
   }
 }

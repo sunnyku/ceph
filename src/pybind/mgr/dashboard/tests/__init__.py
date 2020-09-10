@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import json
 import logging
 import threading
+import sys
 import time
 
 import cherrypy
@@ -93,7 +94,11 @@ class FakeFsMixin(object):
     fs = fake_filesystem.FakeFilesystem()
     f_open = fake_filesystem.FakeFileOpen(fs)
     f_os = fake_filesystem.FakeOsModule(fs)
-    builtins_open = 'builtins.open'
+
+    if sys.version_info > (3, 0):
+        builtins_open = 'builtins.open'
+    else:
+        builtins_open = '__builtin__.open'
 
 
 class ControllerTestCase(helper.CPWebCase):

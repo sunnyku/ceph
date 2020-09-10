@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - reached quota
       - \(POOL_APP_NOT_ENABLED\)
       - \(PG_AVAILABILITY\)

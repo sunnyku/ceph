@@ -2,11 +2,13 @@
 from __future__ import absolute_import
 
 import abc
+import six
 
 from .pluggy import HookspecMarker, HookimplMarker, PluginManager
 
 
-class Interface(object, metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class Interface(object):
     pass
 
 

@@ -2,7 +2,9 @@ import { Component, EventEmitter, OnInit } from '@angular/core';
 import { FormControl, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+
 import { forkJoin, Observable, ReplaySubject } from 'rxjs';
 import { first, switchMap } from 'rxjs/operators';
 
@@ -24,7 +26,6 @@ import { AuthStorageService } from '../../../shared/services/auth-storage.servic
 import { FormatterService } from '../../../shared/services/formatter.service';
 import { TaskWrapperService } from '../../../shared/services/task-wrapper.service';
 import { Pool } from '../../pool/pool';
-import { RBDImageFormat, RbdModel } from '../rbd-list/rbd-model';
 import { RbdImageFeature } from './rbd-feature.interface';
 import { RbdFormCloneRequestModel } from './rbd-form-clone-request.model';
 import { RbdFormCopyRequestModel } from './rbd-form-copy-request.model';
@@ -101,47 +102,48 @@ export class RbdFormComponent extends CdForm implements OnInit {
     private formatter: FormatterService,
     private taskWrapper: TaskWrapperService,
     private dimlessBinaryPipe: DimlessBinaryPipe,
+    private i18n: I18n,
     public actionLabels: ActionLabelsI18n,
     public router: Router
   ) {
     super();
     this.poolPermission = this.authStorageService.getPermissions().pool;
-    this.resource = $localize`RBD`;
+    this.resource = this.i18n('RBD');
     this.features = {
       'deep-flatten': {
-        desc: $localize`Deep flatten`,
+        desc: this.i18n('Deep flatten'),
         requires: null,
         allowEnable: false,
         allowDisable: true
       },
       layering: {
-        desc: $localize`Layering`,
+        desc: this.i18n('Layering'),
         requires: null,
         allowEnable: false,
         allowDisable: false
       },
       'exclusive-lock': {
-        desc: $localize`Exclusive lock`,
+        desc: this.i18n('Exclusive lock'),
         requires: null,
         allowEnable: true,
         allowDisable: true
       },
       'object-map': {
-        desc: $localize`Object map (requires exclusive-lock)`,
+        desc: this.i18n('Object map (requires exclusive-lock)'),
         requires: 'exclusive-lock',
         allowEnable: true,
         allowDisable: true,
         initDisabled: true
       },
       journaling: {
-        desc: $localize`Journaling (requires exclusive-lock)`,
+        desc: this.i18n('Journaling (requires exclusive-lock)'),
         requires: 'exclusive-lock',
         allowEnable: true,
         allowDisable: true,
         initDisabled: true
       },
       'fast-diff': {
-        desc: $localize`Fast diff (interlocked with object-map)`,
+        desc: this.i18n('Fast diff (interlocked with object-map)'),
         requires: 'object-map',
         allowEnable: true,
         allowDisable: true,
@@ -198,15 +200,6 @@ export class RbdFormComponent extends CdForm implements OnInit {
     this.rbdForm.get('obj_size').disable();
     this.rbdForm.get('stripingUnit').disable();
     this.rbdForm.get('stripingCount').disable();
-
-    /* RBD Image Format v1 */
-    this.rbdImage.subscribe((image: RbdModel) => {
-      if (image.image_format === RBDImageFormat.V1) {
-        this.rbdForm.get('deep-flatten').disable();
-        this.rbdForm.get('layering').disable();
-        this.rbdForm.get('exclusive-lock').disable();
-      }
-    });
   }
 
   disableForClone() {
@@ -725,7 +718,7 @@ export class RbdFormComponent extends CdForm implements OnInit {
         })
       )
       .subscribe(
-        () => undefined,
+        () => {},
         () => this.rbdForm.setErrors({ cdSubmitButton: true }),
         () => this.router.navigate(['/block/rbd'])
       );

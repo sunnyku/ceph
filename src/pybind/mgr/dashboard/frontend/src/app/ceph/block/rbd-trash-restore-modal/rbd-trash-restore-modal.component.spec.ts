@@ -7,10 +7,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { SharedModule } from '../../../shared/shared.module';
 import { RbdTrashRestoreModalComponent } from './rbd-trash-restore-modal.component';
@@ -28,7 +28,7 @@ describe('RbdTrashRestoreModalComponent', () => {
       SharedModule,
       RouterTestingModule
     ],
-    providers: [NgbActiveModal]
+    providers: [BsModalRef, i18nProviders]
   });
 
   beforeEach(() => {
@@ -44,20 +44,20 @@ describe('RbdTrashRestoreModalComponent', () => {
   describe('should call restore', () => {
     let httpTesting: HttpTestingController;
     let notificationService: NotificationService;
-    let activeModal: NgbActiveModal;
+    let modalRef: BsModalRef;
     let req: TestRequest;
 
     beforeEach(() => {
-      httpTesting = TestBed.inject(HttpTestingController);
-      notificationService = TestBed.inject(NotificationService);
-      activeModal = TestBed.inject(NgbActiveModal);
+      httpTesting = TestBed.get(HttpTestingController);
+      notificationService = TestBed.get(NotificationService);
+      modalRef = TestBed.get(BsModalRef);
 
       component.poolName = 'foo';
       component.imageName = 'bar';
       component.imageId = '113cb6963793';
       component.ngOnInit();
 
-      spyOn(activeModal, 'close').and.stub();
+      spyOn(modalRef, 'hide').and.stub();
       spyOn(component.restoreForm, 'setErrors').and.stub();
       spyOn(notificationService, 'show').and.stub();
 
@@ -69,13 +69,13 @@ describe('RbdTrashRestoreModalComponent', () => {
     it('with success', () => {
       req.flush(null);
       expect(component.restoreForm.setErrors).toHaveBeenCalledTimes(0);
-      expect(component.activeModal.close).toHaveBeenCalledTimes(1);
+      expect(component.modalRef.hide).toHaveBeenCalledTimes(1);
     });
 
     it('with failure', () => {
       req.flush(null, { status: 500, statusText: 'failure' });
       expect(component.restoreForm.setErrors).toHaveBeenCalledTimes(1);
-      expect(component.activeModal.close).toHaveBeenCalledTimes(0);
+      expect(component.modalRef.hide).toHaveBeenCalledTimes(0);
     });
   });
 });

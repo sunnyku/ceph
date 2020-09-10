@@ -181,7 +181,7 @@ class NFSGaneshaExports(RESTController):
         ganesha_conf = GaneshaConf.instance(cluster_id)
 
         if not ganesha_conf.has_export(export_id):
-            raise cherrypy.HTTPError(404)  # pragma: no cover - the handling is too obvious
+            raise cherrypy.HTTPError(404)
 
         if fsal['name'] not in Ganesha.fsals_available():
             raise NFSException("Cannot make modifications to this export. "
@@ -227,7 +227,8 @@ class NFSGaneshaExports(RESTController):
         ganesha_conf = GaneshaConf.instance(cluster_id)
 
         if not ganesha_conf.has_export(export_id):
-            raise cherrypy.HTTPError(404)  # pragma: no cover - the handling is too obvious
+            raise cherrypy.HTTPError(404)
+
         export = ganesha_conf.remove_export(export_id)
         if reload_daemons:
             ganesha_conf.reload_daemons(export.daemons)
@@ -279,7 +280,7 @@ class NFSGaneshaUi(BaseController):
         return Ganesha.fsals_available()
 
     @Endpoint('GET', '/lsdir')
-    def lsdir(self, root_dir=None, depth=1):  # pragma: no cover
+    def lsdir(self, root_dir=None, depth=1):
         if root_dir is None:
             root_dir = "/"
         depth = int(depth)

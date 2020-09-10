@@ -193,9 +193,9 @@ static inline void encode(const sockaddr_storage& a, ceph::buffer::list& bl) {
   ::memcpy(dst, src, copy_size);
   encode(ss, bl);
 #else
-  ceph_sockaddr_storage ss;
+  ceph_sockaddr_storage ss{};
   ::memset(&ss, '\0', sizeof(ss));
-  ::memcpy(&ss, &a, std::min(sizeof(ss), sizeof(a)));
+  ::memcpy(&wireaddr, &ss, std::min(sizeof(ss), sizeof(a)));
   encode(ss, bl);
 #endif
 }
@@ -368,8 +368,10 @@ struct entity_addr_t {
     switch (u.sa.sa_family) {
     case AF_INET:
       return ntohs(u.sin.sin_port);
+      break;
     case AF_INET6:
       return ntohs(u.sin6.sin6_port);
+      break;
     }
     return 0;
   }
@@ -477,7 +479,7 @@ struct entity_addr_t {
       encode(type, bl);
     } else {
       // map any -> legacy for old clients.  this is primary for the benefit
-      // of OSDMap's blocklist, but is reasonable in general since any: is
+      // of OSDMap's blacklist, but is reasonable in general since any: is
       // meaningless for pre-nautilus clients or daemons.
       auto t = type;
       if (t == TYPE_ANY) {
@@ -568,7 +570,12 @@ struct entity_addrvec_t {
   bool empty() const { return v.empty(); }
 
   entity_addr_t legacy_addr() const {
-    return addr_of_type(entity_addr_t::TYPE_LEGACY);
+    for (auto& a : v) {
+      if (a.type == entity_addr_t::TYPE_LEGACY) {
+	return a;
+      }
+    }
+    return entity_addr_t();
   }
   entity_addr_t as_legacy_addr() const {
     for (auto& a : v) {
@@ -598,14 +605,22 @@ struct entity_addrvec_t {
 	return a;
       }
     }
-    return front();
+    if (!v.empty()) {
+      return v.front();
+    }
+    return entity_addr_t();
   }
   std::string get_legacy_str() const {
     return legacy_or_front_addr().get_legacy_str();
   }
 
   entity_addr_t msgr2_addr() const {
-    return addr_of_type(entity_addr_t::TYPE_MSGR2);
+    for (auto &a : v) {
+      if (a.type == entity_addr_t::TYPE_MSGR2) {
+        return a;
+      }
+    }
+    return entity_addr_t();
   }
   bool has_msgr2() const {
     for (auto& a : v) {
@@ -614,35 +629,6 @@ struct entity_addrvec_t {
       }
     }
     return false;
-  }
-
-  entity_addr_t pick_addr(uint32_t type) const {
-    entity_addr_t picked_addr;
-    switch (type) {
-    case entity_addr_t::TYPE_LEGACY:
-      [[fallthrough]];
-    case entity_addr_t::TYPE_MSGR2:
-      picked_addr = addr_of_type(type);
-      break;
-    case entity_addr_t::TYPE_ANY:
-      return front();
-    default:
-      return {};
-    }
-    if (!picked_addr.is_blank_ip()) {
-      return picked_addr;
-    } else {
-      return addr_of_type(entity_addr_t::TYPE_ANY);
-    }
-  }
-
-  entity_addr_t addr_of_type(uint32_t type) const {
-    for (auto &a : v) {
-      if (a.type == type) {
-        return a;
-      }
-    }
-    return entity_addr_t();
   }
 
   bool parse(const char *s, const char **end = 0);

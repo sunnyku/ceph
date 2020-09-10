@@ -5,9 +5,10 @@ import { Observable, of as observableOf } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 
 import { RoleFormModel } from '../../core/auth/role-form/role-form.model';
+import { ApiModule } from './api.module';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class RoleService {
   constructor(private http: HttpClient) {}

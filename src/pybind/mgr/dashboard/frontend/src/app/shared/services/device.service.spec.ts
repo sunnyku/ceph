@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import moment from 'moment';
+import * as moment from 'moment';
 
 import { CdDevice } from '../models/devices';
 import { DeviceService } from './device.service';
@@ -10,7 +10,7 @@ describe('DeviceService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(DeviceService);
+    service = TestBed.get(DeviceService);
   });
 
   it('should be created', () => {

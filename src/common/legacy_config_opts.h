@@ -303,7 +303,7 @@ OPTION(mon_keyvaluedb, OPT_STR)   // type of keyvaluedb backend
 
 // UNSAFE -- TESTING ONLY! Allows addition of a cache tier with preexisting snaps
 OPTION(mon_debug_unsafe_allow_tier_with_nonempty_snaps, OPT_BOOL)
-OPTION(mon_osd_blocklist_default_expire, OPT_DOUBLE) // default one hour
+OPTION(mon_osd_blacklist_default_expire, OPT_DOUBLE) // default one hour
 OPTION(mon_osd_crush_smoke_test, OPT_BOOL)
 
 OPTION(paxos_stash_full_interval, OPT_INT)   // how often (in commits) to stash a full copy of the PaxosService state
@@ -406,8 +406,8 @@ OPTION(mds_beacon_interval, OPT_FLOAT)
 OPTION(mds_beacon_grace, OPT_FLOAT)
 OPTION(mds_enforce_unique_name, OPT_BOOL)
 
-OPTION(mds_session_blocklist_on_timeout, OPT_BOOL)    // whether to blocklist clients whose sessions are dropped due to timeout
-OPTION(mds_session_blocklist_on_evict, OPT_BOOL)  // whether to blocklist clients whose sessions are dropped via admin commands
+OPTION(mds_session_blacklist_on_timeout, OPT_BOOL)    // whether to blacklist clients whose sessions are dropped due to timeout
+OPTION(mds_session_blacklist_on_evict, OPT_BOOL)  // whether to blacklist clients whose sessions are dropped via admin commands
 
 OPTION(mds_sessionmap_keys_per_op, OPT_U32)    // how many sessions should I try to load/store in a single OMAP operation?
 OPTION(mds_freeze_tree_timeout, OPT_FLOAT)    // detecting freeze tree deadlock
@@ -895,10 +895,9 @@ OPTION(bdev_debug_aio_log_age, OPT_DOUBLE)
 // to the uio_pci_generic driver. The purpose is to prevent the case where
 // NVMe driver is loaded while osd is running.
 OPTION(bdev_nvme_unbind_from_kernel, OPT_BOOL)
+OPTION(bdev_nvme_retry_count, OPT_INT) // -1 means by default which is 4
 OPTION(bdev_enable_discard, OPT_BOOL)
 OPTION(bdev_async_discard, OPT_BOOL)
-OPTION(bdev_flock_retry_interval, OPT_FLOAT)
-OPTION(bdev_flock_retry, OPT_INT)
 
 OPTION(objectstore_blackhole, OPT_BOOL)
 
@@ -914,14 +913,23 @@ OPTION(bluefs_compact_log_sync, OPT_BOOL)  // sync or async log compaction?
 OPTION(bluefs_buffered_io, OPT_BOOL)
 OPTION(bluefs_sync_write, OPT_BOOL)
 OPTION(bluefs_allocator, OPT_STR)     // stupid | bitmap
+OPTION(bluefs_preextend_wal_files, OPT_BOOL)  // this *requires* that rocksdb has recycling enabled
 OPTION(bluefs_log_replay_check_allocations, OPT_BOOL)
-OPTION(bluefs_replay_recovery, OPT_BOOL)
-OPTION(bluefs_replay_recovery_disable_compact, OPT_BOOL)
 
 OPTION(bluestore_bluefs, OPT_BOOL)
 OPTION(bluestore_bluefs_env_mirror, OPT_BOOL) // mirror to normal Env for debug
+OPTION(bluestore_bluefs_min, OPT_U64) // 1gb
+OPTION(bluestore_bluefs_min_ratio, OPT_FLOAT)  // min fs free / total free
+OPTION(bluestore_bluefs_max_ratio, OPT_FLOAT)  // max fs free / total free
+OPTION(bluestore_bluefs_gift_ratio, OPT_FLOAT) // how much to add at a time
+OPTION(bluestore_bluefs_reclaim_ratio, OPT_FLOAT) // how much to reclaim at a time
+OPTION(bluestore_bluefs_balance_interval, OPT_FLOAT) // how often (sec) to balance free space between bluefs and bluestore
 // how often (sec) to dump allocator on allocation failure
 OPTION(bluestore_bluefs_alloc_failure_dump_interval, OPT_FLOAT)
+
+// Enforces db sync with legacy bluefs extents information on close.
+// Enables downgrades to pre-nautilus releases
+OPTION(bluestore_bluefs_db_compatibility, OPT_BOOL)
 
 // If you want to use spdk driver, you need to specify NVMe serial number here
 // with "spdk:" prefix.
@@ -1437,7 +1445,6 @@ OPTION(rgw_curl_low_speed_limit, OPT_INT) // low speed limit for certain curl ca
 OPTION(rgw_curl_low_speed_time, OPT_INT) // low speed time for certain curl calls
 OPTION(rgw_copy_obj_progress, OPT_BOOL) // should dump progress during long copy operations?
 OPTION(rgw_copy_obj_progress_every_bytes, OPT_INT) // min bytes between copy progress output
-OPTION(rgw_sync_obj_etag_verify, OPT_BOOL) // verify if the copied object from remote is identical to source
 OPTION(rgw_obj_tombstone_cache_size, OPT_INT) // how many objects in tombstone cache, which is used in multi-zone sync to keep
                                                     // track of removed objects' mtime
 

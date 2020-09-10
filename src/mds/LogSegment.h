@@ -32,7 +32,7 @@ class CDir;
 class CInode;
 class CDentry;
 class MDSRank;
-struct MDPeerUpdate;
+struct MDSlaveUpdate;
 
 class LogSegment {
  public:
@@ -83,13 +83,14 @@ class LogSegment {
   elist<CInode*>  dirty_dirfrag_nest;
   elist<CInode*>  dirty_dirfrag_dirfragtree;
 
+  elist<MDSlaveUpdate*> slave_updates{0}; // passed to begin() manually
+
   set<CInode*> truncating_inodes;
   interval_set<inodeno_t> purge_inodes;
   MDSContext* purged_cb = nullptr;
 
   map<int, ceph::unordered_set<version_t> > pending_commit_tids;  // mdstable
-  set<metareqid_t> uncommitted_leaders;
-  set<metareqid_t> uncommitted_peers;
+  set<metareqid_t> uncommitted_masters;
   set<dirfrag_t> uncommitted_fragments;
 
   // client request ids

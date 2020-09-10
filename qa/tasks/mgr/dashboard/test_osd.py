@@ -49,26 +49,16 @@ class OsdTest(DashboardTestCase):
     def test_details(self):
         data = self._get('/api/osd/0')
         self.assertStatus(200)
-        self.assert_in_and_not_none(data, ['osd_metadata'])
+        self.assert_in_and_not_none(data, ['osd_metadata', 'histogram'])
+        self.assert_in_and_not_none(data['histogram'], ['osd'])
+        self.assert_in_and_not_none(data['histogram']['osd'], ['op_w_latency_in_bytes_histogram',
+                                                               'op_r_latency_out_bytes_histogram'])
 
     def test_scrub(self):
         self._post('/api/osd/0/scrub?deep=False')
         self.assertStatus(200)
 
         self._post('/api/osd/0/scrub?deep=True')
-        self.assertStatus(200)
-
-    def test_safe_to_delete(self):
-        data = self._get('/api/osd/safe_to_delete?svc_ids=0')
-        self.assertStatus(200)
-        self.assertSchema(data, JObj({
-             'is_safe_to_delete': JAny(none=True),
-             'message': str
-             }))
-        self.assertTrue(data['is_safe_to_delete'])
-
-    def test_osd_smart(self):
-        self._get('/api/osd/0/smart')
         self.assertStatus(200)
 
     def test_mark_out_and_in(self):
@@ -108,18 +98,6 @@ class OsdTest(DashboardTestCase):
             'tracking_id': 'bare-5'
         })
         self.assertStatus(201)
-
-        # invalid method
-        self._task_post('/api/osd', {
-            'method': 'xyz',
-            'data': {
-                'uuid': 'f860ca2e-757d-48ce-b74a-87052cad563f',
-                'svc_id': 5
-            },
-            'tracking_id': 'bare-5'
-        })
-        self.assertStatus(400)
-
         # Lost
         self._post('/api/osd/5/mark_lost')
         self.assertStatus(200)

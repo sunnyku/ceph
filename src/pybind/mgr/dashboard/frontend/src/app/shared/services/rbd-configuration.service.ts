@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 
+import { I18n } from '@ngx-translate/i18n-polyfill';
+
 import {
   RbdConfigurationExtraField,
   RbdConfigurationSection,
@@ -17,82 +19,82 @@ import {
 export class RbdConfigurationService {
   readonly sections: RbdConfigurationSection[];
 
-  constructor() {
+  constructor(private i18n: I18n) {
     this.sections = [
       {
-        heading: $localize`Quality of Service`,
+        heading: this.i18n('Quality of Service'),
         class: 'quality-of-service',
         options: [
           {
             name: 'rbd_qos_bps_limit',
-            displayName: $localize`BPS Limit`,
-            description: $localize`The desired limit of IO bytes per second.`,
+            displayName: this.i18n('BPS Limit'),
+            description: this.i18n('The desired limit of IO bytes per second.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_iops_limit',
-            displayName: $localize`IOPS Limit`,
-            description: $localize`The desired limit of IO operations per second.`,
+            displayName: this.i18n('IOPS Limit'),
+            description: this.i18n('The desired limit of IO operations per second.'),
             type: RbdConfigurationType.iops
           },
           {
             name: 'rbd_qos_read_bps_limit',
-            displayName: $localize`Read BPS Limit`,
-            description: $localize`The desired limit of read bytes per second.`,
+            displayName: this.i18n('Read BPS Limit'),
+            description: this.i18n('The desired limit of read bytes per second.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_read_iops_limit',
-            displayName: $localize`Read IOPS Limit`,
-            description: $localize`The desired limit of read operations per second.`,
+            displayName: this.i18n('Read IOPS Limit'),
+            description: this.i18n('The desired limit of read operations per second.'),
             type: RbdConfigurationType.iops
           },
           {
             name: 'rbd_qos_write_bps_limit',
-            displayName: $localize`Write BPS Limit`,
-            description: $localize`The desired limit of write bytes per second.`,
+            displayName: this.i18n('Write BPS Limit'),
+            description: this.i18n('The desired limit of write bytes per second.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_write_iops_limit',
-            displayName: $localize`Write IOPS Limit`,
-            description: $localize`The desired limit of write operations per second.`,
+            displayName: this.i18n('Write IOPS Limit'),
+            description: this.i18n('The desired limit of write operations per second.'),
             type: RbdConfigurationType.iops
           },
           {
             name: 'rbd_qos_bps_burst',
-            displayName: $localize`BPS Burst`,
-            description: $localize`The desired burst limit of IO bytes.`,
+            displayName: this.i18n('BPS Burst'),
+            description: this.i18n('The desired burst limit of IO bytes.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_iops_burst',
-            displayName: $localize`IOPS Burst`,
-            description: $localize`The desired burst limit of IO operations.`,
+            displayName: this.i18n('IOPS Burst'),
+            description: this.i18n('The desired burst limit of IO operations.'),
             type: RbdConfigurationType.iops
           },
           {
             name: 'rbd_qos_read_bps_burst',
-            displayName: $localize`Read BPS Burst`,
-            description: $localize`The desired burst limit of read bytes.`,
+            displayName: this.i18n('Read BPS Burst'),
+            description: this.i18n('The desired burst limit of read bytes.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_read_iops_burst',
-            displayName: $localize`Read IOPS Burst`,
-            description: $localize`The desired burst limit of read operations.`,
+            displayName: this.i18n('Read IOPS Burst'),
+            description: this.i18n('The desired burst limit of read operations.'),
             type: RbdConfigurationType.iops
           },
           {
             name: 'rbd_qos_write_bps_burst',
-            displayName: $localize`Write BPS Burst`,
-            description: $localize`The desired burst limit of write bytes.`,
+            displayName: this.i18n('Write BPS Burst'),
+            description: this.i18n('The desired burst limit of write bytes.'),
             type: RbdConfigurationType.bps
           },
           {
             name: 'rbd_qos_write_iops_burst',
-            displayName: $localize`Write IOPS Burst`,
-            description: $localize`The desired burst limit of write operations.`,
+            displayName: this.i18n('Write IOPS Burst'),
+            description: this.i18n('The desired burst limit of write operations.'),
             type: RbdConfigurationType.iops
           }
         ] as RbdConfigurationExtraField[]

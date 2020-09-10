@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 import requests
 
-from . import Controller, ApiController, BaseController, RESTController, Endpoint, ControllerDoc
+from . import Controller, ApiController, BaseController, RESTController, Endpoint
 from ..security import Scope
 from ..settings import Settings
 from ..exceptions import DashboardException
@@ -57,7 +57,6 @@ class PrometheusRESTController(RESTController):
 
 
 @ApiController('/prometheus', Scope.PROMETHEUS)
-@ControllerDoc("Prometheus Management API", "Prometheus")
 class Prometheus(PrometheusRESTController):
     def list(self, **params):
         return self.alert_proxy('GET', '/alerts', params)
@@ -80,7 +79,6 @@ class Prometheus(PrometheusRESTController):
 
 
 @ApiController('/prometheus/notifications', Scope.PROMETHEUS)
-@ControllerDoc("Prometheus Notifications Management API", "PrometheusNotifications")
 class PrometheusNotifications(RESTController):
 
     def list(self, **params):

@@ -6,14 +6,6 @@ CephFS Shell
 CephFS Shell provides shell-like commands that directly interact with the
 :term:`Ceph File System`.
 
-This tool can be used in interactive mode as well as in non-interactive mode.
-In former mode, cephfs-shell opens a shell session and after the given command
-is finished, it prints the prompt string and waits indefinitely. When the
-shell session is finished, cephfs-shell quits with the return value of last
-executed command. In non-interactive mode, cephfs-shell issues a command and
-exits right after the command's execution is complete with the command's return
-value.
-
 Behaviour of CephFS Shell can be tweaked using cephfs-shell.conf. CephFS Shell
 looks for it by default at the path provided in environment variable
 `CEPHFS_SHELL_CONF` and then in user's home directory
@@ -21,8 +13,7 @@ looks for it by default at the path provided in environment variable
 
 Usage :
 
-    cephfs-shell [options] [command]
-    cephfs-shell [options] -- [command, command,...]
+    cephfs-shell [-options] -- [command, command,...]
 
 Options :
     -c, --config FILE     Path to cephfs-shell.conf
@@ -507,56 +498,3 @@ Options :
   --max_bytes MAX_BYTES    Set max cumulative size of the data under this directory
 
   --max_files MAX_FILES    Set total number of files under this directory tree
-
-Exit Code
-=========
-
-Following exit codes are returned by cephfs shell
-
-+-----------------------------------------------+-----------+
-| Error Type                                    | Exit Code |
-+===============================================+===========+
-| Miscellaneous                                 |     1     |
-+-----------------------------------------------+-----------+
-| Keyboard Interrupt                            |     2     |
-+-----------------------------------------------+-----------+
-| Operation not permitted                       |     3     |
-+-----------------------------------------------+-----------+
-| Permission denied                             |     4     |
-+-----------------------------------------------+-----------+
-| No such file or directory                     |     5     |
-+-----------------------------------------------+-----------+
-| I/O error                                     |     6     |
-+-----------------------------------------------+-----------+
-| No space left on device                       |     7     |
-+-----------------------------------------------+-----------+
-| File exists                                   |     8     |
-+-----------------------------------------------+-----------+
-| No data available                             |     9     |
-+-----------------------------------------------+-----------+
-| Invalid argument                              |     10    |
-+-----------------------------------------------+-----------+
-| Operation not supported on transport endpoint |     11    |
-+-----------------------------------------------+-----------+
-| Range error                                   |     12    |
-+-----------------------------------------------+-----------+
-| Operation would block                         |     13    |
-+-----------------------------------------------+-----------+
-| Directory not empty                           |     14    |
-+-----------------------------------------------+-----------+
-| Not a directory                               |     15    |
-+-----------------------------------------------+-----------+
-| Disk quota exceeded                           |     16    |
-+-----------------------------------------------+-----------+
-| Broken pipe                                   |     17    |
-+-----------------------------------------------+-----------+
-| Cannot send after transport endpoint shutdown |     18    |
-+-----------------------------------------------+-----------+
-| Connection aborted                            |     19    |
-+-----------------------------------------------+-----------+
-| Connection refused                            |     20    |
-+-----------------------------------------------+-----------+
-| Connection reset                              |     21    |
-+-----------------------------------------------+-----------+
-| Interrupted function call                     |     22    |
-+-----------------------------------------------+-----------+

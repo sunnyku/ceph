@@ -1,9 +1,9 @@
 import { AfterViewInit, Component, EventEmitter, Output, ViewChild } from '@angular/core';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import { TableColumnProp } from '@swimlane/ngx-datatable';
-import _ from 'lodash';
+import * as _ from 'lodash';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
+import { TableColumnProp } from '@swimlane/ngx-datatable';
 import { ActionLabelsI18n } from '../../../../shared/constants/app.constants';
 import { Icons } from '../../../../shared/enum/icons.enum';
 import { CdFormBuilder } from '../../../../shared/forms/cd-form-builder';
@@ -41,7 +41,7 @@ export class OsdDevicesSelectionModalComponent implements AfterViewInit {
 
   constructor(
     private formBuilder: CdFormBuilder,
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     public actionLabels: ActionLabelsI18n
   ) {
     this.action = actionLabels.ADD;
@@ -54,10 +54,7 @@ export class OsdDevicesSelectionModalComponent implements AfterViewInit {
     const cols = _.filter(this.inventoryDevices.columns, (col) => {
       return this.filterColumns.includes(col.prop) && col.prop !== 'hostname';
     });
-    // Fixes 'ExpressionChangedAfterItHasBeenCheckedError'
-    setTimeout(() => {
-      this.requiredFilters = _.map(cols, 'name');
-    }, 0);
+    this.requiredFilters = _.map(cols, 'name');
   }
 
   createForm() {
@@ -85,6 +82,6 @@ export class OsdDevicesSelectionModalComponent implements AfterViewInit {
 
   onSubmit() {
     this.submitAction.emit(this.event);
-    this.activeModal.close();
+    this.bsModalRef.hide();
   }
 }

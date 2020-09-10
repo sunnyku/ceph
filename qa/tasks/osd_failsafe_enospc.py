@@ -1,8 +1,9 @@
 """
 Handle osdfailsafe configuration settings (nearfull ratio and full ratio)
 """
-from io import StringIO
+from io import BytesIO
 import logging
+import six
 import time
 
 from teuthology.orchestra import run
@@ -16,13 +17,13 @@ def task(ctx, config):
     Test handling of osd_failsafe_nearfull_ratio and osd_failsafe_full_ratio
     configuration settings
 
-    In order for test to pass must use log-ignorelist as follows
+    In order for test to pass must use log-whitelist as follows
 
         tasks:
             - chef:
             - install:
             - ceph:
-                log-ignorelist: ['OSD near full', 'OSD full dropping all updates']
+                log-whitelist: ['OSD near full', 'OSD full dropping all updates']
             - osd_failsafe_enospc:
 
     """
@@ -64,7 +65,7 @@ def task(ctx, config):
                  'ceph', '-w'
              ],
              stdin=run.PIPE,
-             stdout=StringIO(),
+             stdout=BytesIO(),
              wait=False,
         )
 
@@ -74,7 +75,7 @@ def task(ctx, config):
     proc.stdin.close() # causes daemon-helper send SIGKILL to ceph -w
     proc.wait()
 
-    lines = proc.stdout.getvalue().split('\n')
+    lines = six.ensure_str(proc.stdout.getvalue()).split('\n')
 
     count = len(filter(lambda line: '[WRN] OSD near full' in line, lines))
     assert count == 2, 'Incorrect number of warning messages expected 2 got %d' % count
@@ -92,7 +93,7 @@ def task(ctx, config):
                  'ceph', '-w'
              ],
              stdin=run.PIPE,
-             stdout=StringIO(),
+             stdout=BytesIO(),
              wait=False,
         )
 
@@ -102,7 +103,7 @@ def task(ctx, config):
     proc.stdin.close() # causes daemon-helper send SIGKILL to ceph -w
     proc.wait()
 
-    lines = proc.stdout.getvalue().split('\n')
+    lines = six.ensure_str(proc.stdout.getvalue()).split('\n')
 
     count = len(filter(lambda line: '[ERR] OSD full dropping all updates' in line, lines))
     assert count == 2, 'Incorrect number of error messages expected 2 got %d' % count
@@ -134,7 +135,7 @@ def task(ctx, config):
                  'ceph', '-w'
              ],
              stdin=run.PIPE,
-             stdout=StringIO(),
+             stdout=BytesIO(),
              wait=False,
         )
 
@@ -142,7 +143,7 @@ def task(ctx, config):
     proc.stdin.close() # causes daemon-helper send SIGKILL to ceph -w
     proc.wait()
 
-    lines = proc.stdout.getvalue().split('\n')
+    lines = six.ensure_str(proc.stdout.getvalue()).split('\n')
 
     count = len(filter(lambda line: '[WRN] OSD near full' in line, lines))
     assert count == 1 or count == 2, 'Incorrect number of warning messages expected 1 or 2 got %d' % count
@@ -163,7 +164,7 @@ def task(ctx, config):
                  'ceph', '-w'
              ],
              stdin=run.PIPE,
-             stdout=StringIO(),
+             stdout=BytesIO(),
              wait=False,
         )
 
@@ -173,7 +174,7 @@ def task(ctx, config):
     proc.stdin.close() # causes daemon-helper send SIGKILL to ceph -w
     proc.wait()
 
-    lines = proc.stdout.getvalue().split('\n')
+    lines = six.ensure_str(proc.stdout.getvalue()).split('\n')
 
     count = len(filter(lambda line: '[WRN] OSD near full' in line, lines))
     assert count == 0, 'Incorrect number of warning messages expected 0 got %d' % count
@@ -194,7 +195,7 @@ def task(ctx, config):
                  'ceph', '-w'
              ],
              stdin=run.PIPE,
-             stdout=StringIO(),
+             stdout=BytesIO(),
              wait=False,
         )
 
@@ -202,7 +203,7 @@ def task(ctx, config):
     proc.stdin.close() # causes daemon-helper send SIGKILL to ceph -w
     proc.wait()
 
-    lines = proc.stdout.getvalue().split('\n')
+    lines = six.ensure_str(proc.stdout.getvalue()).split('\n')
 
     count = len(filter(lambda line: '[WRN] OSD near full' in line, lines))
     assert count == 0, 'Incorrect number of warning messages expected 0 got %d' % count

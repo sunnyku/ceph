@@ -1,50 +1,24 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { Observable, of as observableOf } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 
 import { InventoryDevice } from '../../ceph/cluster/inventory/inventory-devices/inventory-device.model';
 import { InventoryHost } from '../../ceph/cluster/inventory/inventory-host.model';
-import { OrchestratorFeature } from '../models/orchestrator.enum';
-import { OrchestratorStatus } from '../models/orchestrator.interface';
+import { ApiModule } from './api.module';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class OrchestratorService {
   private url = 'api/orchestrator';
 
-  disableMessages = {
-    noOrchestrator: $localize`The feature is disabled because Orchestrator is not available.`,
-    missingFeature: $localize`The Orchestrator backend doesn't support this feature.`
-  };
-
   constructor(private http: HttpClient) {}
 
-  status(): Observable<OrchestratorStatus> {
-    return this.http.get<OrchestratorStatus>(`${this.url}/status`);
-  }
-
-  hasFeature(status: OrchestratorStatus, features: OrchestratorFeature[]): boolean {
-    return _.every(features, (feature) => _.get(status.features, `${feature}.available`));
-  }
-
-  getTableActionDisableDesc(
-    status: OrchestratorStatus,
-    features: OrchestratorFeature[]
-  ): boolean | string {
-    if (!status) {
-      return false;
-    }
-    if (!status.available) {
-      return this.disableMessages.noOrchestrator;
-    }
-    if (!this.hasFeature(status, features)) {
-      return this.disableMessages.missingFeature;
-    }
-    return false;
+  status(): Observable<{ available: boolean; description: string }> {
+    return this.http.get<{ available: boolean; description: string }>(`${this.url}/status`);
   }
 
   identifyDevice(hostname: string, device: string, duration: number) {

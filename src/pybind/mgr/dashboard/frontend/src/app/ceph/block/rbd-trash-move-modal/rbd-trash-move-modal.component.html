@@ -1,4 +1,4 @@
-<cd-modal [modalRef]="activeModal">
+<cd-modal [modalRef]="modalRef">
   <ng-container i18n
                 class="modal-title">Move an image to trash</ng-container>
 
@@ -21,19 +21,16 @@
 
         <div class="form-group">
           <label class="col-form-label"
-                 for="expiresAt"
+                 for="expires"
                  i18n>Protection expires at</label>
           <input type="text"
                  placeholder="NOT PROTECTED"
                  i18n-placeholder
                  class="form-control"
+                 [minDate]="minDate"
+                 [bsConfig]="bsConfig"
                  formControlName="expiresAt"
-                 [ngbPopover]="popContent"
-                 triggers="manual"
-                 #p="ngbPopover"
-                 (click)="p.open()"
-                 (keypress)="p.close()">
-
+                 bsDatepicker>
           <span class="invalid-feedback"
                 *ngIf="moveForm.showError('expiresAt', formDir, 'format')"
                 i18n>Wrong date format. Please use "YYYY-MM-DD HH:mm:ss".</span>
@@ -47,7 +44,7 @@
         <cd-submit-button i18n
                           [form]="moveForm"
                           (submitAction)="moveImage()">Move Image</cd-submit-button>
-        <cd-back-button [back]="activeModal.close"
+        <cd-back-button [back]="modalRef.hide"
                         name="Cancel"
                         i18n-name>
         </cd-back-button>
@@ -55,7 +52,3 @@
     </form>
   </ng-container>
 </cd-modal>
-
-<ng-template #popContent>
-  <cd-date-time-picker [control]="moveForm.get('expiresAt')"></cd-date-time-picker>
-</ng-template>

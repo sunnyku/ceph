@@ -135,7 +135,7 @@ ObjectCacher::BufferHead *ObjectCacher::Object::split(BufferHead *left,
 
   // split buffers too
   bufferlist bl;
-  bl = std::move(left->bl);
+  bl.claim(left->bl);
   if (bl.length()) {
     ceph_assert(bl.length() == (left->length() + right->length()));
     right->bl.substr_of(bl, left->length(), right->length());

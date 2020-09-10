@@ -23,12 +23,11 @@
 #include <iostream>
 #include <sstream>
 #include <boost/program_options.hpp>
-#include <boost/bind/bind.hpp>
+#include <boost/bind.hpp>
 
 namespace rbd {
 namespace action {
 namespace trash {
-using namespace boost::placeholders;
 
 namespace at = argument_types;
 namespace po = boost::program_options;

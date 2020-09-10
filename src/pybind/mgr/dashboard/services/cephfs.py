@@ -6,6 +6,7 @@ import logging
 
 import datetime
 import os
+import six
 import cephfs
 
 from .. import mgr
@@ -91,7 +92,7 @@ class CephFS(object):
             ]
         :rtype: list
         """
-        if isinstance(path, str):
+        if isinstance(path, six.string_types):
             path = path.encode()
         logger.debug("get_dir_list dirpath=%s depth=%s", path,
                      depth)

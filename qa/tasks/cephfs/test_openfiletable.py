@@ -1,6 +1,8 @@
 import time
 import logging
 from tasks.cephfs.cephfs_test_case import CephFSTestCase
+from teuthology.exceptions import CommandFailedError
+from tasks.cephfs.cephfs_test_case import CephFSTestCase, for_teuthology
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class OpenFileTable(CephFSTestCase):
         mds0_openfiles.1 to hold the extra keys.
         """
 
-        self.fs.rados(["stat", "mds0_openfiles.1"])
+        stat_out = self.fs.rados(["stat", "mds0_openfiles.1"])
 
         # Now close the file
         self.mount_a.kill_background(p)

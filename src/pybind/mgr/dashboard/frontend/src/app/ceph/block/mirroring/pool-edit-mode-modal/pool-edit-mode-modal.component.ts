@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { AbstractControl, FormControl, Validators } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { Subscription } from 'rxjs';
 
 import { RbdMirroringService } from '../../../../shared/api/rbd-mirroring.service';
@@ -30,13 +31,14 @@ export class PoolEditModeModalComponent implements OnInit, OnDestroy {
   peerExists = false;
 
   mirrorModes: Array<{ id: string; name: string }> = [
-    { id: 'disabled', name: $localize`Disabled` },
-    { id: 'pool', name: $localize`Pool` },
-    { id: 'image', name: $localize`Image` }
+    { id: 'disabled', name: this.i18n('Disabled') },
+    { id: 'pool', name: this.i18n('Pool') },
+    { id: 'image', name: this.i18n('Image') }
   ];
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public modalRef: BsModalRef,
+    private i18n: I18n,
     private rbdMirroringService: RbdMirroringService,
     private taskWrapper: TaskWrapperService
   ) {
@@ -57,8 +59,12 @@ export class PoolEditModeModalComponent implements OnInit, OnDestroy {
       this.setResponse(resp);
     });
 
-    this.subs = this.rbdMirroringService.subscribeSummary((data) => {
+    this.subs = this.rbdMirroringService.subscribeSummary((data: any) => {
       this.peerExists = false;
+      if (!data) {
+        return;
+      }
+
       const poolData = data.content_data.pools;
       const pool = poolData.find((o: any) => this.poolName === o['name']);
       this.peerExists = pool && pool['peer_uuids'].length;
@@ -91,12 +97,13 @@ export class PoolEditModeModalComponent implements OnInit, OnDestroy {
       call: this.rbdMirroringService.updatePool(this.poolName, request)
     });
 
-    action.subscribe({
-      error: () => this.editModeForm.setErrors({ cdSubmitButton: true }),
-      complete: () => {
+    action.subscribe(
+      undefined,
+      () => this.editModeForm.setErrors({ cdSubmitButton: true }),
+      () => {
         this.rbdMirroringService.refresh();
-        this.activeModal.close();
+        this.modalRef.hide();
       }
-    });
+    );
   }
 }

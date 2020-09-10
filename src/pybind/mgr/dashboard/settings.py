@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import errno
 import inspect
+from six import add_metaclass
 
 from . import mgr
 
@@ -111,7 +112,8 @@ class SettingsMeta(type):
 
 
 # pylint: disable=no-init
-class Settings(object, metaclass=SettingsMeta):
+@add_metaclass(SettingsMeta)
+class Settings(object):
     pass
 
 

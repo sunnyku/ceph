@@ -22,11 +22,7 @@ bool Request::should_complete(int r) {
   switch (m_state)
   {
   case STATE_REQUEST:
-    if (r == -ETIMEDOUT &&
-        !cct->_conf.get_val<bool>("rbd_invalidate_object_map_on_timeout")) {
-      m_state = STATE_TIMEOUT;
-      return true;
-    } else if (r < 0) {
+    if (r < 0) {
       lderr(cct) << "failed to update object map: " << cpp_strerror(r)
 		 << dendl;
       return invalidate();
@@ -55,7 +51,7 @@ bool Request::invalidate() {
   bool flags_set;
   int r = m_image_ctx.test_flags(m_snap_id, RBD_FLAG_OBJECT_MAP_INVALID,
                                  &flags_set);
-  if (r < 0 || flags_set) {
+  if (r == 0 && flags_set) {
     return true;
   }
 

@@ -192,16 +192,3 @@ License: BSD 3-clause
 Files: src/include/function2.hpp
 Copyright: 2015-2018, Denis Blank
 License: Boost Software License, Version 1.0
-
-Files: src/include/expected.hpp
-Copyright: 2017, Simon Brand
-License: CC0
-
-Files: src/include/uses_allocator.h
-Copyright: 2016, Pablo Halpern <phalpern@halpernwightsoftware.com>
-License: Boost Software License, Version 1.0
-
-Files: src/common/async/bind_allocator.h
-Copyright: 2020 Red Hat <contact@redhat.com>
-           2003-2019 Christopher M. Kohlhoff <chris@kohlhoff.com>
-License: Boost Software License, Version 1.0

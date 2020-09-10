@@ -33,7 +33,7 @@ class Thread {
   pthread_t thread_id;
   pid_t pid;
   int cpuid;
-  std::string thread_name;
+  const char *thread_name;
 
   void *entry_wrapper();
 

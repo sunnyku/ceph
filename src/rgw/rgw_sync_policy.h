@@ -16,7 +16,6 @@
 #pragma once
 
 #include "rgw_basic_types.h"
-#include "rgw_tag.h"
 
 
 struct rgw_sync_symmetric_group {

@@ -25,8 +25,8 @@ THE SOFTWARE.
 import { Component, Injector, OnDestroy } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, NavigationStart, Router } from '@angular/router';
 
-import { concat, from, Observable, of, Subscription } from 'rxjs';
-import { distinct, filter, first, mergeMap, toArray } from 'rxjs/operators';
+import { from, Observable, of, Subscription } from 'rxjs';
+import { concat, distinct, filter, first, flatMap, toArray } from 'rxjs/operators';
 
 import { BreadcrumbsResolver, IBreadcrumb } from '../../../shared/models/breadcrumbs';
 
@@ -38,7 +38,7 @@ import { BreadcrumbsResolver, IBreadcrumb } from '../../../shared/models/breadcr
 export class BreadcrumbsComponent implements OnDestroy {
   crumbs: IBreadcrumb[] = [];
   /**
-   * Useful for e2e tests.
+   * Usefull for e2e tests.
    * This allow us to mark the breadcrumb as pending during the navigation from
    * one page to another.
    * This resolves the problem of validating the breadcrumb of a new page and
@@ -62,10 +62,10 @@ export class BreadcrumbsComponent implements OnDestroy {
 
         this._resolveCrumbs(currentRoot)
           .pipe(
-            mergeMap((x) => x),
+            flatMap((x) => x),
             distinct((x) => x.text),
             toArray(),
-            mergeMap((x) => {
+            flatMap((x) => {
               const y = this.postProcess(x);
               return this.wrapIntoObservable<IBreadcrumb[]>(y).pipe(first());
             })
@@ -90,7 +90,7 @@ export class BreadcrumbsComponent implements OnDestroy {
       let resolver: BreadcrumbsResolver;
 
       if (data.breadcrumbs.prototype instanceof BreadcrumbsResolver) {
-        resolver = this.injector.get<BreadcrumbsResolver>(data.breadcrumbs);
+        resolver = this.injector.get(data.breadcrumbs);
       } else {
         resolver = this.defaultResolver;
       }
@@ -102,7 +102,7 @@ export class BreadcrumbsComponent implements OnDestroy {
     }
 
     if (route.firstChild) {
-      crumbs$ = concat<IBreadcrumb[]>(crumbs$, this._resolveCrumbs(route.firstChild));
+      crumbs$ = crumbs$.pipe(concat(this._resolveCrumbs(route.firstChild)));
     }
 
     return crumbs$;

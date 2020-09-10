@@ -14,10 +14,8 @@
 #include "common/Timer.h"
 #include "common/perf_counters.h"
 #include "librbd/ImageCtx.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/cache/rwl/ImageCacheState.h"
 #include "librbd/cache/rwl/LogEntry.h"
-#include "librbd/cache/rwl/ReadRequest.h"
 #include "librbd/cache/rwl/Types.h"
 #include <map>
 #include <vector>
@@ -61,9 +59,7 @@ ReplicatedWriteLog<I>::ReplicatedWriteLog(I &image_ctx, librbd::cache::rwl::Imag
                   4,
                   ""),
     m_work_queue("librbd::cache::ReplicatedWriteLog::work_queue",
-                 ceph::make_timespan(
-                   image_ctx.config.template get_val<uint64_t>(
-		     "rbd_op_thread_timeout")),
+                 image_ctx.config.template get_val<uint64_t>("rbd_op_thread_timeout"),
                  &m_thread_pool)
 {
   CephContext *cct = m_image_ctx.cct;
@@ -103,24 +99,6 @@ void ReplicatedWriteLog<I>::perf_start(std::string name) {
     16,                              ///< Ranges into the mS
   };
 
-  // Syncpoint logentry number x-axis configuration for op histograms
-  PerfHistogramCommon::axis_config_d sp_logentry_number_config{
-    "logentry number",
-    PerfHistogramCommon::SCALE_LINEAR, // log entry number in linear scale
-    0,                                 // Start at 0
-    1,                                 // Quantization unit is 1
-    260,                               // Up to 260 > (MAX_WRITES_PER_SYNC_POINT)
-  };
-
-  // Syncpoint bytes number y-axis configuration for op histogram
-  PerfHistogramCommon::axis_config_d sp_bytes_number_config{
-    "Number of SyncPoint",
-    PerfHistogramCommon::SCALE_LOG2,   // Request size in logarithmic scale
-    0,                                 // Start at 0
-    512,                               // Quantization unit is 512
-    17,                                // Writes up to 8M >= MAX_BYTES_PER_SYNC_POINT
-  };
-
   // Op size axis configuration for op histogram y axis, values are in bytes
   PerfHistogramCommon::axis_config_d op_hist_y_axis_config{
     "Request size (bytes)",
@@ -135,7 +113,7 @@ void ReplicatedWriteLog<I>::perf_start(std::string name) {
     "Number of items",
     PerfHistogramCommon::SCALE_LINEAR, ///< Request size in linear scale
     0,                                 ///< Start at 0
-    1,                                 ///< Quantization unit is 1
+    1,                                 ///< Quantization unit is 512 bytes
     32,                                ///< Writes up to >32k
   };
 
@@ -148,11 +126,6 @@ void ReplicatedWriteLog<I>::perf_start(std::string name) {
   plb.add_time_avg(l_librbd_rwl_rd_hit_latency, "hit_rd_latency", "Latency of read hits");
 
   plb.add_u64_counter(l_librbd_rwl_rd_part_hit_req, "part_hit_rd", "reads partially hitting RWL");
-
-  plb.add_u64_counter_histogram(
-    l_librbd_rwl_syncpoint_hist, "syncpoint_logentry_bytes_histogram",
-    sp_logentry_number_config, sp_bytes_number_config,
-    "Histogram of syncpoint's logentry numbers vs bytes number");
 
   plb.add_u64_counter(l_librbd_rwl_wr_req, "wr", "Writes");
   plb.add_u64_counter(l_librbd_rwl_wr_req_def, "wr_def", "Writes deferred for resources");
@@ -800,38 +773,42 @@ void ReplicatedWriteLog<I>::shut_down(Context *on_finish) {
       }
       update_image_cache_state(next_ctx);
     });
-  ctx = new LambdaContext(
-    [this, ctx](int r) {
-      Context *next_ctx = override_ctx(r, ctx);
-      {
-        /* Sync with process_writeback_dirty_entries() */
-        RWLock::WLocker entry_reader_wlocker(m_entry_reader_lock);
-        m_shutting_down = true;
-        /* Flush all writes to OSDs (unless disabled) and wait for all
-           in-progress flush writes to complete */
-        ldout(m_image_ctx.cct, 6) << "flushing" << dendl;
-        if (m_periodic_stats_enabled) {
-          periodic_stats();
+  if (m_first_free_entry == m_first_valid_entry) { //if the log entries are free.
+    m_image_ctx.op_work_queue->queue(ctx, 0);
+  } else {
+    ctx = new LambdaContext(
+      [this, ctx](int r) {
+        Context *next_ctx = override_ctx(r, ctx);
+        {
+          /* Sync with process_writeback_dirty_entries() */
+          RWLock::WLocker entry_reader_wlocker(m_entry_reader_lock);
+          m_shutting_down = true;
+          /* Flush all writes to OSDs (unless disabled) and wait for all
+             in-progress flush writes to complete */
+          ldout(m_image_ctx.cct, 6) << "flushing" << dendl;
+          if (m_periodic_stats_enabled) {
+            periodic_stats();
+          }
         }
-      }
-      flush_dirty_entries(next_ctx);
-    });
-  ctx = new LambdaContext(
-    [this, ctx](int r) {
-      Context *next_ctx = override_ctx(r, ctx);
-      ldout(m_image_ctx.cct, 6) << "waiting for in flight operations" << dendl;
-      // Wait for in progress IOs to complete
-      next_ctx = util::create_async_context_callback(m_image_ctx, next_ctx);
-      m_async_op_tracker.wait_for_ops(next_ctx);
-    });
-  ctx = new LambdaContext(
-    [this, ctx](int r) {
-      ldout(m_image_ctx.cct, 6) << "Done internal_flush in shutdown" << dendl;
-      m_work_queue.queue(ctx, r);
-    });
-  /* Complete all in-flight writes before shutting down */
-  ldout(m_image_ctx.cct, 6) << "internal_flush in shutdown" << dendl;
-  internal_flush(false, ctx);
+        flush_dirty_entries(next_ctx);
+      });
+    ctx = new LambdaContext(
+      [this, ctx](int r) {
+        Context *next_ctx = override_ctx(r, ctx);
+        ldout(m_image_ctx.cct, 6) << "waiting for in flight operations" << dendl;
+        // Wait for in progress IOs to complete
+        next_ctx = util::create_async_context_callback(m_image_ctx, next_ctx);
+        m_async_op_tracker.wait_for_ops(next_ctx);
+      });
+    ctx = new LambdaContext(
+      [this, ctx](int r) {
+        ldout(m_image_ctx.cct, 6) << "Done internal_flush in shutdown" << dendl;
+        m_work_queue.queue(ctx, r);
+      });
+    /* Complete all in-flight writes before shutting down */
+    ldout(m_image_ctx.cct, 6) << "internal_flush in shutdown" << dendl;
+    internal_flush(false, ctx);
+  }
 }
 
 template <typename I>
@@ -1158,12 +1135,7 @@ void ReplicatedWriteLog<I>::aio_compare_and_write(Extents &&image_extents,
                                      << "cw_req=" << cw_req << dendl;
 
           /* Compare read_bl to cmp_bl to determine if this will produce a write */
-          buffer::list aligned_read_bl;
-          if (cw_req->cmp_bl.length() < cw_req->read_bl.length()) {
-            aligned_read_bl.substr_of(cw_req->read_bl, 0, cw_req->cmp_bl.length());
-          }
-          if (cw_req->cmp_bl.contents_equal(cw_req->read_bl) ||
-              cw_req->cmp_bl.contents_equal(aligned_read_bl)) {
+          if (cw_req->cmp_bl.contents_equal(cw_req->read_bl)) {
             /* Compare phase succeeds. Begin write */
             ldout(m_image_ctx.cct, 5) << " cw_req=" << cw_req << " compare matched" << dendl;
             cw_req->compare_succeeded = true;
@@ -1176,6 +1148,7 @@ void ReplicatedWriteLog<I>::aio_compare_and_write(Extents &&image_extents,
             /* Compare phase fails. Comp-and write ends now. */
             ldout(m_image_ctx.cct, 15) << " cw_req=" << cw_req << " compare failed" << dendl;
             /* Bufferlist doesn't tell us where they differed, so we'll have to determine that here */
+            ceph_assert(cw_req->read_bl.length() == cw_req->cmp_bl.length());
             uint64_t bl_index = 0;
             for (bl_index = 0; bl_index < cw_req->cmp_bl.length(); bl_index++) {
               if (cw_req->cmp_bl[bl_index] != cw_req->read_bl[bl_index]) {
@@ -2389,9 +2362,6 @@ void ReplicatedWriteLog<I>::new_sync_point(DeferredContexts &later) {
    * nullptr, but m_current_sync_gen may not be zero. */
   if (old_sync_point) {
     new_sync_point->setup_earlier_sync_point(old_sync_point, m_last_op_sequence_num);
-    m_perfcounter->hinc(l_librbd_rwl_syncpoint_hist,
-                        old_sync_point->log_entry->writes,
-                        old_sync_point->log_entry->bytes);
     /* This sync point will acquire no more sub-ops. Activation needs
      * to acquire m_lock, so defer to later*/
     later.add(new LambdaContext(
@@ -2765,6 +2735,3 @@ bool ReplicatedWriteLog<I>::retire_entries(const unsigned long int frees_per_tx)
 
 template class librbd::cache::ReplicatedWriteLog<librbd::ImageCtx>;
 template class librbd::cache::ImageCache<librbd::ImageCtx>;
-template void librbd::cache::ReplicatedWriteLog<librbd::ImageCtx>:: \
-  flush_pmem_buffer(std::vector<std::shared_ptr< \
-    librbd::cache::rwl::GenericLogOperation>>&);

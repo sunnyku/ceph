@@ -13,7 +13,6 @@
 
 namespace librbd {
 
-namespace asio { struct ContextWQ; }
 namespace watcher {
 namespace util {
 template <typename> struct HandlePayloadVisitor;
@@ -24,7 +23,7 @@ template <typename ImageCtxT = librbd::ImageCtx>
 class TrashWatcher : public Watcher {
   friend struct watcher::util::HandlePayloadVisitor<TrashWatcher<ImageCtxT>>;
 public:
-  TrashWatcher(librados::IoCtx &io_ctx, asio::ContextWQ *work_queue);
+  TrashWatcher(librados::IoCtx &io_ctx, ContextWQ *work_queue);
 
   static void notify_image_added(librados::IoCtx &io_ctx,
                                  const std::string& image_id,

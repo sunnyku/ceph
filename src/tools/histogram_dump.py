@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # coding: utf-8
 #
 # Ceph - scalable distributed file system
 #
 # Copyright (C) 2017 OVH
-# Copyright (C) 2020 Marc Schöchlin <ms-github@256bit.org>
 #
 # This is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public
@@ -17,10 +16,6 @@ import subprocess
 import time
 import os
 import argparse
-import glob
-import sys
-import textwrap
-import datetime
 
 
 def shorten(val):
@@ -32,30 +27,20 @@ def shorten(val):
     return val
 
 
-def create_histogram(sockets, counter, last, seconds, batch):
+def print_histogram(asok, logger, counter, last):
 
-    current_datasets = {}
-    json_d = {}
-    for socket in sockets:
-       try:
-           out = subprocess.check_output(
-               "ceph --admin-daemon {} perf histogram dump".format(socket),
-               shell=True)
-           json_d = json.loads(out.decode('utf-8'))
-       except Exception as e:
-           return (last,
-                   "Couldn't connect to admin socket, result: \n{}".format(e))
-       current_datasets[socket] = json_d['osd'][counter]['values']
+    try:
+        out = subprocess.check_output(
+            "ceph --admin-daemon {} perf histogram dump".format(asok),
+            shell=True)
+        j = json.loads(out.decode('utf-8'))
+    except Exception as e:
+        return (last,
+                "Couldn't connect to admin socket, result: \n{}".format(e))
 
-
-    axes = json_d['osd'][counter]['axes']
-   
-    if batch:
-        content = "{} : Counter: {} for {}\n\n\n".format(
-                datetime.datetime.now().isoformat(), counter,", ".join(sockets))
-    else:
-        content = "Counter: {} for {}\n(create statistics every {} seconds)\n\n".format(
-                counter,", ".join(sockets),seconds)
+    current = j['osd'][counter]['values']
+    axes = j['osd'][counter]['axes']
+    content = ""
 
     content += "{}:\n".format(axes[1]['name'])
     for r in axes[1]['ranges']:
@@ -70,38 +55,13 @@ def create_histogram(sockets, counter, last, seconds, batch):
     content += ("{0: >"+str(len(axes[1]['ranges'])*5+14)+"}:\n").format(
         axes[0]['name'])
 
-    if batch:
-        COL = ''
-        ENDC = ''
-    else:
-        COL = '\033[91m'
-        ENDC = '\033[0m'
-
-    current = []
-
-    # initalize with zeros
-    for i in range(len(current_datasets[socket])):
-       current.append([])
-       for j in range(len(current_datasets[socket][i])):
-              current[i].append(0)
-
-    # combine data
-    for socket, data in current_datasets.items():
-       for i in range(len(data)):
-           for j in range(len(data[i])):
-              current[i][j] += data[i][j]
-
     for i in range(len(current)):
         for j in range(len(current[i])):
             try:
                 diff = current[i][j] - last[i][j]
             except IndexError:
                 diff = '-'
-
-            if diff != "-" and diff != 0:
-                content += "{0}{1: >4}{2} ".format(COL,shorten(diff),ENDC)
-            else:
-                content += "{0: >4} ".format(shorten(diff))
+            content += "{0: >4} ".format(shorten(diff))
 
         r = axes[0]['ranges'][i]
         content += "{0: >6} : {1}\n".format(
@@ -110,65 +70,35 @@ def create_histogram(sockets, counter, last, seconds, batch):
     return (current, content)
 
 
-def loop_print(sockets, counter, loop_seconds, batch):
+def loop_print(asok, logger, counter):
     last = []
+    while True:
 
-    try:
-       while True:
-           last, content = create_histogram(sockets, counter, last, loop_seconds, batch)
-           if not batch:
-               print(chr(27) + "[2J")
-           print(content)
-           time.sleep(loop_seconds)
-    except KeyboardInterrupt:
-       print("...interupted")
-       sys.exit(0)
+        last, content = print_histogram(asok, logger, counter, last)
+        print("{}{}".format("\n"*100, content))
+        time.sleep(1)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Continuously display ceph performance histogram for selected osd operations')
+        description='Continuously display ceph performance histogram')
     parser.add_argument(
         '--asok',
         type=str,
-        default=['/var/run/ceph/*.asok'],
-        nargs='+',
-        help='Path to asok file, you can use wildcards')
+        default='/var/run/ceph/*.asok',
+        help='Path to asok file, can use wildcards')
+    parser.add_argument(
+        '--logger',
+        type=str,
+        default='osd')
     parser.add_argument(
         '--counter',
         type=str,
-	help=textwrap.dedent('''\
-         Specify name of the counter to calculate statistics
-         see "ceph --admin-daemon /var/run/ceph/<osd>.asok  perf histogram dump"
-         '''),
         default='op_w_latency_in_bytes_histogram')
-    parser.add_argument(
-	'--batch',
-	help='Disable colors and add timestamps',
-	action='store_true',
-    )
-    parser.add_argument(
-        '--loop_seconds',
-        type=int,
-	help='Cycle time in seconds for statistics generation',
-        default=5)
-
     args = parser.parse_args()
 
-    if not sys.stdout.isatty():
-      print("Not running with a tty, automatically switching to batch mode")
-      args.batch = True
-    
-    sockets = []
-    for asok in args.asok: 
-      sockets = glob.glob(asok) + sockets
+    loop_print(args.asok, args.logger, args.counter)
 
-    if len(sockets) == 0:
-      print("no suitable socket at {}".format(args.asok))
-      sys.exit(1)
- 
-    loop_print(sockets, args.counter, args.loop_seconds, args.batch)
 
 if __name__ == '__main__':
     main()

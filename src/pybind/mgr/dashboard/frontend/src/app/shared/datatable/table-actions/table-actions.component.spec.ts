@@ -163,12 +163,12 @@ describe('TableActionsComponent', () => {
   });
 
   describe('useDisableDesc', () => {
-    it('should return a description if disable method returns a string', () => {
+    it('should return a description if disableDesc is set for action', () => {
       const deleteWithDescAction: CdTableAction = {
         permission: 'delete',
         icon: 'fa-times',
         canBePrimary: (selection: CdTableSelection) => selection.hasSelection,
-        disable: () => {
+        disableDesc: () => {
           return 'Delete action disabled description';
         },
         name: 'DeleteDesc'
@@ -179,7 +179,7 @@ describe('TableActionsComponent', () => {
       );
     });
 
-    it('should return no description if disable does not return string', () => {
+    it('should return no description if disableDesc is not set for action', () => {
       expect(component.useDisableDesc(deleteAction)).toBeUndefined();
     });
   });

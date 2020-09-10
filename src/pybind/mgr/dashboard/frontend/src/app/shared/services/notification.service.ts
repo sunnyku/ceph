@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { IndividualConfig, ToastrService } from 'ngx-toastr';
 import { BehaviorSubject, Subject } from 'rxjs';
 

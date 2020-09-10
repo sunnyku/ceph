@@ -118,7 +118,12 @@ def accept_socket_error_0(v):
         pass
 
     if v < StrictVersion("9.0.0") or cheroot_version < StrictVersion("6.5.5"):
-        generic_socket_error = OSError
+        import six
+        if six.PY3:
+            generic_socket_error = OSError
+        else:
+            import socket
+            generic_socket_error = socket.error
 
         def accept_socket_error_0(func):
             def wrapper(self, sock):

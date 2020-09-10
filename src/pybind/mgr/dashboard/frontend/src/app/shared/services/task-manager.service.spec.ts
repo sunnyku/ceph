@@ -1,6 +1,6 @@
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { BehaviorSubject } from 'rxjs';
 
 import { configureTestBed } from '../../../testing/unit-test-helper';
@@ -40,8 +40,8 @@ describe('TaskManagerService', () => {
   });
 
   beforeEach(() => {
-    taskManagerService = TestBed.inject(TaskManagerService);
-    summaryService = TestBed.inject(SummaryService);
+    taskManagerService = TestBed.get(TaskManagerService);
+    summaryService = TestBed.get(SummaryService);
     called = false;
     taskManagerService.subscribe('foo', {}, () => (called = true));
   });

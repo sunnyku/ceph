@@ -1,4 +1,4 @@
-@use './src/styles/defaults/bootstrap-defaults' as bd;
+@import 'defaults.scss';
 
 p {
   font-family: monospace;
@@ -14,8 +14,8 @@ p {
   }
 
   .timestamp {
-    flex-shrink: 0;
     font-weight: bold;
+    flex-shrink: 0;
   }
 
   .priority {
@@ -27,18 +27,26 @@ p {
   }
 
   .err {
-    color: bd.$danger;
+    color: $color-pink;
   }
 
   .warn {
-    color: bd.$warning;
+    color: $color-bright-yellow;
   }
 
   .info {
-    color: bd.$info;
+    color: $color-brand-teal;
   }
 }
 
-::ng-deep cd-logs ngb-timepicker input.ngb-tp-input {
-  width: 3.5rem !important;
+::ng-deep timepicker table tbody tr td {
+  input.bs-timepicker-field {
+    width: 3.5rem !important;
+    font-size: 1rem;
+    padding: 4px 6px;
+  }
+}
+
+.middle {
+  padding-top: 7px;
 }

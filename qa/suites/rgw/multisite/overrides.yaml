@@ -1,7 +1,5 @@
 overrides:
   ceph:
-    log-ignorelist:
-    - \(PG_AVAILABILITY\)
     wait-for-scrub: false
     conf:
       client:
@@ -15,6 +13,5 @@ overrides:
         rgw curl low speed time: 300
         rgw md log max shards: 4
         rgw data log num shards: 4
-        rgw sync obj etag verify: true
   rgw:
     compression type: random

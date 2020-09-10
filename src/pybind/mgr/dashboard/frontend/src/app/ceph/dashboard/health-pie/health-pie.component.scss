@@ -1,23 +1,22 @@
-@use './src/styles/chart-tooltip';
-@use './src/styles/defaults/bootstrap-defaults' as bd;
+@import 'chart-tooltip.scss';
 
 $canvas-width: 100%;
 $canvas-height: 100%;
 
 .chart-container {
+  position: unset;
+  width: $canvas-width;
   height: $canvas-height;
   margin-left: auto;
   margin-right: auto;
-  position: unset;
-  width: $canvas-width;
 }
 
 .chart-canvas {
+  position: unset;
+  width: $canvas-width;
   height: $canvas-height;
   margin-left: auto;
   margin-right: auto;
-  max-height: $canvas-height;
   max-width: $canvas-width;
-  position: unset;
-  width: $canvas-width;
+  max-height: $canvas-height;
 }

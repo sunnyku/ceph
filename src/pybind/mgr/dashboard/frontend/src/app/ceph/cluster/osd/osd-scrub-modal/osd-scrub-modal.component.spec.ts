@@ -2,9 +2,8 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-
-import { configureTestBed } from '../../../../../testing/unit-test-helper';
+import { BsModalRef } from 'ngx-bootstrap/modal';
+import { configureTestBed, i18nProviders } from '../../../../../testing/unit-test-helper';
 import { OsdService } from '../../../../shared/api/osd.service';
 import { JoinPipe } from '../../../../shared/pipes/join.pipe';
 import { NotificationService } from '../../../../shared/services/notification.service';
@@ -16,13 +15,13 @@ describe('OsdScrubModalComponent', () => {
 
   const fakeService = {
     list: () => {
-      return new Promise(() => undefined);
+      return new Promise(() => {});
     },
     scrub: () => {
-      return new Promise(() => undefined);
+      return new Promise(() => {});
     },
     scrub_many: () => {
-      return new Promise(() => undefined);
+      return new Promise(() => {});
     }
   };
 
@@ -31,10 +30,11 @@ describe('OsdScrubModalComponent', () => {
     declarations: [OsdScrubModalComponent, JoinPipe],
     schemas: [NO_ERRORS_SCHEMA],
     providers: [
-      NgbActiveModal,
+      BsModalRef,
       JoinPipe,
       { provide: OsdService, useValue: fakeService },
-      { provide: NotificationService, useValue: fakeService }
+      { provide: NotificationService, useValue: fakeService },
+      i18nProviders
     ]
   });
 

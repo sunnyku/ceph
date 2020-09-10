@@ -74,7 +74,8 @@ ptr::operator seastar::temporary_buffer<char>() &&
 
 list::operator seastar::net::packet() &&
 {
-  seastar::net::packet p(_num);
+  seastar::net::packet p;
+  p.reserve(_num);
   for (auto& ptr : _buffers) {
     // append each ptr as a temporary_buffer
     p = seastar::net::packet(std::move(p), std::move(ptr));

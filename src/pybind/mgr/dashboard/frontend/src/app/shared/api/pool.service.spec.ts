@@ -1,7 +1,7 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { RbdConfigurationSourceField } from '../models/configuration';
 import { RbdConfigurationService } from '../services/rbd-configuration.service';
 import { PoolService } from './pool.service';
@@ -12,13 +12,13 @@ describe('PoolService', () => {
   const apiPath = 'api/pool';
 
   configureTestBed({
-    providers: [PoolService, RbdConfigurationService],
+    providers: [PoolService, RbdConfigurationService, i18nProviders],
     imports: [HttpClientTestingModule]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(PoolService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(PoolService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

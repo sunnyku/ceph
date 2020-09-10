@@ -8,7 +8,6 @@
 #include "common/dout.h"
 #include "common/errno.h"
 #include "cls/rbd/cls_rbd_client.h"
-#include "librbd/AsioEngine.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
 #include "librbd/Journal.h"
@@ -814,7 +813,7 @@ int Mirror<I>::image_get_info(I *ictx, mirror_image_info_t *mirror_image_info) {
 
 template <typename I>
 void Mirror<I>::image_get_info(librados::IoCtx& io_ctx,
-                               asio::ContextWQ *op_work_queue,
+                               ContextWQ *op_work_queue,
                                const std::string &image_id,
                                mirror_image_info_t *mirror_image_info,
                                Context *on_finish) {
@@ -832,7 +831,7 @@ void Mirror<I>::image_get_info(librados::IoCtx& io_ctx,
 
 template <typename I>
 int Mirror<I>::image_get_info(librados::IoCtx& io_ctx,
-                              asio::ContextWQ *op_work_queue,
+                              ContextWQ *op_work_queue,
                               const std::string &image_id,
                               mirror_image_info_t *mirror_image_info) {
   C_SaferCond ctx;
@@ -1941,7 +1940,9 @@ int Mirror<I>::image_info_list(
       break;
     }
 
-    AsioEngine asio_engine(io_ctx);
+    ThreadPool *thread_pool;
+    ContextWQ *op_work_queue;
+    ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
     for (auto &it : images) {
       auto &image_id = it.first;
@@ -1956,7 +1957,7 @@ int Mirror<I>::image_info_list(
       // need to call get_info for every image to retrieve promotion state
 
       mirror_image_info_t info;
-      r = image_get_info(io_ctx, asio_engine.get_work_queue(), image_id, &info);
+      r = image_get_info(io_ctx, op_work_queue, image_id, &info);
       if (r >= 0) {
         (*entries)[image_id] = std::make_pair(mode, info);
       }
@@ -1969,19 +1970,11 @@ int Mirror<I>::image_info_list(
 }
 
 template <typename I>
-int Mirror<I>::image_snapshot_create(I *ictx, uint32_t flags,
-                                     uint64_t *snap_id) {
+int Mirror<I>::image_snapshot_create(I *ictx, uint64_t *snap_id) {
   CephContext *cct = ictx->cct;
   ldout(cct, 20) << "ictx=" << ictx << dendl;
 
-  uint64_t snap_create_flags = 0;
-  int r = util::snap_create_flags_api_to_internal(cct, flags,
-                                                  &snap_create_flags);
-  if (r < 0) {
-    return r;
-  }
-
-  r = ictx->state->refresh_if_required();
+  int r = ictx->state->refresh_if_required();
   if (r < 0) {
     return r;
   }
@@ -2004,8 +1997,7 @@ int Mirror<I>::image_snapshot_create(I *ictx, uint32_t flags,
 
   C_SaferCond on_finish;
   auto req = mirror::snapshot::CreatePrimaryRequest<I>::create(
-    ictx, mirror_image.global_image_id, CEPH_NOSNAP, snap_create_flags, 0U,
-    snap_id, &on_finish);
+    ictx, mirror_image.global_image_id, CEPH_NOSNAP, 0U, snap_id, &on_finish);
   req->send();
   return on_finish.wait();
 }

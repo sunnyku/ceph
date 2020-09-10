@@ -1,10 +1,8 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
-#include <boost/bind/bind.hpp>
 #include "CacheClient.h"
 #include "common/Cond.h"
-#include "common/version.h"
 
 #define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_immutable_obj_cache
@@ -60,7 +58,6 @@ namespace immutable_obj_cache {
         thd->join();
         delete thd;
       }
-      delete m_worker_io_service_work;
       delete m_worker;
     }
     return 0;
@@ -379,8 +376,7 @@ namespace immutable_obj_cache {
   // TODO : re-implement this method
   int CacheClient::register_client(Context* on_finish) {
     ObjectCacheRequest* reg_req = new ObjectCacheRegData(RBDSC_REGISTER,
-                                                         m_sequence_id++,
-                                                         ceph_version_to_str());
+                                                         m_sequence_id++);
     reg_req->encode();
 
     bufferlist bl;

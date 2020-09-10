@@ -28,12 +28,11 @@ template <>
 struct ManagedLock<MockTestImageCtx> {
   static ManagedLock* s_instance;
 
-  static ManagedLock *create(librados::IoCtx& ioctx,
-                             librbd::AsioEngine& asio_engine,
+  static ManagedLock *create(librados::IoCtx& ioctx, ContextWQ *work_queue,
                              const std::string& oid, librbd::Watcher *watcher,
                              managed_lock::Mode  mode,
-                             bool blocklist_on_break_lock,
-                             uint32_t blocklist_expire_seconds) {
+                             bool blacklist_on_break_lock,
+                             uint32_t blacklist_expire_seconds) {
     ceph_assert(s_instance != nullptr);
     return s_instance;
   }
@@ -66,12 +65,11 @@ template <>
 struct Threads<librbd::MockTestImageCtx> {
   ceph::mutex &timer_lock;
   SafeTimer *timer;
-  librbd::asio::ContextWQ *work_queue;
-  librbd::AsioEngine* asio_engine;
+  ContextWQ *work_queue;
 
   Threads(Threads<librbd::ImageCtx> *threads)
     : timer_lock(threads->timer_lock), timer(threads->timer),
-      work_queue(threads->work_queue), asio_engine(threads->asio_engine) {
+      work_queue(threads->work_queue) {
   }
 };
 
@@ -166,14 +164,14 @@ public:
   void expect_register_instance(librados::MockTestMemIoCtxImpl &mock_io_ctx,
                                 int r) {
     EXPECT_CALL(mock_io_ctx, exec(RBD_MIRROR_LEADER, _, StrEq("rbd"),
-                                  StrEq("mirror_instances_add"), _, _, _, _))
+                                  StrEq("mirror_instances_add"), _, _, _))
       .WillOnce(Return(r));
   }
 
   void expect_unregister_instance(librados::MockTestMemIoCtxImpl &mock_io_ctx,
                                   int r) {
     EXPECT_CALL(mock_io_ctx, exec(RBD_MIRROR_LEADER, _, StrEq("rbd"),
-                                  StrEq("mirror_instances_remove"), _, _, _, _))
+                                  StrEq("mirror_instances_remove"), _, _, _))
       .WillOnce(Return(r));
   }
 
@@ -220,7 +218,7 @@ TEST_F(TestMockInstanceWatcher, InitShutdown) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx(get_mock_io_ctx(m_local_io_ctx));
 
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, nullptr, nullptr,
+      m_local_io_ctx, m_mock_threads->work_queue, nullptr, nullptr,
       m_instance_id);
   InSequence seq;
 
@@ -245,7 +243,7 @@ TEST_F(TestMockInstanceWatcher, InitError) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx(get_mock_io_ctx(m_local_io_ctx));
 
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, nullptr, nullptr,
+      m_local_io_ctx, m_mock_threads->work_queue, nullptr, nullptr,
       m_instance_id);
   InSequence seq;
 
@@ -266,7 +264,7 @@ TEST_F(TestMockInstanceWatcher, ShutdownError) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx(get_mock_io_ctx(m_local_io_ctx));
 
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, nullptr, nullptr,
+      m_local_io_ctx, m_mock_threads->work_queue, nullptr, nullptr,
       m_instance_id);
   InSequence seq;
 
@@ -303,7 +301,7 @@ TEST_F(TestMockInstanceWatcher, Remove) {
 
   C_SaferCond on_remove;
   MockInstanceWatcher::remove_instance(m_local_io_ctx,
-                                       *m_mock_threads->asio_engine,
+                                       m_mock_threads->work_queue,
                                        "instance_id", &on_remove);
   ASSERT_EQ(0, on_remove.wait());
   ASSERT_EQ(0, on_destroy.wait());
@@ -322,7 +320,7 @@ TEST_F(TestMockInstanceWatcher, RemoveNoent) {
 
   C_SaferCond on_remove;
   MockInstanceWatcher::remove_instance(m_local_io_ctx,
-                                       *m_mock_threads->asio_engine,
+                                       m_mock_threads->work_queue,
                                        "instance_id", &on_remove);
   ASSERT_EQ(0, on_remove.wait());
   ASSERT_EQ(0, on_destroy.wait());
@@ -336,7 +334,7 @@ TEST_F(TestMockInstanceWatcher, ImageAcquireRelease) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx1(get_mock_io_ctx(io_ctx1));
   MockInstanceReplayer mock_instance_replayer1;
   auto instance_watcher1 = MockInstanceWatcher::create(
-      io_ctx1, *m_mock_threads->asio_engine, &mock_instance_replayer1, nullptr);
+      io_ctx1, m_mock_threads->work_queue, &mock_instance_replayer1, nullptr);
 
   librados::Rados cluster;
   librados::IoCtx io_ctx2;
@@ -346,7 +344,7 @@ TEST_F(TestMockInstanceWatcher, ImageAcquireRelease) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx2(get_mock_io_ctx(io_ctx2));
   MockInstanceReplayer mock_instance_replayer2;
   auto instance_watcher2 = MockInstanceWatcher::create(
-    io_ctx2, *m_mock_threads->asio_engine, &mock_instance_replayer2, nullptr);
+    io_ctx2, m_mock_threads->work_queue, &mock_instance_replayer2, nullptr);
 
   InSequence seq;
 
@@ -419,7 +417,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageRemoved) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx1(get_mock_io_ctx(io_ctx1));
   MockInstanceReplayer mock_instance_replayer1;
   auto instance_watcher1 = MockInstanceWatcher::create(
-      io_ctx1, *m_mock_threads->asio_engine, &mock_instance_replayer1, nullptr);
+      io_ctx1, m_mock_threads->work_queue, &mock_instance_replayer1, nullptr);
 
   librados::Rados cluster;
   librados::IoCtx io_ctx2;
@@ -429,7 +427,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageRemoved) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx2(get_mock_io_ctx(io_ctx2));
   MockInstanceReplayer mock_instance_replayer2;
   auto instance_watcher2 = MockInstanceWatcher::create(
-    io_ctx2, *m_mock_threads->asio_engine, &mock_instance_replayer2, nullptr);
+    io_ctx2, m_mock_threads->work_queue, &mock_instance_replayer2, nullptr);
 
   InSequence seq;
 
@@ -485,7 +483,7 @@ TEST_F(TestMockInstanceWatcher, ImageAcquireReleaseCancel) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx(get_mock_io_ctx(m_local_io_ctx));
 
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, nullptr, nullptr,
+      m_local_io_ctx, m_mock_threads->work_queue, nullptr, nullptr,
       m_instance_id);
   InSequence seq;
 
@@ -553,7 +551,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageAcquireWatchDNE) {
 
   MockInstanceReplayer mock_instance_replayer;
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, &mock_instance_replayer,
+      m_local_io_ctx, m_mock_threads->work_queue, &mock_instance_replayer,
       nullptr, m_instance_id);
   InSequence seq;
 
@@ -563,7 +561,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageAcquireWatchDNE) {
   expect_acquire_lock(mock_managed_lock, 0);
   ASSERT_EQ(0, instance_watcher->init());
 
-  // Acquire image on dead (blocklisted) instance
+  // Acquire image on dead (blacklisted) instance
   C_SaferCond on_acquire;
   instance_watcher->notify_image_acquire("dead instance", "global image id",
                                          &on_acquire);
@@ -585,7 +583,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageReleaseWatchDNE) {
 
   MockInstanceReplayer mock_instance_replayer;
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, &mock_instance_replayer,
+      m_local_io_ctx, m_mock_threads->work_queue, &mock_instance_replayer,
       nullptr, m_instance_id);
   InSequence seq;
 
@@ -595,7 +593,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageReleaseWatchDNE) {
   expect_acquire_lock(mock_managed_lock, 0);
   ASSERT_EQ(0, instance_watcher->init());
 
-  // Release image on dead (blocklisted) instance
+  // Release image on dead (blacklisted) instance
   C_SaferCond on_acquire;
   instance_watcher->notify_image_release("dead instance", "global image id",
                                          &on_acquire);
@@ -616,7 +614,7 @@ TEST_F(TestMockInstanceWatcher, PeerImageRemovedCancel) {
   librados::MockTestMemIoCtxImpl &mock_io_ctx(get_mock_io_ctx(m_local_io_ctx));
 
   auto instance_watcher = new MockInstanceWatcher(
-      m_local_io_ctx, *m_mock_threads->asio_engine, nullptr, nullptr,
+      m_local_io_ctx, m_mock_threads->work_queue, nullptr, nullptr,
       m_instance_id);
   InSequence seq;
 
@@ -680,7 +678,7 @@ public:
     librados::IoCtx& io_ctx1 = m_local_io_ctx;
     librados::MockTestMemIoCtxImpl &mock_io_ctx1(get_mock_io_ctx(io_ctx1));
     instance_watcher1 = MockInstanceWatcher::create(io_ctx1,
-                                                    *m_mock_threads->asio_engine,
+                                                    m_mock_threads->work_queue,
                                                     nullptr,
                                                     &mock_image_sync_throttler);
     EXPECT_EQ("", connect_cluster_pp(cluster));
@@ -688,7 +686,7 @@ public:
     instance_id2 = stringify(io_ctx2.get_instance_id());
     librados::MockTestMemIoCtxImpl &mock_io_ctx2(get_mock_io_ctx(io_ctx2));
     instance_watcher2 = MockInstanceWatcher::create(io_ctx2,
-                                                    *m_mock_threads->asio_engine,
+                                                    m_mock_threads->work_queue,
                                                     nullptr,
                                                     &mock_image_sync_throttler);
     InSequence seq;

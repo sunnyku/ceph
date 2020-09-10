@@ -12,7 +12,6 @@
  * 
  */
 
-#include <utime.h>
 #include <signal.h>
 
 #include "HeartbeatMap.h"
@@ -67,17 +66,17 @@ void HeartbeatMap::remove_worker(const heartbeat_handle_d *h)
 }
 
 bool HeartbeatMap::_check(const heartbeat_handle_d *h, const char *who,
-			  ceph::coarse_mono_time now)
+			  ceph::coarse_mono_clock::rep now)
 {
   bool healthy = true;
-  if (auto was = h->timeout.load(std::memory_order_relaxed);
-      !clock::is_zero(was) && was < now) {
+  auto was = h->timeout.load();
+  if (was && was < now) {
     ldout(m_cct, 1) << who << " '" << h->name << "'"
 		    << " had timed out after " << h->grace << dendl;
     healthy = false;
   }
-  if (auto was = h->suicide_timeout.load(std::memory_order_relaxed);
-      !clock::is_zero(was) && was < now) {
+  was = h->suicide_timeout;
+  if (was && was < now) {
     ldout(m_cct, 1) << who << " '" << h->name << "'"
 		    << " had suicide timed out after " << h->suicide_grace << dendl;
     pthread_kill(h->thread_id, SIGABRT);
@@ -88,32 +87,33 @@ bool HeartbeatMap::_check(const heartbeat_handle_d *h, const char *who,
 }
 
 void HeartbeatMap::reset_timeout(heartbeat_handle_d *h,
-				 ceph::timespan grace,
-				 ceph::timespan suicide_grace)
+				 ceph::coarse_mono_clock::rep grace,
+				 ceph::coarse_mono_clock::rep suicide_grace)
 {
   ldout(m_cct, 20) << "reset_timeout '" << h->name << "' grace " << grace
 		   << " suicide " << suicide_grace << dendl;
-  const auto now = clock::now();
+  auto now = duration_cast<seconds>(coarse_mono_clock::now()
+				    .time_since_epoch()).count();
   _check(h, "reset_timeout", now);
 
-  h->timeout.store(now + grace, std::memory_order_relaxed);
+  h->timeout = now + grace;
   h->grace = grace;
 
-  if (suicide_grace > ceph::timespan::zero()) {
-    h->suicide_timeout.store(now + suicide_grace, std::memory_order_relaxed);
-  } else {
-    h->suicide_timeout.store(clock::zero(), std::memory_order_relaxed);
-  }
+  if (suicide_grace)
+    h->suicide_timeout = now + suicide_grace;
+  else
+    h->suicide_timeout = 0;
   h->suicide_grace = suicide_grace;
 }
 
 void HeartbeatMap::clear_timeout(heartbeat_handle_d *h)
 {
   ldout(m_cct, 20) << "clear_timeout '" << h->name << "'" << dendl;
-  auto now = clock::now();
+  auto now = duration_cast<seconds>(coarse_mono_clock::now()
+				    .time_since_epoch()).count();
   _check(h, "clear_timeout", now);
-  h->timeout.store(clock::zero(), std::memory_order_relaxed);
-  h->suicide_timeout.store(clock::zero(), std::memory_order_relaxed);
+  h->timeout = 0;
+  h->suicide_timeout = 0;
 }
 
 bool HeartbeatMap::is_healthy()
@@ -140,7 +140,8 @@ bool HeartbeatMap::is_healthy()
        p != m_workers.end();
        ++p) {
     heartbeat_handle_d *h = *p;
-    if (!_check(h, "is_healthy", now)) {
+    auto epoch = duration_cast<seconds>(now.time_since_epoch()).count();
+    if (!_check(h, "is_healthy", epoch)) {
       healthy = false;
       unhealthy++;
     }
@@ -172,7 +173,7 @@ void HeartbeatMap::check_touch_file()
   if (path.length() && is_healthy()) {
     int fd = ::open(path.c_str(), O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
     if (fd >= 0) {
-      ::utime(path.c_str(), NULL);
+      ::utimes(path.c_str(), NULL);
       ::close(fd);
     } else {
       ldout(m_cct, 0) << "unable to touch " << path << ": "

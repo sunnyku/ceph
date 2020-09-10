@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { RbdConfigurationType } from '../models/configuration';
 import { RbdConfigurationService } from './rbd-configuration.service';
 
@@ -8,11 +8,11 @@ describe('RbdConfigurationService', () => {
   let service: RbdConfigurationService;
 
   configureTestBed({
-    providers: [RbdConfigurationService]
+    providers: [RbdConfigurationService, i18nProviders]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(RbdConfigurationService);
+    service = TestBed.get(RbdConfigurationService);
   });
 
   it('should be created', () => {

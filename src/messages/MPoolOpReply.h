@@ -41,7 +41,7 @@ public:
     epoch(e) {
     set_tid(t);
     if (blp)
-      response_data = std::move(*blp);
+      response_data.claim(*blp);
   }
 
   std::string_view get_type_name() const override { return "poolopreply"; }

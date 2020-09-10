@@ -61,8 +61,7 @@
 #define dout_prefix *_dout << "mds." << name << ' '
 using TOPNSPC::common::cmd_getval;
 // cons/des
-MDSDaemon::MDSDaemon(std::string_view n, Messenger *m, MonClient *mc,
-		     boost::asio::io_context& ioctx) :
+MDSDaemon::MDSDaemon(std::string_view n, Messenger *m, MonClient *mc) :
   Dispatcher(m->cct),
   timer(m->cct, mds_lock),
   gss_ktfile_client(m->cct->_conf.get_val<std::string>("gss_ktab_client_file")),
@@ -70,7 +69,6 @@ MDSDaemon::MDSDaemon(std::string_view n, Messenger *m, MonClient *mc,
   name(n),
   messenger(m),
   monc(mc),
-  ioctx(ioctx),
   mgrc(m->cct, m, &mc->monmap),
   log_client(m->cct, messenger, &mc->monmap, LogClient::NO_FLAGS),
   starttime(mono_clock::now())
@@ -115,7 +113,7 @@ public:
     Formatter *f,
     std::ostream& errss,
     ceph::buffer::list& out) override {
-    ceph_abort("should go to call_async");
+    ceph_abort("shoudl go to call_async");
   }
   void call_async(
     std::string_view command,
@@ -335,15 +333,11 @@ void MDSDaemon::set_up_admin_socket()
                                      asok_hook,
                                      "dump snapshots");
   ceph_assert(r == 0);
-  r = admin_socket->register_command("session ls "
-				     "name=cap_dump,type=CephBool,req=false "
-		                     "name=filters,type=CephString,n=N,req=false ",
+  r = admin_socket->register_command("session ls name=filters,type=CephString,n=N,req=false",
 				     asok_hook,
 				     "List client sessions based on a filter");
   ceph_assert(r == 0);
-  r = admin_socket->register_command("client ls "
-				     "name=cap_dump,type=CephBool,req=false "
-		                     "name=filters,type=CephString,n=N,req=false ",
+  r = admin_socket->register_command("client ls name=filters,type=CephString,n=N,req=false",
 				     asok_hook,
 				     "List client sessions based on a filter");
   ceph_assert(r == 0);
@@ -359,7 +353,7 @@ void MDSDaemon::set_up_admin_socket()
 				     asok_hook,
 				     "Evict a client session by id");
   ceph_assert(r == 0);
-  r = admin_socket->register_command("session ls name=cap_dump,type=CephBool,req=false",
+  r = admin_socket->register_command("session ls",
 				     asok_hook,
 				     "Enumerate connected CephFS clients");
   ceph_assert(r == 0);
@@ -747,12 +741,10 @@ void MDSDaemon::handle_mds_map(const cref_t<MMDSMap> &m)
 
     // Did I previously not hold a rank?  Initialize!
     if (mds_rank == NULL) {
-      mds_rank = new MDSRankDispatcher(
-	whoami, mds_lock, clog,
-	timer, beacon, mdsmap, messenger, monc, &mgrc,
-	new LambdaContext([this](int r){respawn();}),
-	new LambdaContext([this](int r){suicide();}),
-	ioctx);
+      mds_rank = new MDSRankDispatcher(whoami, mds_lock, clog,
+          timer, beacon, mdsmap, messenger, monc, &mgrc,
+          new LambdaContext([this](int r){respawn();}),
+          new LambdaContext([this](int r){suicide();}));
       dout(10) <<  __func__ << ": initializing MDS rank "
                << mds_rank->get_nodeid() << dendl;
       mds_rank->init();

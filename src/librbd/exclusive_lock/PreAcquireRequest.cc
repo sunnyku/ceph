@@ -8,7 +8,6 @@
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageWatcher.h"
 #include "librbd/ImageState.h"
-#include "librbd/asio/ContextWQ.h"
 
 #define dout_subsys ceph_subsys_rbd
 #undef dout_prefix

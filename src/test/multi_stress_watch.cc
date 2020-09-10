@@ -3,12 +3,10 @@
 #include "include/rados/librados.hpp"
 #include "test/librados/test_cxx.h"
 
+#include <semaphore.h>
 #include <errno.h>
-
-#include <mutex>
-#include <condition_variable>
-#include <chrono>
 #include <map>
+#include <sstream>
 #include <iostream>
 #include <string>
 #include <stdlib.h>
@@ -16,28 +14,18 @@
 
 using namespace librados;
 using std::map;
+using std::ostringstream;
 using std::string;
+
+static sem_t sem;
 
 class WatchNotifyTestCtx : public WatchCtx
 {
 public:
-  WatchNotifyTestCtx(std::mutex &lock)
-    : lock{lock} {}
-  void notify(uint8_t opcode, uint64_t ver, bufferlist &bl) override {
-    std::unique_lock locker {lock};
-    notified = true;
-    cond.notify_one();
-  }
-  bool wait() {
-    std::unique_lock locker {lock};
-    return cond.wait_for(locker, std::chrono::seconds(1200),
-			 [this] { return notified; });
-  }
-
-private:
-  bool notified = false;
-  std::mutex& lock;
-  std::condition_variable cond;
+    void notify(uint8_t opcode, uint64_t ver, bufferlist& bl) override
+    {
+      sem_post(&sem);
+    }
 };
 
 #pragma GCC diagnostic ignored "-Wpragmas"
@@ -62,20 +50,20 @@ test_loop(Rados &cluster, std::string pool_name, std::string obj_name)
     exit(1);
   }
 
-  std::mutex lock;
-  constexpr int NR_ITERATIONS = 10000;
-  for (int i = 0; i < NR_ITERATIONS; ++i) {
-    std::cout << "Iteration " << i << std::endl;
+  for (int i = 0; i < 10000; ++i) {
+    std::cerr << "Iteration " << i << std::endl;
     uint64_t handle;
-    WatchNotifyTestCtx ctx{lock};
+    WatchNotifyTestCtx ctx;
     ret = ioctx.watch(obj_name, 0, &handle, &ctx);
     ceph_assert(!ret);
     bufferlist bl2;
     ret = ioctx.notify(obj_name, 0, bl2);
     ceph_assert(!ret);
-    ceph_assert_always(ctx.wait());
+    TestAlarm alarm;
+    sem_wait(&sem);
     ioctx.unwatch(obj_name, handle);
   }
+
   ioctx.close();
   ret = cluster.pool_delete(pool_name.c_str());
   if (ret < 0) {
@@ -145,25 +133,43 @@ int main(int args, char **argv)
     pool_name = argv[2];
     obj_name = argv[3];
   }
-  std::cout << "Test type " << type << std::endl;
-  std::cout << "pool_name, obj_name are " << pool_name << ", " << obj_name << std::endl;
+  std::cerr << "Test type " << type << std::endl;
+  std::cerr << "pool_name, obj_name are " << pool_name << ", " << obj_name << std::endl;
 
   if (type != "ec" && type != "rep") {
     std::cerr << "Error: " << argv[0] << " Invalid arg must be 'ec' or 'rep' saw " << type << std::endl;
     return 1;
   }
 
+  char *id = getenv("CEPH_CLIENT_ID");
+  if (id) std::cerr << "Client id is: " << id << std::endl;
   Rados cluster;
-  std::string err = connect_cluster_pp(cluster);
-  if (err.length()) {
-      std::cerr << "Error " << err << std::endl;
-      return 1;
+  int ret;
+  ret = cluster.init(id);
+  if (ret) {
+    std::cerr << "Error " << ret << " in cluster.init" << std::endl;
+    return ret;
   }
-
+  ret = cluster.conf_read_file(NULL);
+  if (ret) {
+    std::cerr << "Error " << ret << " in cluster.conf_read_file" << std::endl;
+    return ret;
+  }
+  ret = cluster.conf_parse_env(NULL);
+  if (ret) {
+    std::cerr << "Error " << ret << " in cluster.conf_read_env" << std::endl;
+    return ret;
+  }
+  ret = cluster.connect();
+  if (ret) {
+    std::cerr << "Error " << ret << " in cluster.connect" << std::endl;
+    return ret;
+  }
   if (type == "rep")
     test_replicated(cluster, pool_name, obj_name);
   else if (type == "ec")
     test_erasure(cluster, pool_name, obj_name);
 
+  sem_destroy(&sem);
   return 0;
 }

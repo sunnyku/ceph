@@ -152,10 +152,8 @@ function TEST_backfill_sizeup() {
 	rados -p $poolname put obj$i /dev/null
     done
 
-    ceph osd set nobackfill
     ceph osd pool set $poolname size 3
-    sleep 2
-    ceph osd unset nobackfill
+    sleep 15
 
     wait_for_clean || return 1
 
@@ -204,11 +202,9 @@ function TEST_backfill_sizeup_out() {
     # Remember primary during the backfill
     local primary=$(get_primary $poolname obj1)
 
-    ceph osd set nobackfill
     ceph osd out osd.$primary
     ceph osd pool set $poolname size 3
-    sleep 2
-    ceph osd unset nobackfill
+    sleep 15
 
     wait_for_clean || return 1
 
@@ -253,10 +249,8 @@ function TEST_backfill_out() {
     # Remember primary during the backfill
     local primary=$(get_primary $poolname obj1)
 
-    ceph osd set nobackfill
     ceph osd out osd.$(get_not_primary $poolname obj1)
-    sleep 2
-    ceph osd unset nobackfill
+    sleep 15
 
     wait_for_clean || return 1
 
@@ -302,12 +296,10 @@ function TEST_backfill_down_out() {
     local primary=$(get_primary $poolname obj1)
     local otherosd=$(get_not_primary $poolname obj1)
 
-    ceph osd set nobackfill
     kill $(cat $dir/osd.${otherosd}.pid)
     ceph osd down osd.${otherosd}
     ceph osd out osd.${otherosd}
-    sleep 2
-    ceph osd unset nobackfill
+    sleep 15
 
     wait_for_clean || return 1
 

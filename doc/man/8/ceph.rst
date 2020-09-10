@@ -37,7 +37,7 @@ Synopsis
 
 | **ceph** **mon** [ *add* \| *dump* \| *getmap* \| *remove* \| *stat* ] ...
 
-| **ceph** **osd** [ *blocklist* \| *blocked-by* \| *create* \| *new* \| *deep-scrub* \| *df* \| *down* \| *dump* \| *erasure-code-profile* \| *find* \| *getcrushmap* \| *getmap* \| *getmaxosd* \| *in* \| *ls* \| *lspools* \| *map* \| *metadata* \| *ok-to-stop* \| *out* \| *pause* \| *perf* \| *pg-temp* \| *force-create-pg* \| *primary-affinity* \| *primary-temp* \| *repair* \| *reweight* \| *reweight-by-pg* \| *rm* \| *destroy* \| *purge* \| *safe-to-destroy* \| *scrub* \| *set* \| *setcrushmap* \| *setmaxosd*  \| *stat* \| *tree* \| *unpause* \| *unset* ] ...
+| **ceph** **osd** [ *blacklist* \| *blocked-by* \| *create* \| *new* \| *deep-scrub* \| *df* \| *down* \| *dump* \| *erasure-code-profile* \| *find* \| *getcrushmap* \| *getmap* \| *getmaxosd* \| *in* \| *ls* \| *lspools* \| *map* \| *metadata* \| *ok-to-stop* \| *out* \| *pause* \| *perf* \| *pg-temp* \| *force-create-pg* \| *primary-affinity* \| *primary-temp* \| *repair* \| *reweight* \| *reweight-by-pg* \| *rm* \| *destroy* \| *purge* \| *safe-to-destroy* \| *scrub* \| *set* \| *setcrushmap* \| *setmaxosd*  \| *stat* \| *tree* \| *unpause* \| *unset* ] ...
 
 | **ceph** **osd** **crush** [ *add* \| *add-bucket* \| *create-or-move* \| *dump* \| *get-tunable* \| *link* \| *move* \| *remove* \| *rename-bucket* \| *reweight* \| *reweight-all* \| *reweight-subtree* \| *rm* \| *rule* \| *set* \| *set-tunable* \| *show-tunables* \| *tunables* \| *unlink* ] ...
 
@@ -613,27 +613,27 @@ osd
 Manage OSD configuration and administration. It uses some additional
 subcommands.
 
-Subcommand ``blocklist`` manage blocklisted clients. It uses some additional
+Subcommand ``blacklist`` manage blacklisted clients. It uses some additional
 subcommands.
 
-Subcommand ``add`` add <addr> to blocklist (optionally until <expire> seconds
+Subcommand ``add`` add <addr> to blacklist (optionally until <expire> seconds
 from now)
 
 Usage::
 
-	ceph osd blocklist add <EntityAddr> {<float[0.0-]>}
+	ceph osd blacklist add <EntityAddr> {<float[0.0-]>}
 
-Subcommand ``ls`` show blocklisted clients
-
-Usage::
-
-	ceph osd blocklist ls
-
-Subcommand ``rm`` remove <addr> from blocklist
+Subcommand ``ls`` show blacklisted clients
 
 Usage::
 
-	ceph osd blocklist rm <EntityAddr>
+	ceph osd blacklist ls
+
+Subcommand ``rm`` remove <addr> from blacklist
+
+Usage::
+
+	ceph osd blacklist rm <EntityAddr>
 
 Subcommand ``blocked-by`` prints a histogram of which OSDs are blocking their peers
 

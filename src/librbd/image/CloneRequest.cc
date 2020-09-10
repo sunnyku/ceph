@@ -8,7 +8,6 @@
 #include "include/ceph_assert.h"
 #include "librbd/ImageState.h"
 #include "librbd/Utils.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/deep_copy/MetadataCopyRequest.h"
 #include "librbd/image/AttachChildRequest.h"
 #include "librbd/image/AttachParentRequest.h"
@@ -47,7 +46,7 @@ CloneRequest<I>::CloneRequest(
     cls::rbd::MirrorImageMode mirror_image_mode,
     const std::string &non_primary_global_image_id,
     const std::string &primary_mirror_uuid,
-    asio::ContextWQ *op_work_queue, Context *on_finish)
+    ContextWQ *op_work_queue, Context *on_finish)
   : m_config(config), m_parent_io_ctx(parent_io_ctx),
     m_parent_image_id(parent_image_id), m_parent_snap_name(parent_snap_name),
     m_parent_snap_namespace(parent_snap_namespace),
@@ -160,6 +159,7 @@ void CloneRequest<I>::handle_open_parent(int r) {
   ldout(m_cct, 20) << "r=" << r << dendl;
 
   if (r < 0) {
+    m_parent_image_ctx->destroy();
     m_parent_image_ctx = nullptr;
 
     lderr(m_cct) << "failed to open parent image: " << cpp_strerror(r) << dendl;
@@ -344,6 +344,7 @@ void CloneRequest<I>::handle_open_child(int r) {
   ldout(m_cct, 15) << "r=" << r << dendl;
 
   if (r < 0) {
+    m_imctx->destroy();
     m_imctx = nullptr;
 
     lderr(m_cct) << "Error opening new image: " << cpp_strerror(r) << dendl;
@@ -515,8 +516,10 @@ void CloneRequest<I>::close_child() {
 
   ceph_assert(m_imctx != nullptr);
 
-  auto ctx = create_context_callback<
-    CloneRequest<I>, &CloneRequest<I>::handle_close_child>(this);
+  using klass = CloneRequest<I>;
+  Context *ctx = create_async_context_callback(
+    *m_imctx, create_context_callback<
+      klass, &klass::handle_close_child>(this));
   m_imctx->state->close(ctx);
 }
 
@@ -524,6 +527,7 @@ template <typename I>
 void CloneRequest<I>::handle_close_child(int r) {
   ldout(m_cct, 15) << dendl;
 
+  m_imctx->destroy();
   m_imctx = nullptr;
 
   if (r < 0) {
@@ -571,8 +575,9 @@ void CloneRequest<I>::close_parent() {
   ldout(m_cct, 20) << dendl;
   ceph_assert(m_parent_image_ctx != nullptr);
 
-  auto ctx = create_context_callback<
-    CloneRequest<I>, &CloneRequest<I>::handle_close_parent>(this);
+  Context *ctx = create_async_context_callback(
+    *m_parent_image_ctx, create_context_callback<
+      CloneRequest<I>, &CloneRequest<I>::handle_close_parent>(this));
   m_parent_image_ctx->state->close(ctx);
 }
 
@@ -580,6 +585,7 @@ template <typename I>
 void CloneRequest<I>::handle_close_parent(int r) {
   ldout(m_cct, 20) << "r=" << r << dendl;
 
+  m_parent_image_ctx->destroy();
   m_parent_image_ctx = nullptr;
 
   if (r < 0) {

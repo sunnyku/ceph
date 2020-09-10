@@ -1,9 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { AbstractControl, FormGroup, FormGroupDirective, NgForm } from '@angular/forms';
-
-import _ from 'lodash';
-
 import { Icons } from '../../../shared/enum/icons.enum';
+
+import * as _ from 'lodash';
 
 /**
  * This component will render a submit button with the given label.

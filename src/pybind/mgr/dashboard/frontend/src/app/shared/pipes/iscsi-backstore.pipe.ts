@@ -4,6 +4,8 @@ import { Pipe, PipeTransform } from '@angular/core';
   name: 'iscsiBackstore'
 })
 export class IscsiBackstorePipe implements PipeTransform {
+  constructor() {}
+
   transform(value: any): any {
     switch (value) {
       case 'user:rbd':

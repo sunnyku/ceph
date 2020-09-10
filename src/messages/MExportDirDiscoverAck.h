@@ -15,13 +15,13 @@
 #ifndef CEPH_MEXPORTDIRDISCOVERACK_H
 #define CEPH_MEXPORTDIRDISCOVERACK_H
 
+#include "msg/Message.h"
 #include "include/types.h"
-#include "messages/MMDSOp.h"
 
-class MExportDirDiscoverAck : public MMDSOp {
+class MExportDirDiscoverAck : public SafeMessage {
 private:
-  static constexpr int HEAD_VERSION = 1;
-  static constexpr int COMPAT_VERSION = 1;
+  static const int HEAD_VERSION = 1;
+  static const int COMPAT_VERSION = 1;
 
   dirfrag_t dirfrag;
   bool success;
@@ -32,9 +32,9 @@ private:
   bool is_success() const { return success; }
 
 protected:
-  MExportDirDiscoverAck() : MMDSOp{MSG_MDS_EXPORTDIRDISCOVERACK, HEAD_VERSION, COMPAT_VERSION} {}
+  MExportDirDiscoverAck() : SafeMessage{MSG_MDS_EXPORTDIRDISCOVERACK, HEAD_VERSION, COMPAT_VERSION} {}
   MExportDirDiscoverAck(dirfrag_t df, uint64_t tid, bool s=true) :
-    MMDSOp{MSG_MDS_EXPORTDIRDISCOVERACK, HEAD_VERSION, COMPAT_VERSION},
+    SafeMessage{MSG_MDS_EXPORTDIRDISCOVERACK, HEAD_VERSION, COMPAT_VERSION},
     dirfrag(df), success(s) {
     set_tid(tid);
   }

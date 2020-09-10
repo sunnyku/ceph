@@ -1,16 +1,18 @@
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
+import { TooltipModule } from 'ngx-bootstrap/tooltip';
 
 import { ToastrModule } from 'ngx-toastr';
+
+import { By } from '@angular/platform-browser';
 import { NEVER, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 import { ActivatedRouteStub } from '../../../../testing/activated-route-stub';
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { RbdService } from '../../../shared/api/rbd.service';
 import { ImageSpec } from '../../../shared/models/image-spec';
 import { SharedModule } from '../../../shared/shared.module';
@@ -33,7 +35,8 @@ describe('RbdFormComponent', () => {
       ReactiveFormsModule,
       RouterTestingModule,
       ToastrModule.forRoot(),
-      SharedModule
+      SharedModule,
+      TooltipModule
     ],
     declarations: [RbdFormComponent, RbdConfigurationFormComponent],
     providers: [
@@ -41,6 +44,7 @@ describe('RbdFormComponent', () => {
         provide: ActivatedRoute,
         useValue: new ActivatedRouteStub({ pool: 'foo', name: 'bar', snap: undefined })
       },
+      i18nProviders,
       RbdService
     ]
   });
@@ -48,7 +52,7 @@ describe('RbdFormComponent', () => {
   beforeEach(() => {
     fixture = TestBed.createComponent(RbdFormComponent);
     component = fixture.componentInstance;
-    activatedRoute = <ActivatedRouteStub>TestBed.inject(ActivatedRoute);
+    activatedRoute = TestBed.get(ActivatedRoute);
 
     component.loadingReady();
   });
@@ -74,8 +78,8 @@ describe('RbdFormComponent', () => {
       cloneAction = spyOn(component, 'cloneAction').and.returnValue(of(null));
       copyAction = spyOn(component, 'copyAction').and.returnValue(of(null));
       spyOn(component, 'setResponse').and.stub();
-      routerNavigate = spyOn(TestBed.inject(Router), 'navigate').and.stub();
-      rbdServiceGetSpy = spyOn(TestBed.inject(RbdService), 'get');
+      routerNavigate = spyOn(TestBed.get(Router), 'navigate').and.stub();
+      rbdServiceGetSpy = spyOn(TestBed.get(RbdService), 'get');
       rbdServiceGetSpy.and.returnValue(of({ pool_name: 'foo', pool_image: 'bar' }));
       component.mode = undefined;
     });
@@ -198,7 +202,7 @@ describe('RbdFormComponent', () => {
     let rbdService: RbdService;
 
     beforeEach(() => {
-      rbdService = TestBed.inject(RbdService);
+      rbdService = TestBed.get(RbdService);
       component.mode = RbdFormMode.editing;
       fixture.detectChanges();
       spyOn(rbdService, 'get').and.callThrough();
@@ -280,7 +284,7 @@ describe('RbdFormComponent', () => {
 
     describe('test edit form flags', () => {
       const prepare = (pool: string, image: string, enabledFeatures: string[]): void => {
-        const rbdService = TestBed.inject(RbdService);
+        const rbdService = TestBed.get(RbdService);
         spyOn(rbdService, 'get').and.returnValue(
           of({
             name: image,
@@ -337,7 +341,7 @@ describe('RbdFormComponent', () => {
 
     describe('test create form flags', () => {
       beforeEach(() => {
-        const rbdService = TestBed.inject(RbdService);
+        const rbdService = TestBed.get(RbdService);
         spyOn(rbdService, 'defaultFeatures').and.returnValue(of(defaultFeatures));
         component.router = { url: '/block/rbd/create' } as Router;
         fixture.detectChanges();

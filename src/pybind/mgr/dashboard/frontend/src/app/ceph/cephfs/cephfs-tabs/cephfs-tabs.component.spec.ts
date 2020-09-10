@@ -2,15 +2,14 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { Component, Input } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
 import { TreeModule } from 'angular-tree-component';
-import _ from 'lodash';
+import * as _ from 'lodash';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 import { of } from 'rxjs';
 
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { CephfsService } from '../../../shared/api/cephfs.service';
-import { TableStatusViewCache } from '../../../shared/classes/table-status-view-cache';
 import { ViewCacheStatus } from '../../../shared/enum/view-cache-status.enum';
 import { SharedModule } from '../../../shared/shared.module';
 import { CephfsClientsComponent } from '../cephfs-clients/cephfs-clients.component';
@@ -36,7 +35,7 @@ describe('CephfsTabsComponent', () => {
   const setReload = (sth?: any) => (component['reloadSubscriber'] = sth);
   const mockRunOutside = () => {
     component['subscribeInterval'] = () => {
-      // It's mocked because the rxjs timer subscription isn't called through the use of 'tick'.
+      // It's mocked because the rxjs timer subscription ins't called through the use of 'tick'.
       setReload({
         unsubscribed: false,
         unsubscribe: () => {
@@ -81,7 +80,7 @@ describe('CephfsTabsComponent', () => {
   configureTestBed({
     imports: [
       SharedModule,
-      NgbNavModule,
+      TabsModule.forRoot(),
       HttpClientTestingModule,
       TreeModule,
       ToastrModule.forRoot()
@@ -92,7 +91,8 @@ describe('CephfsTabsComponent', () => {
       CephfsDetailComponent,
       CephfsDirectoriesComponent,
       CephfsClientsComponent
-    ]
+    ],
+    providers: [i18nProviders]
   });
 
   beforeEach(() => {
@@ -110,7 +110,7 @@ describe('CephfsTabsComponent', () => {
         data: [{}, {}, {}, {}]
       }
     };
-    service = TestBed.inject(CephfsService);
+    service = TestBed.get(CephfsService);
     spyOn(service, 'getTabs').and.callFake(() => of(data));
 
     fixture.detectChanges();
@@ -147,9 +147,9 @@ describe('CephfsTabsComponent', () => {
     };
     const defaultClients: Record<string, any> = {
       data: [],
-      status: new TableStatusViewCache(ViewCacheStatus.ValueNone)
+      status: ViewCacheStatus.ValueNone
     };
-    component['subscribeInterval'] = () => undefined;
+    component['subscribeInterval'] = () => {};
     updateData();
     expect(component.clients).not.toEqual(defaultClients);
     expect(component.details).not.toEqual(defaultDetails);

@@ -7,13 +7,12 @@
 namespace librados {
 
 TestMemCluster::File::File()
-  : objver(0), snap_id(), exists(true) {
+  : snap_id(), exists(true) {
 }
 
 TestMemCluster::File::File(const File &rhs)
   : data(rhs.data),
     mtime(rhs.mtime),
-    objver(rhs.objver),
     snap_id(rhs.snap_id),
     exists(rhs.exists) {
 }
@@ -165,19 +164,19 @@ void TestMemCluster::allocate_client(uint32_t *nonce, uint64_t *global_id) {
 
 void TestMemCluster::deallocate_client(uint32_t nonce) {
   std::lock_guard locker{m_lock};
-  m_blocklist.erase(nonce);
+  m_blacklist.erase(nonce);
 }
 
-bool TestMemCluster::is_blocklisted(uint32_t nonce) const {
+bool TestMemCluster::is_blacklisted(uint32_t nonce) const {
   std::lock_guard locker{m_lock};
-  return (m_blocklist.find(nonce) != m_blocklist.end());
+  return (m_blacklist.find(nonce) != m_blacklist.end());
 }
 
-void TestMemCluster::blocklist(uint32_t nonce) {
-  m_watch_notify.blocklist(nonce);
+void TestMemCluster::blacklist(uint32_t nonce) {
+  m_watch_notify.blacklist(nonce);
 
   std::lock_guard locker{m_lock};
-  m_blocklist.insert(nonce);
+  m_blacklist.insert(nonce);
 }
 
 void TestMemCluster::transaction_start(const ObjectLocator& locator) {

@@ -5,7 +5,7 @@ Installing Ceph
 ===============
 
 There are several different ways to install Ceph.  Choose the
-method that best suits your needs.
+method that best suites your needs.
 
 Recommended methods
 ~~~~~~~~~~~~~~~~~~~
@@ -44,7 +44,7 @@ Ceph clusters using Ansible.
   management features and dashboard integration are not available.
 
 
-``ceph-deploy`` is a tool for quickly deploying clusters.
+:ref:`ceph-deploy <ceph-deploy-index>` is a tool for quickly deploying clusters.
 
   .. IMPORTANT::
 
@@ -63,6 +63,7 @@ Ceph can also be :ref:`installed manually <install-manual>`.
    :hidden:
 
    index_manual
+   ceph-deploy/index
 
 
 

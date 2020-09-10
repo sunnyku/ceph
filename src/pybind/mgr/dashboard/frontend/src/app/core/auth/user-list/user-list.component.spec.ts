@@ -3,10 +3,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed, PermissionHelper } from '../../../../testing/unit-test-helper';
+import {
+  configureTestBed,
+  i18nProviders,
+  PermissionHelper
+} from '../../../../testing/unit-test-helper';
 import { TableActionsComponent } from '../../../shared/datatable/table-actions/table-actions.component';
 import { SharedModule } from '../../../shared/shared.module';
 import { UserTabsComponent } from '../user-tabs/user-tabs.component';
@@ -21,11 +25,12 @@ describe('UserListComponent', () => {
       BrowserAnimationsModule,
       SharedModule,
       ToastrModule.forRoot(),
-      NgbNavModule,
+      TabsModule.forRoot(),
       RouterTestingModule,
       HttpClientTestingModule
     ],
-    declarations: [UserListComponent, UserTabsComponent]
+    declarations: [UserListComponent, UserTabsComponent],
+    providers: i18nProviders
   });
 
   beforeEach(() => {

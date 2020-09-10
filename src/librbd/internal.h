@@ -14,6 +14,7 @@
 #include "include/rbd/librbd.hpp"
 #include "include/rbd_types.h"
 #include "cls/rbd/cls_rbd_types.h"
+#include "common/WorkQueue.h"
 #include "common/ceph_time.h"
 #include "librbd/Types.h"
 

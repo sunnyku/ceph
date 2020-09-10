@@ -1,8 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
+import { I18n } from '@ngx-translate/i18n-polyfill';
+
+import { ApiModule } from './api.module';
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class NfsService {
   apiPath = 'api/nfs-ganesha';
@@ -11,40 +15,43 @@ export class NfsService {
   nfsAccessType = [
     {
       value: 'RW',
-      help: $localize`Allows all operations`
+      help: this.i18n('Allows all operations')
     },
     {
       value: 'RO',
-      help: $localize`Allows only operations that do not modify the server`
+      help: this.i18n('Allows only operations that do not modify the server')
     },
     {
       value: 'MDONLY',
-      help: $localize`Does not allow read or write operations, but allows any other operation`
+      help: this.i18n('Does not allow read or write operations, but allows any other operation')
     },
     {
       value: 'MDONLY_RO',
-      help: $localize`Does not allow read, write, or any operation that modifies file attributes or directory content`
+      help: this.i18n(
+        'Does not allow read, write, or any operation that modifies file \
+       attributes or directory content'
+      )
     },
     {
       value: 'NONE',
-      help: $localize`Allows no access at all`
+      help: this.i18n('Allows no access at all')
     }
   ];
 
   nfsFsal = [
     {
       value: 'CEPH',
-      descr: $localize`CephFS`
+      descr: this.i18n('CephFS')
     },
     {
       value: 'RGW',
-      descr: $localize`Object Gateway`
+      descr: this.i18n('Object Gateway')
     }
   ];
 
   nfsSquash = ['no_root_squash', 'root_id_squash', 'root_squash', 'all_squash'];
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private i18n: I18n) {}
 
   list() {
     return this.http.get(`${this.apiPath}/export`);

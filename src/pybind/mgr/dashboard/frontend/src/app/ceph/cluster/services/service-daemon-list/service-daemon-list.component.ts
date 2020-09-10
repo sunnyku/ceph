@@ -10,10 +10,11 @@ import {
   ViewChild,
   ViewChildren
 } from '@angular/core';
+import { I18n } from '@ngx-translate/i18n-polyfill';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
+
 import { Observable, Subscription } from 'rxjs';
-
 import { CephServiceService } from '../../../../shared/api/ceph-service.service';
 import { HostService } from '../../../../shared/api/host.service';
 import { OrchestratorService } from '../../../../shared/api/orchestrator.service';
@@ -50,6 +51,7 @@ export class ServiceDaemonListComponent implements OnInit, OnChanges, AfterViewI
   private daemonsTableTplsSub: Subscription;
 
   constructor(
+    private i18n: I18n,
     private hostService: HostService,
     private cephServiceService: CephServiceService,
     private orchService: OrchestratorService
@@ -58,25 +60,25 @@ export class ServiceDaemonListComponent implements OnInit, OnChanges, AfterViewI
   ngOnInit() {
     this.columns = [
       {
-        name: $localize`Hostname`,
+        name: this.i18n('Hostname'),
         prop: 'hostname',
         flexGrow: 1,
         filterable: true
       },
       {
-        name: $localize`Daemon type`,
+        name: this.i18n('Daemon type'),
         prop: 'daemon_type',
         flexGrow: 1,
         filterable: true
       },
       {
-        name: $localize`Daemon ID`,
+        name: this.i18n('Daemon ID'),
         prop: 'daemon_id',
         flexGrow: 1,
         filterable: true
       },
       {
-        name: $localize`Container ID`,
+        name: this.i18n('Container ID'),
         prop: 'container_id',
         flexGrow: 3,
         filterable: true,
@@ -86,13 +88,13 @@ export class ServiceDaemonListComponent implements OnInit, OnChanges, AfterViewI
         }
       },
       {
-        name: $localize`Container Image name`,
+        name: this.i18n('Container Image name'),
         prop: 'container_image_name',
         flexGrow: 3,
         filterable: true
       },
       {
-        name: $localize`Container Image ID`,
+        name: this.i18n('Container Image ID'),
         prop: 'container_image_id',
         flexGrow: 3,
         filterable: true,
@@ -102,20 +104,20 @@ export class ServiceDaemonListComponent implements OnInit, OnChanges, AfterViewI
         }
       },
       {
-        name: $localize`Version`,
+        name: this.i18n('Version'),
         prop: 'version',
         flexGrow: 1,
         filterable: true
       },
       {
-        name: $localize`Status`,
+        name: this.i18n('Status'),
         prop: 'status_desc',
         flexGrow: 1,
         filterable: true,
         cellTemplate: this.statusTpl
       },
       {
-        name: $localize`Last Refreshed`,
+        name: this.i18n('Last Refreshed'),
         prop: 'last_refresh',
         flexGrow: 2
       }

@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 import { Subscription } from 'rxjs';
 
 import { NfsService } from '../../../shared/api/nfs.service';
@@ -19,7 +20,6 @@ import { FinishedTask } from '../../../shared/models/finished-task';
 import { Permission } from '../../../shared/models/permissions';
 import { Task } from '../../../shared/models/task';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../shared/services/modal.service';
 import { TaskListService } from '../../../shared/services/task-list.service';
 import { TaskWrapperService } from '../../../shared/services/task-wrapper.service';
 
@@ -47,7 +47,7 @@ export class NfsListComponent extends ListWithDetails implements OnInit, OnDestr
   tableActions: CdTableAction[];
   isDefaultCluster = false;
 
-  modalRef: NgbModalRef;
+  modalRef: BsModalRef;
 
   builders = {
     'nfs/create': (metadata: any) => {
@@ -61,7 +61,8 @@ export class NfsListComponent extends ListWithDetails implements OnInit, OnDestr
 
   constructor(
     private authStorageService: AuthStorageService,
-    private modalService: ModalService,
+    private i18n: I18n,
+    private modalService: BsModalService,
     private nfsService: NfsService,
     private taskListService: TaskListService,
     private taskWrapper: TaskWrapperService,
@@ -103,34 +104,34 @@ export class NfsListComponent extends ListWithDetails implements OnInit, OnDestr
   ngOnInit() {
     this.columns = [
       {
-        name: $localize`Path`,
+        name: this.i18n('Path'),
         prop: 'path',
         flexGrow: 2,
         cellTransformation: CellTemplate.executing
       },
       {
-        name: $localize`Pseudo`,
+        name: this.i18n('Pseudo'),
         prop: 'pseudo',
         flexGrow: 2
       },
       {
-        name: $localize`Cluster`,
+        name: this.i18n('Cluster'),
         prop: 'cluster_id',
         flexGrow: 2
       },
       {
-        name: $localize`Daemons`,
+        name: this.i18n('Daemons'),
         prop: 'daemons',
         flexGrow: 2
       },
       {
-        name: $localize`Storage Backend`,
+        name: this.i18n('Storage Backend'),
         prop: 'fsal',
         flexGrow: 2,
         cellTemplate: this.nfsFsal
       },
       {
-        name: $localize`Access Type`,
+        name: this.i18n('Access Type'),
         prop: 'access_type',
         flexGrow: 2
       }
@@ -207,16 +208,18 @@ export class NfsListComponent extends ListWithDetails implements OnInit, OnDestr
     const export_id = this.selection.first().export_id;
 
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      itemDescription: $localize`NFS export`,
-      itemNames: [`${cluster_id}:${export_id}`],
-      submitActionObservable: () =>
-        this.taskWrapper.wrapTaskAroundCall({
-          task: new FinishedTask('nfs/delete', {
-            cluster_id: cluster_id,
-            export_id: export_id
-          }),
-          call: this.nfsService.delete(cluster_id, export_id)
-        })
+      initialState: {
+        itemDescription: this.i18n('NFS export'),
+        itemNames: [`${cluster_id}:${export_id}`],
+        submitActionObservable: () =>
+          this.taskWrapper.wrapTaskAroundCall({
+            task: new FinishedTask('nfs/delete', {
+              cluster_id: cluster_id,
+              export_id: export_id
+            }),
+            call: this.nfsService.delete(cluster_id, export_id)
+          })
+      }
     });
   }
 }

@@ -1,6 +1,6 @@
-import { Component, Inject, OnInit, TemplateRef, ViewChild } from '@angular/core';
-
-import { PrometheusService } from '../../../../shared/api/prometheus.service';
+import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { ListWithDetails } from '../../../../shared/classes/list-with-details.class';
 import { CellTemplate } from '../../../../shared/enum/cell-template.enum';
 import { Icons } from '../../../../shared/enum/icons.enum';
 import { CdTableAction } from '../../../../shared/models/cd-table-action';
@@ -11,9 +11,8 @@ import { CdDatePipe } from '../../../../shared/pipes/cd-date.pipe';
 import { AuthStorageService } from '../../../../shared/services/auth-storage.service';
 import { PrometheusAlertService } from '../../../../shared/services/prometheus-alert.service';
 import { URLBuilderService } from '../../../../shared/services/url-builder.service';
-import { PrometheusListHelper } from '../prometheus-list-helper';
 
-const BASE_URL = 'silences'; // as only silence actions can be used
+const BASE_URL = 'silence'; // as only silence actions can be used
 
 @Component({
   selector: 'cd-active-alert-list',
@@ -21,7 +20,7 @@ const BASE_URL = 'silences'; // as only silence actions can be used
   templateUrl: './active-alert-list.component.html',
   styleUrls: ['./active-alert-list.component.scss']
 })
-export class ActiveAlertListComponent extends PrometheusListHelper implements OnInit {
+export class ActiveAlertListComponent extends ListWithDetails implements OnInit {
   @ViewChild('externalLinkTpl', { static: true })
   externalLinkTpl: TemplateRef<any>;
   columns: CdTableColumn[];
@@ -40,10 +39,10 @@ export class ActiveAlertListComponent extends PrometheusListHelper implements On
     private authStorageService: AuthStorageService,
     public prometheusAlertService: PrometheusAlertService,
     private urlBuilder: URLBuilderService,
-    private cdDatePipe: CdDatePipe,
-    @Inject(PrometheusService) prometheusService: PrometheusService
+    private i18n: I18n,
+    private cdDatePipe: CdDatePipe
   ) {
-    super(prometheusService);
+    super();
     this.permission = this.authStorageService.getPermissions().prometheus;
     this.tableActions = [
       {
@@ -54,40 +53,39 @@ export class ActiveAlertListComponent extends PrometheusListHelper implements On
         icon: Icons.add,
         routerLink: () =>
           '/monitoring' + this.urlBuilder.getCreateFrom(this.selection.first().fingerprint),
-        name: $localize`Create Silence`
+        name: this.i18n('Create Silence')
       }
     ];
   }
 
   ngOnInit() {
-    super.ngOnInit();
     this.columns = [
       {
-        name: $localize`Name`,
+        name: this.i18n('Name'),
         prop: 'labels.alertname',
         flexGrow: 2
       },
       {
-        name: $localize`Job`,
+        name: this.i18n('Job'),
         prop: 'labels.job',
         flexGrow: 2
       },
       {
-        name: $localize`Severity`,
+        name: this.i18n('Severity'),
         prop: 'labels.severity'
       },
       {
-        name: $localize`State`,
+        name: this.i18n('State'),
         prop: 'status.state',
         cellTransformation: CellTemplate.classAdding
       },
       {
-        name: $localize`Started`,
+        name: this.i18n('Started'),
         prop: 'startsAt',
         pipe: this.cdDatePipe
       },
       {
-        name: $localize`URL`,
+        name: this.i18n('URL'),
         prop: 'generatorURL',
         sortable: false,
         cellTemplate: this.externalLinkTpl

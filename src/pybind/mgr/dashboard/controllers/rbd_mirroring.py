@@ -12,7 +12,7 @@ import cherrypy
 import rbd
 
 from . import ApiController, Endpoint, Task, BaseController, ReadPermission, \
-    UpdatePermission, RESTController, allow_empty_body, ControllerDoc, EndpointDoc
+    UpdatePermission, RESTController
 
 from .. import mgr
 from ..security import Scope
@@ -335,42 +335,12 @@ def _reset_view_cache():
     _get_content_data.reset()
 
 
-RBD_MIRROR_SCHEMA = {
-    "site_name": (str, "Site Name")
-}
-
-RBDM_POOL_SCHEMA = {
-    "mirror_mode": (str, "Mirror Mode")
-}
-
-RBDM_SUMMARY_SCHEMA = {
-    "site_name": (str, "site name"),
-    "status": (int, ""),
-    "content_data": ({
-        "daemons": ([str], ""),
-        "pools": ([{
-            "name": (str, "Pool name"),
-            "health_color": (str, ""),
-            "health": (str, "pool health"),
-            "mirror_mode": (str, "status"),
-            "peer_uuids": ([str], "")
-        }], "Pools"),
-        "image_error": ([str], ""),
-        "image_syncing": ([str], ""),
-        "image_ready": ([str], "")
-    }, "")
-}
-
-
 @ApiController('/block/mirroring', Scope.RBD_MIRRORING)
-@ControllerDoc("RBD Mirroring Management API", "RbdMirroring")
 class RbdMirroring(BaseController):
 
     @Endpoint(method='GET', path='site_name')
     @handle_rbd_mirror_error()
     @ReadPermission
-    @EndpointDoc("Display Rbd Mirroring sitename",
-                 responses={200: RBD_MIRROR_SCHEMA})
     def get(self):
         return self._get_site_name()
 
@@ -386,14 +356,11 @@ class RbdMirroring(BaseController):
 
 
 @ApiController('/block/mirroring/summary', Scope.RBD_MIRRORING)
-@ControllerDoc("RBD Mirroring Summary Management API", "RbdMirroringSummary")
 class RbdMirroringSummary(BaseController):
 
     @Endpoint()
     @handle_rbd_mirror_error()
     @ReadPermission
-    @EndpointDoc("Display Rbd Mirroring Summary",
-                 responses={200: RBDM_SUMMARY_SCHEMA})
     def __call__(self):
         site_name = rbd.RBD().mirror_site_name_get(mgr.rados)
 
@@ -404,7 +371,6 @@ class RbdMirroringSummary(BaseController):
 
 
 @ApiController('/block/mirroring/pool', Scope.RBD_MIRRORING)
-@ControllerDoc("RBD Mirroring Pool Mode Management API", "RbdMirroringPoolMode")
 class RbdMirroringPoolMode(RESTController):
 
     RESOURCE_ID = "pool_name"
@@ -415,11 +381,6 @@ class RbdMirroringPoolMode(RESTController):
     }
 
     @handle_rbd_mirror_error()
-    @EndpointDoc("Display Rbd Mirroring Summary",
-                 parameters={
-                     'pool_name': (str, 'Pool Name'),
-                 },
-                 responses={200: RBDM_POOL_SCHEMA})
     def get(self, pool_name):
         ioctx = mgr.rados.open_ioctx(pool_name)
         mode = rbd.RBD().mirror_mode_get(ioctx)
@@ -447,13 +408,11 @@ class RbdMirroringPoolMode(RESTController):
 
 @ApiController('/block/mirroring/pool/{pool_name}/bootstrap',
                Scope.RBD_MIRRORING)
-@ControllerDoc("RBD Mirroring Pool Bootstrap Management API", "RbdMirroringPoolBootstrap")
 class RbdMirroringPoolBootstrap(BaseController):
 
     @Endpoint(method='POST', path='token')
     @handle_rbd_mirror_error()
     @UpdatePermission
-    @allow_empty_body
     def create_token(self, pool_name):
         ioctx = mgr.rados.open_ioctx(pool_name)
         token = rbd.RBD().mirror_peer_bootstrap_create(ioctx)
@@ -462,7 +421,6 @@ class RbdMirroringPoolBootstrap(BaseController):
     @Endpoint(method='POST', path='peer')
     @handle_rbd_mirror_error()
     @UpdatePermission
-    @allow_empty_body
     def import_token(self, pool_name, direction, token):
         ioctx = mgr.rados.open_ioctx(pool_name)
 
@@ -480,7 +438,6 @@ class RbdMirroringPoolBootstrap(BaseController):
 
 
 @ApiController('/block/mirroring/pool/{pool_name}/peer', Scope.RBD_MIRRORING)
-@ControllerDoc("RBD Mirroring Pool Peer Management API", "RbdMirroringPoolPeer")
 class RbdMirroringPoolPeer(RESTController):
 
     RESOURCE_ID = "peer_uuid"

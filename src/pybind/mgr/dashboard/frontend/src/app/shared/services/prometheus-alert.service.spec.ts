@@ -4,7 +4,11 @@ import { TestBed } from '@angular/core/testing';
 import { ToastrModule } from 'ngx-toastr';
 import { Observable, of } from 'rxjs';
 
-import { configureTestBed, PrometheusHelper } from '../../../testing/unit-test-helper';
+import {
+  configureTestBed,
+  i18nProviders,
+  PrometheusHelper
+} from '../../../testing/unit-test-helper';
 import { PrometheusService } from '../api/prometheus.service';
 import { NotificationType } from '../enum/notification-type.enum';
 import { CdNotificationConfig } from '../models/cd-notification';
@@ -23,7 +27,7 @@ describe('PrometheusAlertService', () => {
 
   configureTestBed({
     imports: [ToastrModule.forRoot(), SharedModule, HttpClientTestingModule],
-    providers: [PrometheusAlertService, PrometheusAlertFormatter]
+    providers: [PrometheusAlertService, PrometheusAlertFormatter, i18nProviders]
   });
 
   beforeEach(() => {
@@ -31,16 +35,16 @@ describe('PrometheusAlertService', () => {
   });
 
   it('should create', () => {
-    expect(TestBed.inject(PrometheusAlertService)).toBeTruthy();
+    expect(TestBed.get(PrometheusAlertService)).toBeTruthy();
   });
 
   describe('test failing status codes and verify disabling of the alertmanager', () => {
     const isDisabledByStatusCode = (statusCode: number, expectedStatus: boolean, done: any) => {
-      service = TestBed.inject(PrometheusAlertService);
-      prometheusService = TestBed.inject(PrometheusService);
+      service = TestBed.get(PrometheusAlertService);
+      prometheusService = TestBed.get(PrometheusService);
       spyOn(prometheusService, 'ifAlertmanagerConfigured').and.callFake((fn) => fn());
       spyOn(prometheusService, 'getAlerts').and.returnValue(
-        new Observable((observer: any) => observer.error({ status: statusCode, error: {} }))
+        Observable.create((observer: any) => observer.error({ status: statusCode, error: {} }))
       );
       const disableFn = spyOn(prometheusService, 'disableAlertmanagerConfig').and.callFake(() => {
         expect(expectedStatus).toBe(true);
@@ -69,8 +73,8 @@ describe('PrometheusAlertService', () => {
   });
 
   it('should flatten the response of getRules()', () => {
-    service = TestBed.inject(PrometheusAlertService);
-    prometheusService = TestBed.inject(PrometheusService);
+    service = TestBed.get(PrometheusAlertService);
+    prometheusService = TestBed.get(PrometheusService);
 
     spyOn(service['prometheusService'], 'ifPrometheusConfigured').and.callFake((fn) => fn());
     spyOn(prometheusService, 'getRules').and.returnValue(
@@ -104,16 +108,16 @@ describe('PrometheusAlertService', () => {
 
   describe('refresh', () => {
     beforeEach(() => {
-      service = TestBed.inject(PrometheusAlertService);
+      service = TestBed.get(PrometheusAlertService);
       service['alerts'] = [];
       service['canAlertsBeNotified'] = false;
 
       spyOn(window, 'setTimeout').and.callFake((fn: Function) => fn());
 
-      notificationService = TestBed.inject(NotificationService);
+      notificationService = TestBed.get(NotificationService);
       spyOn(notificationService, 'show').and.stub();
 
-      prometheusService = TestBed.inject(PrometheusService);
+      prometheusService = TestBed.get(PrometheusService);
       spyOn(prometheusService, 'ifAlertmanagerConfigured').and.callFake((fn) => fn());
       spyOn(prometheusService, 'getAlerts').and.callFake(() => of(alerts));
 

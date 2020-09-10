@@ -19,6 +19,7 @@ from libc cimport errno
 from libc.stdint cimport *
 from libc.stdlib cimport malloc, realloc, free
 
+import sys
 import threading
 import time
 
@@ -29,6 +30,12 @@ except ImportError:
 from datetime import datetime, timedelta
 from functools import partial, wraps
 from itertools import chain
+
+# Are we running Python 2.x
+if sys.version_info[0] < 3:
+    str_type = basestring
+else:
+    str_type = str
 
 
 cdef extern from "Python.h":
@@ -153,7 +160,7 @@ cdef extern from "rados/librados.h" nogil:
 
     int rados_cluster_stat(rados_t cluster, rados_cluster_stat_t *result)
     int rados_cluster_fsid(rados_t cluster, char *buf, size_t len)
-    int rados_blocklist_add(rados_t cluster, char *client_address, uint32_t expire_seconds)
+    int rados_blacklist_add(rados_t cluster, char *client_address, uint32_t expire_seconds)
     int rados_getaddrs(rados_t cluster, char** addrs)
     int rados_application_enable(rados_ioctx_t io, const char *app_name,
                                  int force)
@@ -708,15 +715,10 @@ cdef class Rados(object):
         PyEval_InitThreads()
         self.__setup(*args, **kwargs)
 
-    NO_CONF_FILE = -1
-    "special value that indicates no conffile should be read when creating a mount handle"
-    DEFAULT_CONF_FILES = -2
-    "special value that indicates the default conffiles should be read when creating a mount handle"
-
-    @requires(('rados_id', opt(str)), ('name', opt(str)), ('clustername', opt(str)),
-              ('conffile', (str, int)))
+    @requires(('rados_id', opt(str_type)), ('name', opt(str_type)), ('clustername', opt(str_type)),
+              ('conffile', opt(str_type)))
     def __setup(self, rados_id=None, name=None, clustername=None,
-                conf_defaults=None, conffile=NO_CONF_FILE, conf=None, flags=0,
+                conf_defaults=None, conffile=None, conf=None, flags=0,
                 context=None):
         self.monitor_callback = None
         self.monitor_callback2 = None
@@ -758,11 +760,10 @@ cdef class Rados(object):
         if conf_defaults:
             for key, value in conf_defaults.items():
                 self.conf_set(key, value)
-        if conffile in (self.NO_CONF_FILE, None):
-            pass
-        elif conffile in (self.DEFAULT_CONF_FILES, ''):
-            self.conf_read_file(None)
-        else:
+        if conffile is not None:
+            # read the default conf file when '' is given
+            if conffile == '':
+                conffile = None
             self.conf_read_file(conffile)
         if conf:
             for key, value in conf.items():
@@ -831,7 +832,7 @@ Rados object in state %s." % self.state)
             rados_version(&major, &minor, &extra)
         return Version(major, minor, extra)
 
-    @requires(('path', opt(str)))
+    @requires(('path', opt(str_type)))
     def conf_read_file(self, path=None):
         """
         Configure the cluster handle using a Ceph config file.
@@ -899,7 +900,7 @@ Rados object in state %s." % self.state)
         if ret != 0:
             raise make_ex(ret, "error calling conf_parse_env")
 
-    @requires(('option', str))
+    @requires(('option', str_type))
     def conf_get(self, option):
         """
         Get the value of a configuration option
@@ -933,7 +934,7 @@ Rados object in state %s." % self.state)
         finally:
             free(ret_buf)
 
-    @requires(('option', str), ('val', str))
+    @requires(('option', str_type), ('val', str_type))
     def conf_set(self, option, val):
         """
         Set the value of a configuration option
@@ -1045,7 +1046,7 @@ Rados object in state %s." % self.state)
                 'kb_avail': stats.kb_avail,
                 'num_objects': stats.num_objects}
 
-    @requires(('pool_name', str))
+    @requires(('pool_name', str_type))
     def pool_exists(self, pool_name):
         """
         Checks if a given pool exists.
@@ -1071,7 +1072,7 @@ Rados object in state %s." % self.state)
         else:
             raise make_ex(ret, "error looking up pool '%s'" % pool_name)
 
-    @requires(('pool_name', str))
+    @requires(('pool_name', str_type))
     def pool_lookup(self, pool_name):
         """
         Returns a pool's ID based on its name.
@@ -1132,7 +1133,7 @@ Rados object in state %s." % self.state)
         finally:
             free(name)
 
-    @requires(('pool_name', str), ('crush_rule', opt(int)), ('auid', opt(int)))
+    @requires(('pool_name', str_type), ('crush_rule', opt(int)), ('auid', opt(int)))
     def create_pool(self, pool_name, crush_rule=None, auid=None):
         """
         Create a pool:
@@ -1195,7 +1196,7 @@ Rados object in state %s." % self.state)
             raise make_ex(ret, "get_pool_base_tier(%d)" % pool_id)
         return int(base_tier)
 
-    @requires(('pool_name', str))
+    @requires(('pool_name', str_type))
     def delete_pool(self, pool_name):
         """
         Delete a pool and all data inside it.
@@ -1302,7 +1303,7 @@ Rados object in state %s." % self.state)
         finally:
             free(ret_buf)
 
-    @requires(('ioctx_name', str))
+    @requires(('ioctx_name', str_type))
     def open_ioctx(self, ioctx_name):
         """
         Create an io context
@@ -1575,13 +1576,13 @@ Rados object in state %s." % self.state)
             ret = rados_wait_for_latest_osdmap(self.cluster)
         return ret
 
-    def blocklist_add(self, client_address, expire_seconds=0):
+    def blacklist_add(self, client_address, expire_seconds=0):
         """
-        Blocklist a client from the OSDs
+        Blacklist a client from the OSDs
 
         :param client_address: client address
         :type client_address: str
-        :param expire_seconds: number of seconds to blocklist
+        :param expire_seconds: number of seconds to blacklist
         :type expire_seconds: int
 
         :raises: :class:`Error`
@@ -1593,9 +1594,9 @@ Rados object in state %s." % self.state)
             char *_client_address = client_address
 
         with nogil:
-            ret = rados_blocklist_add(self.cluster, _client_address, _expire_seconds)
+            ret = rados_blacklist_add(self.cluster, _client_address, _expire_seconds)
         if ret < 0:
-            raise make_ex(ret, "error blocklisting client '%s'" % client_address)
+            raise make_ex(ret, "error blacklisting client '%s'" % client_address)
 
     def monitor_log(self, level, callback, arg):
         if level not in MONITOR_LEVELS:
@@ -1653,7 +1654,7 @@ Rados object in state %s." % self.state)
         self.monitor_callback = None
         self.monitor_callback2 = cb
 
-    @requires(('service', str), ('daemon', str), ('metadata', dict))
+    @requires(('service', str_type), ('daemon', str_type), ('metadata', dict))
     def service_daemon_register(self, service, daemon, metadata):
         """
         :param str service: service name (e.g. "rgw")
@@ -2095,7 +2096,7 @@ cdef class WriteOp(object):
         with nogil:
             rados_write_op_set_flags(self.write_op, _flags)
 
-    @requires(('xattr_name', str), ('xattr_value', bytes))
+    @requires(('xattr_name', str_type), ('xattr_value', bytes))
     def set_xattr(self, xattr_name, xattr_value):
         """
         Set an extended attribute on an object.
@@ -2112,7 +2113,7 @@ cdef class WriteOp(object):
         with nogil:
             rados_write_op_setxattr(self.write_op, _xattr_name, _xattr_value, _xattr_value_len)
 
-    @requires(('xattr_name', str))
+    @requires(('xattr_name', str_type))
     def rm_xattr(self, xattr_name):
         """  
         Removes an extended attribute on from an object.
@@ -2217,7 +2218,7 @@ cdef class WriteOp(object):
         with nogil:
             rados_write_op_truncate(self.write_op,  _offset)
 
-    @requires(('cls', str), ('method', str), ('data', bytes))
+    @requires(('cls', str_type), ('method', str_type), ('data', bytes))
     def execute(self, cls, method, data):
         """
         Execute an OSD class method on an object
@@ -2524,7 +2525,7 @@ cdef class Ioctx(object):
         ioctx.set_namespace(self.get_namespace())
         return ioctx
 
-    @requires(('object_name', str), ('oncomplete', opt(Callable)))
+    @requires(('object_name', str_type), ('oncomplete', opt(Callable)))
     def aio_stat(self, object_name, oncomplete):
         """
         Asynchronously get object stats (size/mtime)
@@ -2570,7 +2571,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error stating %s" % object_name)
         return completion
 
-    @requires(('object_name', str), ('to_write', bytes), ('offset', int),
+    @requires(('object_name', str_type), ('to_write', bytes), ('offset', int),
               ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)))
     def aio_write(self, object_name, to_write, offset=0,
                   oncomplete=None, onsafe=None):
@@ -2615,7 +2616,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error writing object %s" % object_name)
         return completion
 
-    @requires(('object_name', str), ('to_write', bytes), ('oncomplete', opt(Callable)),
+    @requires(('object_name', str_type), ('to_write', bytes), ('oncomplete', opt(Callable)),
               ('onsafe', opt(Callable)))
     def aio_write_full(self, object_name, to_write,
                        oncomplete=None, onsafe=None):
@@ -2660,7 +2661,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error writing object %s" % object_name)
         return completion
 
-    @requires(('object_name', str), ('to_write', bytes), ('write_len', int),
+    @requires(('object_name', str_type), ('to_write', bytes), ('write_len', int),
               ('offset', int), ('oncomplete', opt(Callable)))
     def aio_writesame(self, object_name, to_write, write_len, offset=0,
                       oncomplete=None):
@@ -2703,7 +2704,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error writing object %s" % object_name)
         return completion
 
-    @requires(('object_name', str), ('to_append', bytes), ('oncomplete', opt(Callable)),
+    @requires(('object_name', str_type), ('to_append', bytes), ('oncomplete', opt(Callable)),
               ('onsafe', opt(Callable)))
     def aio_append(self, object_name, to_append, oncomplete=None, onsafe=None):
         """
@@ -2757,7 +2758,7 @@ cdef class Ioctx(object):
         if ret < 0:
             raise make_ex(ret, "error flushing")
 
-    @requires(('object_name', str), ('length', int), ('offset', int),
+    @requires(('object_name', str_type), ('length', int), ('offset', int),
               ('oncomplete', opt(Callable)))
     def aio_read(self, object_name, length, offset, oncomplete):
         """
@@ -2810,7 +2811,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error reading %s" % object_name)
         return completion
 
-    @requires(('object_name', str), ('cls', str), ('method', str),
+    @requires(('object_name', str_type), ('cls', str_type), ('method', str_type),
               ('data', bytes), ('length', int),
               ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)))
     def aio_execute(self, object_name, cls, method, data,
@@ -2881,7 +2882,7 @@ cdef class Ioctx(object):
             raise make_ex(ret, "error executing %s::%s on %s" % (cls, method, object_name))
         return completion
 
-    @requires(('object_name', str), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)))
+    @requires(('object_name', str_type), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)))
     def aio_remove(self, object_name, oncomplete=None, onsafe=None):
         """
         Asynchronously remove an object
@@ -2923,7 +2924,7 @@ cdef class Ioctx(object):
         if self.state != "open":
             raise IoctxStateError("The pool is %s" % self.state)
 
-    @requires(('loc_key', str))
+    @requires(('loc_key', str_type))
     def set_locator_key(self, loc_key):
         """
         Set the key for mapping objects to pgs within an io context.
@@ -2971,7 +2972,7 @@ cdef class Ioctx(object):
         with nogil:
             rados_ioctx_snap_set_read(self.io, _snap_id)
 
-    @requires(('nspace', str))
+    @requires(('nspace', str_type))
     def set_namespace(self, nspace):
         """
         Set the namespace for objects within an io context.
@@ -3019,7 +3020,7 @@ cdef class Ioctx(object):
             self.state = "closed"
 
 
-    @requires(('key', str), ('data', bytes))
+    @requires(('key', str_type), ('data', bytes))
     def write(self, key, data, offset=0):
         """
         Write data to an object synchronously
@@ -3055,7 +3056,7 @@ cdef class Ioctx(object):
             raise LogicError("Ioctx.write(%s): rados_write \
 returned %d, but should return zero on success." % (self.name, ret))
 
-    @requires(('key', str), ('data', bytes))
+    @requires(('key', str_type), ('data', bytes))
     def write_full(self, key, data):
         """
         Write an entire object synchronously.
@@ -3090,7 +3091,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise LogicError("Ioctx.write_full(%s): rados_write_full \
 returned %d, but should return zero on success." % (self.name, ret))
 
-    @requires(('key', str), ('data', bytes), ('write_len', int), ('offset', int))
+    @requires(('key', str_type), ('data', bytes), ('write_len', int), ('offset', int))
     def writesame(self, key, data, write_len, offset=0):
         """
         Write the same buffer multiple times
@@ -3123,7 +3124,7 @@ returned %d, but should return zero on success." % (self.name, ret))
                            % (self.name, key))
         assert(ret == 0)
 
-    @requires(('key', str), ('data', bytes))
+    @requires(('key', str_type), ('data', bytes))
     def append(self, key, data):
         """
         Append data to an object synchronously
@@ -3155,7 +3156,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise LogicError("Ioctx.append(%s): rados_append \
 returned %d, but should return zero on success." % (self.name, ret))
 
-    @requires(('key', str))
+    @requires(('key', str_type))
     def read(self, key, length=8192, offset=0):
         """
         Read data from an object synchronously
@@ -3199,7 +3200,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             # itself and set ret_s to NULL, hence XDECREF).
             ref.Py_XDECREF(ret_s)
 
-    @requires(('key', str), ('cls', str), ('method', str), ('data', bytes))
+    @requires(('key', str_type), ('cls', str_type), ('method', str_type), ('data', bytes))
     def execute(self, key, cls, method, data, length=8192):
         """
         Execute an OSD class method on an object.
@@ -3305,7 +3306,7 @@ returned %d, but should return zero on success." % (self.name, ret))
                 "num_wr": stats.num_wr,
                 "num_wr_kb": stats.num_wr_kb}
 
-    @requires(('key', str))
+    @requires(('key', str_type))
     def remove_object(self, key):
         """
         Delete an object
@@ -3330,7 +3331,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to remove '%s'" % key)
         return True
 
-    @requires(('key', str))
+    @requires(('key', str_type))
     def trunc(self, key, size):
         """
         Resize an object
@@ -3360,7 +3361,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Ioctx.trunc(%s): failed to truncate %s" % (self.name, key))
         return ret
    
-    @requires(('key', str), ('cmp_buf', bytes), ('offset', int))
+    @requires(('key', str_type), ('cmp_buf', bytes), ('offset', int))
     def cmpext(self, key, cmp_buf, offset=0):
         '''
         Compare an on-disk object range with a buffer
@@ -3388,7 +3389,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         assert ret < -MAX_ERRNO or ret == 0, "Ioctx.cmpext(%s): failed to compare %s" % (self.name, key)        
         return ret
 
-    @requires(('key', str))
+    @requires(('key', str_type))
     def stat(self, key):
         """
         Get object stats (size/mtime)
@@ -3414,7 +3415,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to stat %r" % key)
         return psize, time.localtime(pmtime)
 
-    @requires(('key', str), ('xattr_name', str))
+    @requires(('key', str_type), ('xattr_name', str_type))
     def get_xattr(self, key, xattr_name):
         """
         Get the value of an extended attribute on an object.
@@ -3453,7 +3454,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         finally:
             free(ret_buf)
 
-    @requires(('oid', str))
+    @requires(('oid', str_type))
     def get_xattrs(self, oid):
         """
         Start iterating over xattrs on an object.
@@ -3468,7 +3469,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         self.require_ioctx_open()
         return XattrIterator(self, oid)
 
-    @requires(('key', str), ('xattr_name', str), ('xattr_value', bytes))
+    @requires(('key', str_type), ('xattr_name', str_type), ('xattr_value', bytes))
     def set_xattr(self, key, xattr_name, xattr_value):
         """
         Set an extended attribute on an object.
@@ -3501,7 +3502,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to set xattr %r" % xattr_name)
         return True
 
-    @requires(('key', str), ('xattr_name', str))
+    @requires(('key', str_type), ('xattr_name', str_type))
     def rm_xattr(self, key, xattr_name):
         """
         Removes an extended attribute on from an object.
@@ -3530,7 +3531,7 @@ returned %d, but should return zero on success." % (self.name, ret))
                           (key, xattr_name))
         return True
 
-    @requires(('obj', str), ('msg', str), ('timeout_ms', int))
+    @requires(('obj', str_type), ('msg', str_type), ('timeout_ms', int))
     def notify(self, obj, msg='', timeout_ms=5000):
         """
         Send a rados notification to an object.
@@ -3564,7 +3565,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to notify %r" % (obj))
         return True
 
-    @requires(('obj', str), ('callback', opt(Callable)),
+    @requires(('obj', str_type), ('callback', opt(Callable)),
               ('error_callback', opt(Callable)), ('timeout', int))
     def watch(self, obj, callback, error_callback=None, timeout=None):
         """
@@ -3642,7 +3643,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             free(name)
 
 
-    @requires(('snap_name', str))
+    @requires(('snap_name', str_type))
     def create_snap(self, snap_name):
         """
         Create a pool-wide snapshot
@@ -3662,7 +3663,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret != 0:
             raise make_ex(ret, "Failed to create snap %s" % snap_name)
 
-    @requires(('snap_name', str))
+    @requires(('snap_name', str_type))
     def remove_snap(self, snap_name):
         """
         Removes a pool-wide snapshot
@@ -3682,7 +3683,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret != 0:
             raise make_ex(ret, "Failed to remove snap %s" % snap_name)
 
-    @requires(('snap_name', str))
+    @requires(('snap_name', str_type))
     def lookup_snap(self, snap_name):
         """
         Get the id of a pool snapshot
@@ -3706,7 +3707,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to lookup snap %s" % snap_name)
         return Snap(self, snap_name, int(snap_id))
 
-    @requires(('oid', str), ('snap_name', str))
+    @requires(('oid', str_type), ('snap_name', str_type))
     def snap_rollback(self, oid, snap_name):
         """
         Rollback an object to a snapshot
@@ -3803,7 +3804,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         finally:
             free(_snaps)
 
-    @requires(('oid', str), ('snap_id', int))
+    @requires(('oid', str_type), ('snap_id', int))
     def rollback_self_managed_snap(self, oid, snap_id):
         """
         Rolls an specific object back to a self-managed snapshot revision
@@ -3904,7 +3905,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             free(_values)
             free(_lens)
 
-    @requires(('write_op', WriteOp), ('oid', str), ('mtime', opt(int)), ('flags', opt(int)))
+    @requires(('write_op', WriteOp), ('oid', str_type), ('mtime', opt(int)), ('flags', opt(int)))
     def operate_write_op(self, write_op, oid, mtime=0, flags=LIBRADOS_OPERATION_NOFLAG):
         """
         execute the real write operation
@@ -3930,7 +3931,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret != 0:
             raise make_ex(ret, "Failed to operate write op for oid %s" % oid)
 
-    @requires(('write_op', WriteOp), ('oid', str), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)), ('mtime', opt(int)), ('flags', opt(int)))
+    @requires(('write_op', WriteOp), ('oid', str_type), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)), ('mtime', opt(int)), ('flags', opt(int)))
     def operate_aio_write_op(self, write_op, oid, oncomplete=None, onsafe=None, mtime=0, flags=LIBRADOS_OPERATION_NOFLAG):
         """
         execute the real write operation asynchronously
@@ -3972,7 +3973,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to operate aio write op for oid %s" % oid)
         return completion
 
-    @requires(('read_op', ReadOp), ('oid', str), ('flag', opt(int)))
+    @requires(('read_op', ReadOp), ('oid', str_type), ('flag', opt(int)))
     def operate_read_op(self, read_op, oid, flag=LIBRADOS_OPERATION_NOFLAG):
         """
         execute the real read operation
@@ -3994,7 +3995,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret != 0:
             raise make_ex(ret, "Failed to operate read op for oid %s" % oid)
 
-    @requires(('read_op', ReadOp), ('oid', str), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)), ('flag', opt(int)))
+    @requires(('read_op', ReadOp), ('oid', str_type), ('oncomplete', opt(Callable)), ('onsafe', opt(Callable)), ('flag', opt(int)))
     def operate_aio_read_op(self, read_op, oid, oncomplete=None, onsafe=None, flag=LIBRADOS_OPERATION_NOFLAG):
         """
         execute the real read operation
@@ -4028,7 +4029,7 @@ returned %d, but should return zero on success." % (self.name, ret))
             raise make_ex(ret, "Failed to operate aio read op for oid %s" % oid)
         return completion
 
-    @requires(('read_op', ReadOp), ('start_after', str), ('filter_prefix', str), ('max_return', int))
+    @requires(('read_op', ReadOp), ('start_after', str_type), ('filter_prefix', str_type), ('max_return', int))
     def get_omap_vals(self, read_op, start_after, filter_prefix, max_return):
         """
         get the omap values
@@ -4059,7 +4060,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         it.ctx = iter_addr
         return it, 0   # 0 is meaningless; there for backward-compat
 
-    @requires(('read_op', ReadOp), ('start_after', str), ('max_return', int))
+    @requires(('read_op', ReadOp), ('start_after', str_type), ('max_return', int))
     def get_omap_keys(self, read_op, start_after, max_return):
         """
         get the omap keys
@@ -4149,7 +4150,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         with nogil:
             rados_write_op_omap_clear(_write_op.write_op)
 
-    @requires(('key', str), ('name', str), ('cookie', str), ('desc', str),
+    @requires(('key', str_type), ('name', str_type), ('cookie', str_type), ('desc', str_type),
               ('duration', opt(int)), ('flags', int))
     def lock_exclusive(self, key, name, cookie, desc="", duration=None, flags=0):
 
@@ -4200,8 +4201,8 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret < 0:
             raise make_ex(ret, "Ioctx.rados_lock_exclusive(%s): failed to set lock %s on %s" % (self.name, name, key))
 
-    @requires(('key', str), ('name', str), ('cookie', str), ('tag', str),
-              ('desc', str), ('duration', opt(int)), ('flags', int))
+    @requires(('key', str_type), ('name', str_type), ('cookie', str_type), ('tag', str_type),
+              ('desc', str_type), ('duration', opt(int)), ('flags', int))
     def lock_shared(self, key, name, cookie, tag, desc="", duration=None, flags=0):
 
         """
@@ -4254,7 +4255,7 @@ returned %d, but should return zero on success." % (self.name, ret))
         if ret < 0:
             raise make_ex(ret, "Ioctx.rados_lock_exclusive(%s): failed to set lock %s on %s" % (self.name, name, key))
 
-    @requires(('key', str), ('name', str), ('cookie', str))
+    @requires(('key', str_type), ('name', str_type), ('cookie', str_type))
     def unlock(self, key, name, cookie):
 
         """

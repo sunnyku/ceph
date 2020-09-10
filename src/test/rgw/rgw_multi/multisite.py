@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from io import StringIO
+from six import StringIO
 
 import json
 
@@ -184,11 +184,6 @@ class ZoneConn(object):
         if self.zone.gateways is not None:
             self.conn = get_gateway_connection(self.zone.gateways[0], self.credentials)
             self.secure_conn = get_gateway_secure_connection(self.zone.gateways[0], self.credentials)
-            # create connections for the rest of the gateways (if exist)
-            for gw in list(self.zone.gateways):
-                get_gateway_connection(gw, self.credentials)
-                get_gateway_secure_connection(gw, self.credentials)
-
 
     def get_connection(self):
         return self.conn

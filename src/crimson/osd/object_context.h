@@ -140,10 +140,10 @@ public:
     case RWState::RWEXCL:
       return get_lock(op, [this] { return rwstate.get_excl_lock(); });
     case RWState::RWNONE:
-      return seastar::make_ready_future<>();
+      return seastar::now();
     default:
       ceph_abort_msg("invalid lock type");
-      return seastar::make_ready_future<>();
+      return seastar::now();
     }
   }
 
@@ -203,13 +203,8 @@ public:
   void drop_read() {
     return put_lock_type(RWState::RWREAD);
   }
-  seastar::future<bool> get_recovery_read(bool can_wait = false) {
-    if (!can_wait) {
-      return seastar::make_ready_future<bool>(rwstate.get_recovery_read());
-    }
-    return with_queue([this] {
-      return rwstate.get_recovery_read();
-    }).then([] {return seastar::make_ready_future<bool>(true); });
+  bool get_recovery_read() {
+    return rwstate.get_recovery_read();
   }
   void drop_recovery_read() {
     ceph_assert(rwstate.recovery_read_marker);
@@ -234,9 +229,6 @@ public:
 
   std::pair<ObjectContextRef, bool> get_cached_obc(const hobject_t &hoid) {
     return obc_lru.get_or_create(hoid);
-  }
-  ObjectContextRef maybe_get_cached_obc(const hobject_t &hoid) {
-    return obc_lru.get(hoid);
   }
 
   const char** get_tracked_conf_keys() const final;

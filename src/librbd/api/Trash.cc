@@ -7,7 +7,6 @@
 #include "common/errno.h"
 #include "common/Cond.h"
 #include "cls/rbd/cls_rbd_client.h"
-#include "librbd/AsioEngine.h"
 #include "librbd/ExclusiveLock.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
@@ -34,7 +33,7 @@ namespace librbd {
 namespace api {
 
 template <typename I>
-const typename Trash<I>::TrashImageSources Trash<I>::ALLOWED_RESTORE_SOURCES {
+const typename Trash<I>::TrashImageSources Trash<I>::RESTORE_SOURCE_WHITELIST {
     cls::rbd::TRASH_IMAGE_SOURCE_USER,
     cls::rbd::TRASH_IMAGE_SOURCE_MIRRORING,
     cls::rbd::TRASH_IMAGE_SOURCE_USER_PARENT
@@ -91,12 +90,13 @@ int enable_mirroring(IoCtx &io_ctx, const std::string &image_id) {
 
   ldout(cct, 10) << dendl;
 
-  AsioEngine asio_engine(io_ctx);
-
+  ThreadPool *thread_pool;
+  ContextWQ *op_work_queue;
+  ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
   C_SaferCond ctx;
   auto req = mirror::EnableRequest<I>::create(
     io_ctx, image_id, cls::rbd::MIRROR_IMAGE_MODE_JOURNAL, "", false,
-    asio_engine.get_work_queue(), &ctx);
+    op_work_queue, &ctx);
   req->send();
   r = ctx.wait();
   if (r < 0) {
@@ -535,11 +535,13 @@ int Trash<I>::remove(IoCtx &io_ctx, const std::string &image_id, bool force,
     return -EBUSY;
   }
 
-  AsioEngine asio_engine(io_ctx);
+  ThreadPool *thread_pool;
+  ContextWQ *op_work_queue;
+  ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
   C_SaferCond cond;
   auto req = librbd::trash::RemoveRequest<I>::create(
-      io_ctx, image_id, asio_engine.get_work_queue(), force, prog_ctx, &cond);
+      io_ctx, image_id, op_work_queue, force, prog_ctx, &cond);
   req->send();
 
   r = cond.wait();

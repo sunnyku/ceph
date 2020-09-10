@@ -7,7 +7,7 @@ roles:
 tasks:
 - install:
 - ceph:
-    log-ignorelist:
+    log-whitelist:
       - overall HEALTH_
       - \(MGR_DOWN\)
       - \(PG_

@@ -1,11 +1,13 @@
 import { Injectable } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FormatterService {
+  constructor() {}
+
   format_number(n: any, divisor: number, units: string[], decimals: number = 1): string {
     if (_.isString(n)) {
       n = Number(n);

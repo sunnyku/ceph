@@ -1123,10 +1123,9 @@ int CrushWrapper::insert_item(
 
   int cur = item;
 
-  // 1. create locations if locations don't exist
-  // 2. add child in the location with 0 weight.
-  // Check more detail of insert_item method declared in
-  // CrushWrapper.h
+  // create locations if locations don't exist and add child in
+  // location with 0 weight the more detail in the insert_item method
+  // declaration in CrushWrapper.h
   for (auto p = type_map.begin(); p != type_map.end(); ++p) {
     // ignore device type
     if (p->first == 0)
@@ -1143,17 +1142,17 @@ int CrushWrapper::insert_item(
 
     if (!name_exists(q->second)) {
       ldout(cct, 5) << "insert_item creating bucket " << q->second << dendl;
-      int zero_weight = 0, new_bucket_id;
+      int empty = 0, newid;
       int r = add_bucket(0, 0,
-			 CRUSH_HASH_DEFAULT, p->first, 1, &cur, &zero_weight, &new_bucket_id);
+			 CRUSH_HASH_DEFAULT, p->first, 1, &cur, &empty, &newid);
       if (r < 0) {
         ldout(cct, 1) << "add_bucket failure error: " << cpp_strerror(r)
 		      << dendl;
         return r;
       }
-      set_item_name(new_bucket_id, q->second);
+      set_item_name(newid, q->second);
       
-      cur = new_bucket_id;
+      cur = newid;
       continue;
     }
 
@@ -1800,7 +1799,8 @@ int CrushWrapper::populate_classes(
   set<int> roots;
   find_nonshadow_roots(&roots);
   for (auto &r : roots) {
-    assert(r < 0);
+    if (r >= 0)
+      continue;
     for (auto &c : class_name) {
       int clone;
       int res = device_class_clone(r, c.first, old_class_bucket, used_ids,

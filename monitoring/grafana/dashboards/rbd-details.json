@@ -27,7 +27,7 @@
       }
     ]
   },
-  "description": "Detailed Performance of RBD Images (IOPS/Throughput/Latency)",
+  "description": "Detailed Performance of RBD Images (IOPS/Latency)",
   "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
@@ -77,21 +77,21 @@
           "expr": "irate(ceph_rbd_write_ops{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Write",
+          "legendFormat": "Write {{instance}}",
           "refId": "A"
         },
         {
           "expr": "irate(ceph_rbd_read_ops{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Read",
+          "legendFormat": "Read {{instance}}",
           "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "IOPS",
+      "title": "IOPS Count",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -168,21 +168,21 @@
           "expr": "irate(ceph_rbd_write_bytes{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Write",
+          "legendFormat": "Read {{instance}}",
           "refId": "A"
         },
         {
           "expr": "irate(ceph_rbd_read_bytes{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Read",
+          "legendFormat": "Write {{instance}}",
           "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Throughput",
+      "title": "IO Bytes per Second",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -259,21 +259,21 @@
           "expr": "irate(ceph_rbd_write_latency_sum{pool=\"$Pool\", image=\"$Image\"}[30s]) / irate(ceph_rbd_write_latency_count{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Write",
+          "legendFormat": "Write Latency Sum",
           "refId": "A"
         },
         {
           "expr": "irate(ceph_rbd_read_latency_sum{pool=\"$Pool\", image=\"$Image\"}[30s]) / irate(ceph_rbd_read_latency_count{pool=\"$Pool\", image=\"$Image\"}[30s])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "Read",
+          "legendFormat": "Read Latency Sum",
           "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Average Latency",
+      "title": "Averange Latency",
       "tooltip": {
         "shared": true,
         "sort": 0,

@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl, ValidatorFn, Validators } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { CdFormBuilder } from '../../forms/cd-form-builder';
 import { CdFormGroup } from '../../forms/cd-form-group';
@@ -27,10 +28,11 @@ export class FormModalComponent implements OnInit {
   formGroup: CdFormGroup;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     private formBuilder: CdFormBuilder,
     private formatter: FormatterService,
-    private dimlessBinaryPipe: DimlessBinaryPipe
+    private dimlessBinaryPipe: DimlessBinaryPipe,
+    private i18n: I18n
   ) {}
 
   ngOnInit() {
@@ -84,12 +86,12 @@ export class FormModalComponent implements OnInit {
     if (['binaryMin', 'binaryMax'].includes(error)) {
       // binaryMin and binaryMax return a function that take I18n to
       // provide a translated error message.
-      return errorContext();
+      return errorContext(this.i18n);
     }
     if (error === 'required') {
-      return $localize`This field is required.`;
+      return this.i18n('This field is required.');
     }
-    return $localize`An error occurred.`;
+    return this.i18n('An error occurred.');
   }
 
   onSubmitForm(values: any) {
@@ -102,7 +104,7 @@ export class FormModalComponent implements OnInit {
         values[key] = this.formatter.toBytes(value);
       }
     });
-    this.activeModal.close();
+    this.bsModalRef.hide();
     if (_.isFunction(this.onSubmit)) {
       this.onSubmit(values);
     }

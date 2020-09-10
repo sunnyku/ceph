@@ -3,7 +3,7 @@
 
 #include "librbd/io/QosImageDispatch.h"
 #include "common/dout.h"
-#include "librbd/AsioEngine.h"
+#include "common/WorkQueue.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/io/FlushTracker.h"
 #include <map>
@@ -86,7 +86,7 @@ void QosImageDispatch<I>::apply_qos_schedule_tick_min(uint64_t tick) {
 
 template <typename I>
 void QosImageDispatch<I>::apply_qos_limit(uint64_t flag, uint64_t limit,
-                                          uint64_t burst, uint64_t burst_seconds) {
+                                          uint64_t burst) {
   auto cct = m_image_ctx->cct;
   TokenBucketThrottle *throttle = nullptr;
   for (auto pair : m_throttles) {
@@ -97,13 +97,13 @@ void QosImageDispatch<I>::apply_qos_limit(uint64_t flag, uint64_t limit,
   }
   ceph_assert(throttle != nullptr);
 
-  int r = throttle->set_limit(limit, burst, burst_seconds);
+  int r = throttle->set_limit(limit, burst);
   if (r < 0) {
     lderr(cct) << throttle->get_name() << ": invalid qos parameter: "
                << "burst(" << burst << ") is less than "
                << "limit(" << limit << ")" << dendl;
     // if apply failed, we should at least make sure the limit works.
-    throttle->set_limit(limit, 0, 1);
+    throttle->set_limit(limit, 0);
   }
 
   if (limit) {
@@ -282,7 +282,7 @@ void QosImageDispatch<I>::handle_throttle_ready(Tag&& tag, uint64_t flag) {
 
   if (set_throttle_flag(tag.image_dispatch_flags, flag)) {
     // timer_lock is held -- so dispatch from outside the timer thread
-    m_image_ctx->asio_engine->post(tag.on_dispatched, 0);
+    m_image_ctx->op_work_queue->queue(tag.on_dispatched, 0);
   }
 }
 

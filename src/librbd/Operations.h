@@ -24,10 +24,6 @@ class Operations {
 public:
   Operations(ImageCtxT &image_ctx);
 
-  uint64_t reserve_async_request_id() {
-    return ++m_async_request_seq;
-  }
-
   int flatten(ProgressContext &prog_ctx);
   void execute_flatten(ProgressContext &prog_ctx, Context *on_finish);
 
@@ -50,14 +46,13 @@ public:
                       Context *on_finish, uint64_t journal_op_tid);
 
   int snap_create(const cls::rbd::SnapshotNamespace &snap_namespace,
-		  const std::string& snap_name, uint64_t flags,
-                  ProgressContext& prog_ctx);
+		  const std::string& snap_name);
   void snap_create(const cls::rbd::SnapshotNamespace &snap_namespace,
-		   const std::string& snap_name, uint64_t flags,
-                   ProgressContext& prog_ctx, Context *on_finish);
+		   const std::string& snap_name, Context *on_finish);
   void execute_snap_create(const cls::rbd::SnapshotNamespace &snap_namespace,
-			   const std::string &snap_name, Context *on_finish,
-                           uint64_t journal_op_tid, uint64_t flags,
+			   const std::string &snap_name,
+			   Context *on_finish,
+                           uint64_t journal_op_tid, bool skip_object_map,
                            ProgressContext &prog_ctx);
 
   int snap_rollback(const cls::rbd::SnapshotNamespace& snap_namespace,
@@ -119,7 +114,7 @@ public:
 
 private:
   ImageCtxT &m_image_ctx;
-  std::atomic<uint64_t> m_async_request_seq;
+  std::atomic<int> m_async_request_seq;
 
   int invoke_async_request(const std::string& name,
                            exclusive_lock::OperationRequestType request_type,

@@ -23,7 +23,6 @@
 #include "cls/journal/cls_journal_types.h"
 #include "cls/journal/cls_journal_client.h"
 
-#include "librbd/AsioEngine.h"
 #include "librbd/ExclusiveLock.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
@@ -685,7 +684,9 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
       lderr(cct) << "Forced V1 image creation. " << dendl;
       r = create_v1(io_ctx, image_name.c_str(), size, order);
     } else {
-      AsioEngine asio_engine(io_ctx);
+      ThreadPool *thread_pool;
+      ContextWQ *op_work_queue;
+      ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
       ConfigProxy config{cct->_conf};
       api::Config<>::apply_pool_overrides(io_ctx, &config);
@@ -703,8 +704,7 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
       image::CreateRequest<> *req = image::CreateRequest<>::create(
         config, io_ctx, image_name, id, size, opts, create_flags,
         static_cast<cls::rbd::MirrorImageMode>(mirror_image_mode),
-        non_primary_global_image_id, primary_mirror_uuid,
-        asio_engine.get_work_queue(), &cond);
+        non_primary_global_image_id, primary_mirror_uuid, op_work_queue, &cond);
       req->send();
 
       r = cond.wait();
@@ -790,15 +790,16 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
     ConfigProxy config{reinterpret_cast<CephContext *>(c_ioctx.cct())->_conf};
     api::Config<>::apply_pool_overrides(c_ioctx, &config);
 
-    AsioEngine asio_engine(p_ioctx);
+    ThreadPool *thread_pool;
+    ContextWQ *op_work_queue;
+    ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
     C_SaferCond cond;
     auto *req = image::CloneRequest<>::create(
       config, p_ioctx, parent_id, p_snap_name,
       {cls::rbd::UserSnapshotNamespace{}}, CEPH_NOSNAP, c_ioctx, c_name,
       clone_id, c_opts, cls::rbd::MIRROR_IMAGE_MODE_JOURNAL,
-      non_primary_global_image_id, primary_mirror_uuid,
-      asio_engine.get_work_queue(), &cond);
+      non_primary_global_image_id, primary_mirror_uuid, op_work_queue, &cond);
     req->send();
 
     r = cond.wait();
@@ -915,7 +916,7 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
       return 0;
     }
 
-    // might have been blocklisted by peer -- ensure we still own
+    // might have been blacklisted by peer -- ensure we still own
     // the lock by pinging the OSD
     int r = ictx->exclusive_lock->assert_header_locked();
     if (r == -EBUSY || r == -ENOENT) {
@@ -1395,7 +1396,7 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
     {
       std::shared_lock locker{ictx->image_lock};
       r = rados::cls::lock::lock(&ictx->md_ctx, ictx->header_oid, RBD_LOCK_NAME,
-			         exclusive ? ClsLockType::EXCLUSIVE : ClsLockType::SHARED,
+			         exclusive ? LOCK_EXCLUSIVE : LOCK_SHARED,
 			         cookie, tag, "", utime_t(), 0);
       if (r < 0) {
         return r;
@@ -1445,7 +1446,7 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
       return -EINVAL;
     }
 
-    if (ictx->config.get_val<bool>("rbd_blocklist_on_break_lock")) {
+    if (ictx->config.get_val<bool>("rbd_blacklist_on_break_lock")) {
       typedef std::map<rados::cls::lock::locker_id_t,
 		       rados::cls::lock::locker_info_t> Lockers;
       Lockers lockers;
@@ -1473,11 +1474,11 @@ int validate_pool(IoCtx &io_ctx, CephContext *cct) {
       }
 
       librados::Rados rados(ictx->md_ctx);
-      r = rados.blocklist_add(
+      r = rados.blacklist_add(
         client_address,
-        ictx->config.get_val<uint64_t>("rbd_blocklist_expire_seconds"));
+        ictx->config.get_val<uint64_t>("rbd_blacklist_expire_seconds"));
       if (r < 0) {
-        lderr(ictx->cct) << "unable to blocklist client: " << cpp_strerror(r)
+        lderr(ictx->cct) << "unable to blacklist client: " << cpp_strerror(r)
           	       << dendl;
         return r;
       }

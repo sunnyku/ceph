@@ -1,4 +1,4 @@
-<cd-modal [modalRef]="activeModal">
+<cd-modal [modalRef]="bsModalRef">
   <ng-container class="modal-title"
                 i18n>Discovery Authentication</ng-container>
 
@@ -17,8 +17,7 @@
             <input id="user"
                    class="form-control"
                    formControlName="user"
-                   type="text"
-                   autocomplete="off">
+                   type="text">
             <span class="invalid-feedback"
                   *ngIf="discoveryForm.showError('user', formDir, 'required')"
                   i18n>This field is required.</span>
@@ -40,8 +39,7 @@
               <input id="password"
                      class="form-control"
                      formControlName="password"
-                     type="password"
-                     autocomplete="new-password">
+                     type="password">
 
               <span class="input-group-append">
                 <button type="button"
@@ -75,8 +73,7 @@
             <input id="mutual_user"
                    class="form-control"
                    formControlName="mutual_user"
-                   type="text"
-                   autocomplete="off">
+                   type="text">
 
             <span class="invalid-feedback"
                   *ngIf="discoveryForm.showError('mutual_user', formDir, 'required')"
@@ -99,8 +96,7 @@
               <input id="mutual_password"
                      class="form-control"
                      formControlName="mutual_password"
-                     type="password"
-                     autocomplete="new-password">
+                     type="password">
 
               <span class="input-group-append">
                 <button type="button"
@@ -130,7 +126,7 @@
                           [form]="discoveryForm"
                           *ngIf="hasPermission"
                           i18n>Submit</cd-submit-button>
-        <cd-back-button [back]="activeModal.close"
+        <cd-back-button [back]="bsModalRef.hide"
                         name="Cancel"
                         i18n-name>
         </cd-back-button>

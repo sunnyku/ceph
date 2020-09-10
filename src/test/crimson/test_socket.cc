@@ -5,8 +5,6 @@
 #include <seastar/core/gate.hh>
 #include <seastar/core/sharded.hh>
 #include <seastar/core/sleep.hh>
-#include <seastar/core/when_all.hh>
-#include <seastar/util/later.hh>
 
 #include "crimson/common/log.h"
 #include "crimson/net/Errors.h"
@@ -155,8 +153,6 @@ class SocketFactory {
           });
         })
       );
-    }).then_unpack([] {
-      return seastar::now();
     }).then([psf] {
       return psf->server_connected.get_future();
     }).finally([psf] {
@@ -194,8 +190,6 @@ class SocketFactory {
           });
         })
       );
-    }).then_unpack([] {
-      return seastar::now();
     }).finally([cleanup = std::move(owner)] {});
   }
 };
@@ -223,7 +217,7 @@ class Connection {
     logger.debug("dispatch_write(round={}, force_shut={})...", round, force_shut);
     return seastar::repeat([this, round, force_shut] {
       if (round != 0 && round <= write_count) {
-        return seastar::futurize_invoke([this, force_shut] {
+        return seastar::futurize_apply([this, force_shut] {
           if (force_shut) {
             logger.debug("dispatch_write() done, force shutdown output");
             socket->force_shutdown_out();
@@ -269,7 +263,7 @@ class Connection {
     logger.debug("dispatch_read(round={}, force_shut={})...", round, force_shut);
     return seastar::repeat([this, round, force_shut] {
       if (round != 0 && round <= read_count) {
-        return seastar::futurize_invoke([this, force_shut] {
+        return seastar::futurize_apply([this, force_shut] {
           if (force_shut) {
             logger.debug("dispatch_read() done, force shutdown input");
             socket->force_shutdown_in();
@@ -280,7 +274,7 @@ class Connection {
           return seastar::make_ready_future<stop_t>(stop_t::yes);
         });
       } else {
-        return seastar::futurize_invoke([this] {
+        return seastar::futurize_apply([this] {
           // we want to test both Socket::read() and Socket::read_exactly()
           if (read_count % 2) {
             return socket->read(DATA_SIZE * sizeof(uint64_t)
@@ -338,9 +332,7 @@ class Connection {
       return seastar::when_all_succeed(
         conn.dispatch_write(round, force_shut),
         conn.dispatch_read(round, force_shut)
-      ).then_unpack([] {
-        return seastar::now();
-      });
+      );
     });
   }
 
@@ -350,7 +342,7 @@ class Connection {
       return seastar::when_all_succeed(
         conn.dispatch_write_unbounded(),
         conn.dispatch_read_unbounded(),
-        seastar::futurize_invoke([&conn, preemptive_shut] {
+        seastar::futurize_apply([&conn, preemptive_shut] {
           if (preemptive_shut) {
             return seastar::sleep(100ms).then([&conn] {
               logger.debug("dispatch_rw_unbounded() shutdown socket preemptively(100ms)");
@@ -360,9 +352,7 @@ class Connection {
             return seastar::now();
           }
         })
-      ).then_unpack([] {
-        return seastar::now();
-      });
+      );
     });
   }
 };
@@ -435,7 +425,7 @@ int main(int argc, char** argv)
 {
   seastar::app_template app;
   return app.run(argc, argv, [] {
-    return seastar::futurize_invoke([] {
+    return seastar::futurize_apply([] {
       return test_refused();
     }).then([] {
       return test_bind_same();

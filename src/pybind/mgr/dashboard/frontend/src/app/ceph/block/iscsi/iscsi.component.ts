@@ -1,5 +1,7 @@
 import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
+import { I18n } from '@ngx-translate/i18n-polyfill';
+
 import { IscsiService } from '../../../shared/api/iscsi.service';
 import { CellTemplate } from '../../../shared/enum/cell-template.enum';
 import { DimlessPipe } from '../../../shared/pipes/dimless.pipe';
@@ -26,17 +28,18 @@ export class IscsiComponent implements OnInit {
   constructor(
     private iscsiService: IscsiService,
     private dimlessPipe: DimlessPipe,
-    private iscsiBackstorePipe: IscsiBackstorePipe
+    private iscsiBackstorePipe: IscsiBackstorePipe,
+    private i18n: I18n
   ) {}
 
   ngOnInit() {
     this.gatewaysColumns = [
       {
-        name: $localize`Name`,
+        name: this.i18n('Name'),
         prop: 'name'
       },
       {
-        name: $localize`State`,
+        name: this.i18n('State'),
         prop: 'state',
         flexGrow: 1,
         cellTransformation: CellTemplate.badge,
@@ -48,52 +51,52 @@ export class IscsiComponent implements OnInit {
         }
       },
       {
-        name: $localize`# Targets`,
+        name: this.i18n('# Targets'),
         prop: 'num_targets'
       },
       {
-        name: $localize`# Sessions`,
+        name: this.i18n('# Sessions'),
         prop: 'num_sessions'
       }
     ];
     this.imagesColumns = [
       {
-        name: $localize`Pool`,
+        name: this.i18n('Pool'),
         prop: 'pool'
       },
       {
-        name: $localize`Image`,
+        name: this.i18n('Image'),
         prop: 'image'
       },
       {
-        name: $localize`Backstore`,
+        name: this.i18n('Backstore'),
         prop: 'backstore',
         pipe: this.iscsiBackstorePipe
       },
       {
-        name: $localize`Read Bytes`,
+        name: this.i18n('Read Bytes'),
         prop: 'stats_history.rd_bytes',
         cellTemplate: this.iscsiSparklineTpl
       },
       {
-        name: $localize`Write Bytes`,
+        name: this.i18n('Write Bytes'),
         prop: 'stats_history.wr_bytes',
         cellTemplate: this.iscsiSparklineTpl
       },
       {
-        name: $localize`Read Ops`,
+        name: this.i18n('Read Ops'),
         prop: 'stats.rd',
         pipe: this.dimlessPipe,
         cellTemplate: this.iscsiPerSecondTpl
       },
       {
-        name: $localize`Write Ops`,
+        name: this.i18n('Write Ops'),
         prop: 'stats.wr',
         pipe: this.dimlessPipe,
         cellTemplate: this.iscsiPerSecondTpl
       },
       {
-        name: $localize`A/O Since`,
+        name: this.i18n('A/O Since'),
         prop: 'optimized_since',
         cellTemplate: this.iscsiRelativeDateTpl
       }

@@ -11,9 +11,6 @@
 #include "crimson/osd/object_context.h"
 #include "crimson/osd/shard_services.h"
 
-#include "messages/MOSDPGBackfill.h"
-#include "messages/MOSDPGScan.h"
-#include "osd/recovery_types.h"
 #include "osd/osd_types.h"
 
 namespace crimson::osd{
@@ -23,20 +20,6 @@ namespace crimson::osd{
 class PGBackend;
 
 class RecoveryBackend {
-  void handle_backfill_finish(
-    MOSDPGBackfill& m);
-  seastar::future<> handle_backfill_progress(
-    MOSDPGBackfill& m);
-  seastar::future<> handle_backfill_finish_ack(
-    MOSDPGBackfill& m);
-  seastar::future<> handle_backfill(MOSDPGBackfill& m);
-
-  seastar::future<> handle_scan_get_digest(
-    MOSDPGScan& m);
-  seastar::future<> handle_scan_digest(
-    MOSDPGScan& m);
-  seastar::future<> handle_scan(
-    MOSDPGScan& m);
 protected:
   class WaitForObjectRecovery;
 public:
@@ -64,7 +47,7 @@ public:
   }
 
   virtual seastar::future<> handle_recovery_op(
-    Ref<MOSDFastDispatchOp> m);
+    Ref<MOSDFastDispatchOp> m) = 0;
 
   virtual seastar::future<> recover_object(
     const hobject_t& soid,
@@ -76,20 +59,8 @@ public:
     const hobject_t& soid,
     eversion_t need) = 0;
 
-  seastar::future<BackfillInterval> scan_for_backfill(
-    const hobject_t& from,
-    std::int64_t min,
-    std::int64_t max);
-
   void on_peering_interval_change(ceph::os::Transaction& t) {
     clean_up(t, "new peering interval");
-  }
-
-  seastar::future<> stop() {
-    for (auto& [soid, recovery_waiter] : recovering) {
-      recovery_waiter.stop();
-    }
-    return on_stop();
   }
 protected:
   crimson::osd::PG& pg;
@@ -125,7 +96,7 @@ protected:
     static constexpr const char* type_name = "WaitForObjectRecovery";
 
     crimson::osd::ObjectContextRef obc;
-    std::optional<PullInfo> pi;
+    PullInfo pi;
     std::map<pg_shard_t, PushInfo> pushing;
 
     seastar::future<> wait_for_readable() {
@@ -152,9 +123,6 @@ protected:
     void set_pulled() {
       pulled.set_value();
     }
-    void set_push_failed(pg_shard_t shard, std::exception_ptr e) {
-      pushes.at(shard).set_exception(e);
-    }
     void interrupt(const std::string& why) {
       readable.set_exception(std::system_error(
 	    std::make_error_code(std::errc::interrupted), why));
@@ -167,7 +135,6 @@ protected:
 	      std::make_error_code(std::errc::interrupted), why));
       }
     }
-    void stop();
     void dump_detail(Formatter* f) const {
     }
   };
@@ -185,5 +152,4 @@ protected:
     temp_contents.erase(oid);
   }
   void clean_up(ceph::os::Transaction& t, const std::string& why);
-  virtual seastar::future<> on_stop() = 0;
 };

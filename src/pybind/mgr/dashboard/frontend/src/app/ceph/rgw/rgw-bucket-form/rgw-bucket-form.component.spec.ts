@@ -4,11 +4,11 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { ToastrModule } from 'ngx-toastr';
 import { of as observableOf } from 'rxjs';
 
-import { configureTestBed, FormHelper } from '../../../../testing/unit-test-helper';
+import { configureTestBed, FormHelper, i18nProviders } from '../../../../testing/unit-test-helper';
 import { RgwBucketService } from '../../../shared/api/rgw-bucket.service';
 import { RgwSiteService } from '../../../shared/api/rgw-site.service';
 import { RgwUserService } from '../../../shared/api/rgw-user.service';
@@ -36,16 +36,17 @@ describe('RgwBucketFormComponent', () => {
       RouterTestingModule,
       SharedModule,
       ToastrModule.forRoot()
-    ]
+    ],
+    providers: [i18nProviders]
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(RgwBucketFormComponent);
     component = fixture.componentInstance;
-    rgwBucketService = TestBed.inject(RgwBucketService);
+    rgwBucketService = TestBed.get(RgwBucketService);
     rgwBucketServiceGetSpy = spyOn(rgwBucketService, 'get');
-    getPlacementTargetsSpy = spyOn(TestBed.inject(RgwSiteService), 'get');
-    enumerateSpy = spyOn(TestBed.inject(RgwUserService), 'enumerate');
+    getPlacementTargetsSpy = spyOn(TestBed.get(RgwSiteService), 'getPlacementTargets');
+    enumerateSpy = spyOn(TestBed.get(RgwUserService), 'enumerate');
     formHelper = new FormHelper(component.bucketForm);
   });
 
@@ -177,8 +178,8 @@ describe('RgwBucketFormComponent', () => {
     let notificationService: NotificationService;
 
     beforeEach(() => {
-      spyOn(TestBed.inject(Router), 'navigate').and.stub();
-      notificationService = TestBed.inject(NotificationService);
+      spyOn(TestBed.get(Router), 'navigate').and.stub();
+      notificationService = TestBed.get(NotificationService);
       spyOn(notificationService, 'show');
     });
 
@@ -203,7 +204,7 @@ describe('RgwBucketFormComponent', () => {
       component.submit();
       expect(notificationService.show).toHaveBeenCalledWith(
         NotificationType.success,
-        `Created Object Gateway bucket 'null'`
+        'Created Object Gateway bucket ""'
       );
     });
 
@@ -214,7 +215,7 @@ describe('RgwBucketFormComponent', () => {
       component.submit();
       expect(notificationService.show).toHaveBeenCalledWith(
         NotificationType.success,
-        `Updated Object Gateway bucket 'null'.`
+        'Updated Object Gateway bucket "".'
       );
     });
   });

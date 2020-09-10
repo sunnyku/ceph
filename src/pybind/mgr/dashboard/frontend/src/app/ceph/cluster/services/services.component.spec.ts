@@ -3,10 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { ToastrModule } from 'ngx-toastr';
 import { of } from 'rxjs';
 
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { CoreModule } from '../../../core/core.module';
 import { CephServiceService } from '../../../shared/api/ceph-service.service';
 import { OrchestratorService } from '../../../shared/api/orchestrator.service';
@@ -59,17 +58,17 @@ describe('ServicesComponent', () => {
       CoreModule,
       SharedModule,
       HttpClientTestingModule,
-      RouterTestingModule,
-      ToastrModule.forRoot()
+      RouterTestingModule
     ],
-    providers: [{ provide: AuthStorageService, useValue: fakeAuthStorageService }]
+    providers: [{ provide: AuthStorageService, useValue: fakeAuthStorageService }, i18nProviders],
+    declarations: []
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(ServicesComponent);
     component = fixture.componentInstance;
-    const orchService = TestBed.inject(OrchestratorService);
-    const cephServiceService = TestBed.inject(CephServiceService);
+    const orchService = TestBed.get(OrchestratorService);
+    const cephServiceService = TestBed.get(CephServiceService);
     spyOn(orchService, 'status').and.returnValue(of({ available: true }));
     spyOn(cephServiceService, 'list').and.returnValue(of(services));
     fixture.detectChanges();
@@ -88,7 +87,7 @@ describe('ServicesComponent', () => {
   });
 
   it('should return all services', () => {
-    component.getServices(new CdTableFetchDataContext(() => undefined));
+    component.getServices(new CdTableFetchDataContext(() => {}));
     expect(component.services.length).toBe(2);
   });
 });

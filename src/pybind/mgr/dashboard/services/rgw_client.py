@@ -6,6 +6,7 @@ import logging
 import ipaddress
 from distutils.util import strtobool
 import xml.etree.ElementTree as ET  # noqa: N814
+import six
 from ..awsauth import S3Auth
 from ..exceptions import DashboardException
 from ..settings import Settings, Options
@@ -138,7 +139,7 @@ def _parse_addr(value):
         #   Group 2: 2001:db8:85a3::8a2e:370:7334
         addr = match.group(3) if match.group(3) else match.group(2)
         try:
-            ipaddress.ip_address(addr)
+            ipaddress.ip_address(six.u(addr))
             return addr
         except ValueError:
             raise LookupError('Invalid RGW address \'{}\' found'.format(addr))
@@ -250,9 +251,6 @@ class RgwClient(RestClient):
             zonegroup['val'],
             ['api_name', 'zones']
         ) for zonegroup in zonegroups['zonegroups']]
-
-    def _get_realms_info(self):  # type: () -> dict
-        return json_str_to_object(self.proxy('GET', 'realm?list', None, None))
 
     @staticmethod
     def _rgw_settings():
@@ -492,13 +490,6 @@ class RgwClient(RestClient):
             )
 
         return {'zonegroup': zonegroup_name, 'placement_targets': placement_targets}
-
-    def get_realms(self):  # type: () -> List
-        realms_info = self._get_realms_info()
-        if 'realms' in realms_info and realms_info['realms']:
-            return realms_info['realms']
-
-        return []
 
     @RestClient.api_get('/{bucket_name}?versioning')
     def get_bucket_versioning(self, bucket_name, request=None):

@@ -1,4 +1,3 @@
-import styles from '../../../styles.scss';
 import { HealthColorPipe } from './health-color.pipe';
 
 describe('HealthColorPipe', () => {
@@ -9,15 +8,15 @@ describe('HealthColorPipe', () => {
   });
 
   it('transforms "HEALTH_OK"', () => {
-    expect(pipe.transform('HEALTH_OK')).toEqual({ color: styles.healthColorHealthy });
+    expect(pipe.transform('HEALTH_OK')).toEqual({ color: '#00bb00' });
   });
 
   it('transforms "HEALTH_WARN"', () => {
-    expect(pipe.transform('HEALTH_WARN')).toEqual({ color: styles.healthColorWarning });
+    expect(pipe.transform('HEALTH_WARN')).toEqual({ color: '#ffa500' });
   });
 
   it('transforms "HEALTH_ERR"', () => {
-    expect(pipe.transform('HEALTH_ERR')).toEqual({ color: styles.healthColorError });
+    expect(pipe.transform('HEALTH_ERR')).toEqual({ color: '#ff0000' });
   });
 
   it('transforms others', () => {

@@ -181,9 +181,7 @@ static seastar::future<> run(
             msgr->set_crc_data();
           }
           return msgr->bind(entity_addrvec_t{addr}).then([this] {
-	    auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
-	    chained_dispatchers->push_back(*this);
-            return msgr->start(chained_dispatchers);
+            return msgr->start(this);
           });
         });
       }
@@ -299,8 +297,9 @@ static seastar::future<> run(
         return nr_depth - depth.current();
       }
 
-      void ms_handle_connect(crimson::net::ConnectionRef conn) override {
+      seastar::future<> ms_handle_connect(crimson::net::ConnectionRef conn) override {
         conn_stats.connected_time = mono_clock::now();
+        return seastar::now();
       }
       seastar::future<> ms_dispatch(crimson::net::Connection* c,
                                     MessageRef m) override {
@@ -332,9 +331,7 @@ static seastar::future<> run(
       }
 
       seastar::future<> init(bool v1_crc_enabled) {
-	auto chained_dispatchers = seastar::make_lw_shared<ChainedDispatchers>();
-	chained_dispatchers->push_back(*this);
-        return container().invoke_on_all([v1_crc_enabled, chained_dispatchers] (auto& client) mutable {
+        return container().invoke_on_all([v1_crc_enabled] (auto& client) {
           if (client.is_active()) {
             client.msgr = crimson::net::Messenger::create(entity_name_t::OSD(client.sid), client.lname, client.sid);
             client.msgr->set_default_policy(crimson::net::SocketPolicy::lossy_client(0));
@@ -345,7 +342,7 @@ static seastar::future<> run(
               client.msgr->set_crc_header();
               client.msgr->set_crc_data();
             }
-            return client.msgr->start(chained_dispatchers);
+            return client.msgr->start(&client);
           }
           return seastar::now();
         });
@@ -644,12 +641,11 @@ static seastar::future<> run(
     };
   };
 
-  return seastar::when_all(
+  return seastar::when_all_succeed(
       test_state::Server::create(server_conf.core, server_conf.block_size),
       create_sharded<test_state::Client>(client_conf.jobs, client_conf.block_size, client_conf.depth)
-  ).then([=](auto&& ret) {
-    auto fp_server = std::move(std::get<0>(ret).get0());
-    auto client = std::move(std::get<1>(ret).get0());
+  ).then([=](test_state::ServerFRef fp_server,
+             test_state::Client *client) {
     test_state::Server* server = fp_server.get();
     if (mode == perf_mode_t::both) {
       logger().info("\nperf settings:\n  {}\n  {}\n",
@@ -661,7 +657,7 @@ static seastar::future<> run(
       return seastar::when_all_succeed(
         server->init(server_conf.v1_crc_enabled, server_conf.addr),
         client->init(client_conf.v1_crc_enabled)
-      ).then_unpack([client, addr = client_conf.server_addr] {
+      ).then([client, addr = client_conf.server_addr] {
         return client->connect_wait_verify(addr);
       }).then([client, ramptime = client_conf.ramptime,
                msgtime = client_conf.msgtime] {

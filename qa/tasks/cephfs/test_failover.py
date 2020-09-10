@@ -3,6 +3,7 @@ import signal
 import logging
 import operator
 from random import randint
+from six.moves import range
 
 from tasks.cephfs.cephfs_test_case import CephFSTestCase
 from teuthology.exceptions import CommandFailedError
@@ -52,7 +53,7 @@ class TestClusterAffinity(CephFSTestCase):
             except AssertionError as e:
                 log.debug("%s", e)
                 return False
-        self.wait_until_true(takeover, 30)
+        status = self.wait_until_true(takeover, 30)
 
     def test_join_fs_runtime(self):
         """
@@ -125,6 +126,7 @@ class TestClusterAffinity(CephFSTestCase):
         That a standby with mds_join_fs set to another fs is still used if necessary.
         """
         status, target = self._verify_init()
+        active = self.fs.get_active_names(status=status)[0]
         standbys = [info['name'] for info in status.get_standbys()]
         for mds in standbys:
             self.config_set('mds.'+mds, 'mds_join_fs', 'cephfs2')

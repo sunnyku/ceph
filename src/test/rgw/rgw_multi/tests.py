@@ -5,10 +5,14 @@ import sys
 import time
 import logging
 import errno
-import dateutil.parser
 
+try:
+    from itertools import izip_longest as zip_longest  # type: ignore
+except ImportError:
+    from itertools import zip_longest
 from itertools import combinations
-from io import StringIO
+from six import StringIO
+from six.moves import range
 
 import boto
 import boto.s3.connection
@@ -79,13 +83,8 @@ def mdlog_list(zone, period = None):
 def mdlog_autotrim(zone):
     zone.cluster.admin(['mdlog', 'autotrim'])
 
-def datalog_list(zone, args = None):
-    cmd = ['datalog', 'list'] + (args or [])
-    (datalog_json, _) = zone.cluster.admin(cmd, read_only=True)
-    return json.loads(datalog_json)
-
-def datalog_status(zone):
-    cmd = ['datalog', 'status']
+def datalog_list(zone, period = None):
+    cmd = ['datalog', 'list']
     (datalog_json, _) = zone.cluster.admin(cmd, read_only=True)
     return json.loads(datalog_json)
 
@@ -963,21 +962,9 @@ def test_datalog_autotrim():
 
     # trim each datalog
     for zone, _ in zone_bucket:
-        # read max markers for each shard
-        status = datalog_status(zone.zone)
-
         datalog_autotrim(zone.zone)
-
-        for shard_id, shard_status in enumerate(status):
-            try:
-                before_trim = dateutil.parser.isoparse(shard_status['last_update'])
-            except: # empty timestamps look like "0.000000" and will fail here
-                continue
-            entries = datalog_list(zone.zone, ['--shard-id', str(shard_id), '--max-entries', '1'])
-            if not len(entries):
-                continue
-            after_trim = dateutil.parser.isoparse(entries[0]['timestamp'])
-            assert before_trim < after_trim, "any datalog entries must be newer than trim"
+        datalog = datalog_list(zone.zone)
+        assert len(datalog) == 0
 
 def test_multi_zone_redirect():
     zonegroup = realm.master_zonegroup()

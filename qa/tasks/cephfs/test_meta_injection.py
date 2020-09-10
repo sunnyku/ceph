@@ -1,4 +1,6 @@
 from tasks.cephfs.cephfs_test_case import CephFSTestCase
+import random
+import os
 
 class TestMetaInjection(CephFSTestCase):
     def test_meta_injection(self):

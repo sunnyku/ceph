@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 
-import moment from 'moment';
+import * as moment from 'moment';
 
 import { CdDatePipe } from './cd-date.pipe';
 

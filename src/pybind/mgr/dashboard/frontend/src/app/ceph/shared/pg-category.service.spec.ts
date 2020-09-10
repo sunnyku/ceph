@@ -12,7 +12,7 @@ describe('PgCategoryService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(PgCategoryService);
+    service = TestBed.get(PgCategoryService);
   });
 
   it('should be created', () => {

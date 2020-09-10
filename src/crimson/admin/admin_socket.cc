@@ -3,7 +3,6 @@
 
 #include "crimson/admin/admin_socket.h"
 
-#include <boost/algorithm/string/join.hpp>
 #include <fmt/format.h>
 #include <seastar/net/api.hh>
 #include <seastar/net/inet_address.hh>
@@ -19,6 +18,12 @@
 #include "crimson/net/Socket.h"
 
 using namespace crimson::common;
+/**
+ *  A Crimson-wise version of the admin socket - implementation file
+ *
+ *  \todo handle the unlinking of the admin socket. Note that 'cleanup_files'
+ *  at-exit functionality is not yet implemented in Crimson.
+ */
 
 namespace {
 seastar::logger& logger()
@@ -37,7 +42,7 @@ tell_result_t::tell_result_t(int ret, std::string&& err, ceph::bufferlist&& out)
   : ret{ret}, err(std::move(err)), out(std::move(out))
 {}
 
-tell_result_t::tell_result_t(std::unique_ptr<Formatter> formatter)
+tell_result_t::tell_result_t(Formatter* formatter)
 {
   formatter->flush(out);
 }
@@ -228,13 +233,7 @@ seastar::future<> AdminSocket::start(const std::string& path)
 
   logger().debug("{}: asok socket path={}", __func__, path);
   auto sock_path = seastar::socket_address{ seastar::unix_domain_addr{ path } };
-  try {
-    server_sock = seastar::engine().listen(sock_path);
-  } catch (const std::system_error& e) {
-    logger().error("{}: unable to listen({}): {}", __func__, path, e.what());
-    server_sock.reset();
-    return seastar::make_ready_future<>();
-  }
+  server_sock = seastar::engine().listen(sock_path);
   // listen in background
   task = seastar::do_until(
     [this] { return stop_gate.is_closed(); },
@@ -289,7 +288,7 @@ seastar::future<> AdminSocket::stop()
 class VersionHook final : public AdminSocketHook {
  public:
   VersionHook()
-    : AdminSocketHook{"version", "", "get ceph version"}
+    : AdminSocketHook{"version", "version", "get ceph version"}
   {}
   seastar::future<tell_result_t> call(const cmdmap_t&,
 				      std::string_view format,
@@ -301,7 +300,7 @@ class VersionHook final : public AdminSocketHook {
     f->dump_string("release", ceph_release_to_str());
     f->dump_string("release_type", ceph_release_type());
     f->close_section();
-    return seastar::make_ready_future<tell_result_t>(std::move(f));
+    return seastar::make_ready_future<tell_result_t>(f.get());
   }
 };
 
@@ -312,7 +311,7 @@ class VersionHook final : public AdminSocketHook {
 class GitVersionHook final : public AdminSocketHook {
  public:
   GitVersionHook()
-    : AdminSocketHook{"git_version", "", "get git sha1"}
+    : AdminSocketHook{"git_version", "git_version", "get git sha1"}
   {}
   seastar::future<tell_result_t> call(const cmdmap_t&,
 				      std::string_view format,
@@ -322,7 +321,7 @@ class GitVersionHook final : public AdminSocketHook {
     f->open_object_section("version");
     f->dump_string("git_version", git_version_to_str());
     f->close_section();
-    return seastar::make_ready_future<tell_result_t>(std::move(f));
+    return seastar::make_ready_future<tell_result_t>(f.get());
   }
 };
 
@@ -331,7 +330,7 @@ class HelpHook final : public AdminSocketHook {
 
  public:
   explicit HelpHook(const AdminSocket& as) :
-    AdminSocketHook{"help", "", "list available commands"},
+    AdminSocketHook{"help", "help", "list available commands"},
     m_as{as}
   {}
 
@@ -349,7 +348,7 @@ class HelpHook final : public AdminSocketHook {
 	}
       }
       f->close_section();
-      return seastar::make_ready_future<tell_result_t>(std::move(f));
+      return seastar::make_ready_future<tell_result_t>(f.get());
     });
   }
 };
@@ -360,7 +359,7 @@ class GetdescsHook final : public AdminSocketHook {
  public:
   explicit GetdescsHook(const AdminSocket& as) :
     AdminSocketHook{"get_command_descriptions",
-		    "",
+		    "get_command_descriptions",
 		    "list available commands"},
     m_as{ as } {}
 
@@ -374,128 +373,13 @@ class GetdescsHook final : public AdminSocketHook {
       f->open_object_section("command_descriptions");
       for (const auto& [prefix, hook] : m_as) {
 	auto secname = fmt::format("cmd {:>03}", cmdnum);
-        auto cmd = fmt::format("{} {}", hook->prefix, hook->desc);
         dump_cmd_and_help_to_json(f.get(), CEPH_FEATURES_ALL, secname,
-                                  cmd, std::string{hook->help});
+                                  std::string{hook->desc},
+				  std::string{hook->help});
         cmdnum++;
       }
       f->close_section();
-      return seastar::make_ready_future<tell_result_t>(std::move(f));
-    });
-  }
-};
-
-class InjectArgsHook final : public AdminSocketHook {
-public:
-  InjectArgsHook()
-    : AdminSocketHook{"injectargs",
-                      "name=injected_args,type=CephString,n=N",
-                      "inject configuration arguments into running daemon"}
-  {}
-  seastar::future<tell_result_t> call(const cmdmap_t& cmdmap,
-				      std::string_view format,
-				      ceph::bufferlist&&) const final
-  {
-    std::vector<std::string> argv;
-    if (!cmd_getval(cmdmap, "injected_args", argv)) {
-      return seastar::make_ready_future<tell_result_t>();
-    }
-    const std::string args = boost::algorithm::join(argv, " ");
-    return local_conf().inject_args(args).then([] {
-      return seastar::make_ready_future<tell_result_t>();
-    }).handle_exception_type([] (const std::invalid_argument& e) {
-      return seastar::make_ready_future<tell_result_t>(
-        tell_result_t{-EINVAL, e.what()});
-    });
-  }
-};
-
-/**
- * listing the configuration values
- */
-class ConfigShowHook : public AdminSocketHook {
-public:
-  ConfigShowHook() :
-    AdminSocketHook{"config show",
-                    "",
-                    "dump current config settings"}
-  {}
-  seastar::future<tell_result_t> call(const cmdmap_t&,
-                                      std::string_view format,
-                                      ceph::bufferlist&& input) const final
-  {
-    unique_ptr<Formatter> f{Formatter::create(format, "json-pretty", "json-pretty")};
-    f->open_object_section("config_show");
-    local_conf().show_config(f.get());
-    f->close_section();
-    return seastar::make_ready_future<tell_result_t>(std::move(f));
-  }
-};
-
-/**
- * fetching the value of a specific configuration item
- */
-class ConfigGetHook : public AdminSocketHook {
-public:
-  ConfigGetHook() :
-    AdminSocketHook("config get",
-                    "name=var,type=CephString",
-                    "config get <field>: get the config value")
-  {}
-  seastar::future<tell_result_t> call(const cmdmap_t& cmdmap,
-                                      std::string_view format,
-                                      ceph::bufferlist&& input) const final
-  {
-    std::string var;
-    [[maybe_unused]] bool found = cmd_getval(cmdmap, "var", var);
-    assert(found);
-    std::string conf_val;
-    if (int r = local_conf().get_val(var, &conf_val); r < 0) {
-      return seastar::make_ready_future<tell_result_t>(
-        tell_result_t{r, fmt::format("error getting {}: {}",
-                                     var, cpp_strerror(r))});
-    }
-    unique_ptr<Formatter> f{Formatter::create(format,
-                                              "json-pretty",
-                                              "json-pretty")};
-    f->open_object_section("config_get");
-    f->dump_string(var, conf_val);
-    f->close_section();
-    return seastar::make_ready_future<tell_result_t>(std::move(f));
-  }
-};
-
-/**
- * setting the value of a specific configuration item (an example:
- * {"prefix": "config set", "var":"debug_osd", "val": ["30/20"]} )
- */
-class ConfigSetHook : public AdminSocketHook {
-public:
-  ConfigSetHook()
-    : AdminSocketHook("config set",
-                      "name=var,type=CephString "
-                      "name=val,type=CephString,n=N",
-                      "config set <field> <val> [<val> ...]: set a config variable")
-  {}
-  seastar::future<tell_result_t> call(const cmdmap_t& cmdmap,
-                                      std::string_view format,
-                                      ceph::bufferlist&&) const final
-  {
-    std::string var;
-    std::vector<std::string> new_val;
-    cmd_getval(cmdmap, "var", var);
-    cmd_getval(cmdmap, "val", new_val);
-    // val may be multiple words
-    const std::string joined_values = boost::algorithm::join(new_val, " ");
-    return local_conf().set_val(var, joined_values).then([format] {
-      unique_ptr<Formatter> f{Formatter::create(format, "json-pretty", "json-pretty")};
-      f->open_object_section("config_set");
-      f->dump_string("success", "");
-      f->close_section();
-      return seastar::make_ready_future<tell_result_t>(std::move(f));
-    }).handle_exception_type([](std::invalid_argument& e) {
-      return seastar::make_ready_future<tell_result_t>(
-        tell_result_t{-EINVAL, e.what()});
+      return seastar::make_ready_future<tell_result_t>(f.get());
     });
   }
 };
@@ -507,14 +391,7 @@ seastar::future<> AdminSocket::register_admin_commands()
     register_command(std::make_unique<VersionHook>()),
     register_command(std::make_unique<GitVersionHook>()),
     register_command(std::make_unique<HelpHook>(*this)),
-    register_command(std::make_unique<GetdescsHook>(*this)),
-    register_command(std::make_unique<ConfigGetHook>()),
-    register_command(std::make_unique<ConfigSetHook>()),
-    register_command(std::make_unique<ConfigShowHook>()),
-    register_command(std::make_unique<InjectArgsHook>())
-  ).then_unpack([] {
-    return seastar::now();
-  });
+    register_command(std::make_unique<GetdescsHook>(*this)));
 }
 
 }  // namespace crimson::admin

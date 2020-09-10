@@ -1,10 +1,10 @@
-import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { ToastrService } from 'ngx-toastr';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { RbdService } from '../api/rbd.service';
 import { NotificationType } from '../enum/notification-type.enum';
 import { CdNotificationConfig } from '../models/cd-notification';
@@ -27,13 +27,14 @@ describe('NotificationService', () => {
       TaskMessageService,
       { provide: ToastrService, useValue: toastFakeService },
       { provide: CdDatePipe, useValue: { transform: (d: any) => d } },
+      i18nProviders,
       RbdService
     ],
     imports: [HttpClientTestingModule]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(NotificationService);
+    service = TestBed.get(NotificationService);
     service.removeAll();
   });
 
@@ -232,7 +233,7 @@ describe('NotificationService', () => {
       spyOn(global, 'Date').and.returnValue(baseTime);
       spyOn(window, 'setTimeout').and.callFake((fn) => fn());
 
-      toastr = TestBed.inject(ToastrService);
+      toastr = TestBed.get(ToastrService);
       // spyOn needs to know the methods before spying and can't read the array for clarification
       ['error', 'info', 'success'].forEach((method: 'error' | 'info' | 'success') =>
         spyOn(toastr, method).and.stub()

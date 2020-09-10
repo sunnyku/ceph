@@ -4,8 +4,11 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { ToastrModule } from 'ngx-toastr';
 
-import { configureTestBed, PermissionHelper } from '../../../../testing/unit-test-helper';
-import { TableStatusViewCache } from '../../../shared/classes/table-status-view-cache';
+import {
+  configureTestBed,
+  i18nProviders,
+  PermissionHelper
+} from '../../../../testing/unit-test-helper';
 import { TableActionsComponent } from '../../../shared/datatable/table-actions/table-actions.component';
 import { ViewCacheStatus } from '../../../shared/enum/view-cache-status.enum';
 import { SharedModule } from '../../../shared/shared.module';
@@ -22,14 +25,15 @@ describe('CephfsClientsComponent', () => {
       SharedModule,
       HttpClientTestingModule
     ],
-    declarations: [CephfsClientsComponent]
+    declarations: [CephfsClientsComponent],
+    providers: i18nProviders
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(CephfsClientsComponent);
     component = fixture.componentInstance;
     component.clients = {
-      status: new TableStatusViewCache(ViewCacheStatus.ValueOk),
+      status: ViewCacheStatus.ValueOk,
       data: [{}, {}, {}, {}]
     };
   });

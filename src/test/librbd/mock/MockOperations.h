@@ -25,16 +25,14 @@ struct MockOperations {
                                     ProgressContext &prog_ctx,
                                     Context *on_finish,
                                     uint64_t journal_op_tid));
-  MOCK_METHOD5(snap_create, void(const cls::rbd::SnapshotNamespace &snapshot_namespace,
+  MOCK_METHOD3(snap_create, void(const cls::rbd::SnapshotNamespace &snapshot_namespace,
 				 const std::string &snap_name,
-                                 uint64_t flags,
-                                 ProgressContext &prog_ctx,
                                  Context *on_finish));
   MOCK_METHOD6(execute_snap_create, void(const cls::rbd::SnapshotNamespace &snapshot_namespace,
 					 const std::string &snap_name,
                                          Context *on_finish,
                                          uint64_t journal_op_tid,
-                                         uint64_t flags,
+                                         bool skip_object_map,
                                          ProgressContext &prog_ctx));
   MOCK_METHOD3(snap_remove, void(const cls::rbd::SnapshotNamespace &snap_namespace,
 				 const std::string &snap_name,

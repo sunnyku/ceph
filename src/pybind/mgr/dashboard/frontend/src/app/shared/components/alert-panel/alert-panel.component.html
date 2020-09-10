@@ -1,5 +1,4 @@
-<ngb-alert type="{{ bootstrapClass }}"
-           [dismissible]="false">
+<alert type="{{ bootstrapClass }}">
   <table>
     <ng-container *ngIf="size === 'normal'; else slim">
       <tr>
@@ -34,7 +33,7 @@
       </tr>
     </ng-template>
   </table>
-</ngb-alert>
+</alert>
 
 <ng-template #content>
   <ng-content></ng-content>

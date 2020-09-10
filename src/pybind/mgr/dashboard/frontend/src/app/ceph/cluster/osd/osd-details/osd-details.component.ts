@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges } from '@angular/core';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 
 import { OsdService } from '../../../../shared/api/osd.service';
 import { Permission } from '../../../../shared/models/permissions';
@@ -17,7 +17,9 @@ export class OsdDetailsComponent implements OnChanges {
 
   osd: {
     id?: number;
+    loaded?: boolean;
     details?: any;
+    histogram_failed?: string;
     tree?: any;
   };
   grafanaPermission: Permission;
@@ -27,11 +29,11 @@ export class OsdDetailsComponent implements OnChanges {
   }
 
   ngOnChanges() {
-    if (this.osd?.id !== this.selection?.id) {
+    this.osd = {
+      loaded: false
+    };
+    if (this.selection) {
       this.osd = this.selection;
-    }
-
-    if (_.isNumber(this.osd?.id)) {
       this.refresh();
     }
   }
@@ -39,6 +41,12 @@ export class OsdDetailsComponent implements OnChanges {
   refresh() {
     this.osdService.getDetails(this.osd.id).subscribe((data) => {
       this.osd.details = data;
+      this.osd.histogram_failed = '';
+      if (!_.isObject(data.histogram)) {
+        this.osd.histogram_failed = data.histogram;
+        this.osd.details.histogram = undefined;
+      }
+      this.osd.loaded = true;
     });
   }
 }

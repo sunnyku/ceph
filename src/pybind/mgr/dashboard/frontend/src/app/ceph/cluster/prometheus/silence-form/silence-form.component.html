@@ -5,7 +5,7 @@
     <ng-container *ngFor="let config of matcherConfig">
       <div class="input-group-prepend">
         <span class="input-group-text"
-              [ngbTooltip]="config.tooltip">
+              [tooltip]="config.tooltip">
           <i [ngClass]="[config.icon]"></i>
         </span>
       </div>
@@ -37,16 +37,16 @@
       <button type="button"
               class="btn btn-light"
               id="matcher-edit-{{index}}"
-              i18n-ngbTooltip
-              ngbTooltip="Edit"
+              i18n-tooltip
+              tooltip="Edit"
               (click)="showMatcherModal(index)">
         <i [ngClass]="[icons.edit]"></i>
       </button>
       <button type="button"
               class="btn btn-light"
               id="matcher-delete-{{index}}"
-              i18n-ngbTooltip
-              ngbTooltip="Delete"
+              i18n-tooltip
+              tooltip="Delete"
               (click)="deleteMatcher(index)">
         <i [ngClass]="[icons.trash]"></i>
       </button>
@@ -115,13 +115,12 @@
             <cd-helper i18n>If the start time lies in the past the creation time will be used</cd-helper>
           </label>
           <div class="cd-col-form-input">
-            <input class="form-control"
+            <input [bsConfig]="bsConfig"
+                   bsDatepicker
+                   class="form-control"
                    formControlName="startsAt"
-                   [ngbPopover]="popStart"
-                   triggers="manual"
-                   #ps="ngbPopover"
-                   (click)="ps.open()"
-                   (keypress)="ps.close()">
+                   id="starts-at"
+                   name="starts-at">
             <span *ngIf="form.showError('startsAt', formDir, 'required')"
                   class="invalid-feedback"
                   i18n>This field is required!</span>
@@ -151,13 +150,12 @@
                  for="ends-at"
                  i18n>End time</label>
           <div class="cd-col-form-input">
-            <input class="form-control"
+            <input [bsConfig]="bsConfig"
+                   bsDatepicker
+                   class="form-control"
                    formControlName="endsAt"
-                   [ngbPopover]="popEnd"
-                   triggers="manual"
-                   #pe="ngbPopover"
-                   (click)="pe.open()"
-                   (keypress)="pe.close()">
+                   id="ends-at"
+                   name="ends-at">
             <span *ngIf="form.showError('endsAt', formDir, 'required')"
                   class="invalid-feedback"
                   i18n>This field is required!</span>
@@ -216,14 +214,3 @@
     </div>
   </form>
 </div>
-
-<ng-template #popStart>
-  <cd-date-time-picker [control]="form.get('startsAt')"
-                       [hasSeconds]="false"></cd-date-time-picker>
-</ng-template>
-
-
-<ng-template #popEnd>
-  <cd-date-time-picker [control]="form.get('endsAt')"
-                       [hasSeconds]="false"></cd-date-time-picker>
-</ng-template>

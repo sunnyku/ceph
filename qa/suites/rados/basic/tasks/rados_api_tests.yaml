@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
     - reached quota
     - but it is still running
     - overall HEALTH_

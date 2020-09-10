@@ -104,10 +104,10 @@ static void append_escaped(const string &in, string *out)
 {
   char hexbyte[8];
   for (string::const_iterator i = in.begin(); i != in.end(); ++i) {
-    if ((unsigned char)*i <= '#') {
+    if (*i <= '#') {
       snprintf(hexbyte, sizeof(hexbyte), "#%02x", (uint8_t)*i);
       out->append(hexbyte);
-    } else if ((unsigned char)*i >= '~') {
+    } else if (*i >= '~') {
       snprintf(hexbyte, sizeof(hexbyte), "~%02x", (uint8_t)*i);
       out->append(hexbyte);
     } else {
@@ -1495,16 +1495,14 @@ int KStore::_collection_list(
   if (end.hobj.is_max()) {
     pend = temp ? temp_end_key : end_key;
   } else {
+    get_object_key(cct, end, &end_key);
     if (end.hobj.is_temp()) {
       if (temp)
-        get_object_key(cct, end, &pend);
+	pend = end_key;
       else
 	goto out;
     } else {
-      if (temp)
-        pend = temp_end_key;
-      else
-        get_object_key(cct, end, &pend);
+      pend = temp ? temp_end_key : end_key;
     }
   }
   dout(20) << __func__ << " pend " << pretty_binary_string(pend) << dendl;
@@ -1517,27 +1515,14 @@ int KStore::_collection_list(
 		 << " > " << end << dendl;
       if (temp) {
 	if (end.hobj.is_temp()) {
-          if (it->valid() && it->key() < temp_end_key) {
-            int r = get_key_object(it->key(), pnext);
-            ceph_assert(r == 0);
-            set_next = true;
-          }
 	  break;
 	}
 	dout(30) << __func__ << " switch to non-temp namespace" << dendl;
 	temp = false;
 	it->upper_bound(start_key);
-        if (end.hobj.is_max())
-          pend = end_key;
-        else
-          get_object_key(cct, end, &pend);
+	pend = end_key;
 	dout(30) << __func__ << " pend " << pretty_binary_string(pend) << dendl;
 	continue;
-      }
-      if (it->valid() && it->key() < end_key) {
-        int r = get_key_object(it->key(), pnext);
-        ceph_assert(r == 0);
-        set_next = true;
       }
       break;
     }
@@ -2241,7 +2226,7 @@ void KStore::_txc_add_transaction(TransContext *txc, Transaction *t)
 
     case Transaction::OP_COLL_HINT:
       {
-        uint32_t type = op->hint;
+        uint32_t type = op->hint_type;
         bufferlist hint;
         i.decode_bl(hint);
         auto hiter = hint.cbegin();
@@ -2480,7 +2465,7 @@ void KStore::_txc_add_transaction(TransContext *txc, Transaction *t)
       {
         uint64_t expected_object_size = op->expected_object_size;
         uint64_t expected_write_size = op->expected_write_size;
-	uint32_t flags = op->hint;
+	uint32_t flags = op->alloc_hint_flags;
 	r = _setallochint(txc, c, o,
 			  expected_object_size,
 			  expected_write_size,

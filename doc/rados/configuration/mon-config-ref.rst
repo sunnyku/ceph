@@ -6,7 +6,8 @@ Understanding how to configure a :term:`Ceph Monitor` is an important part of
 building a reliable :term:`Ceph Storage Cluster`. **All Ceph Storage Clusters
 have at least one monitor**. A monitor configuration usually remains fairly
 consistent, but you can add, remove or replace a monitor in a cluster. See
-`Adding/Removing a Monitor`_ for details.
+`Adding/Removing a Monitor`_ and `Add/Remove a Monitor (ceph-deploy)`_ for
+details.
 
 
 .. index:: Ceph Monitor; Paxos
@@ -14,7 +15,7 @@ consistent, but you can add, remove or replace a monitor in a cluster. See
 Background
 ==========
 
-Ceph Monitors maintain a "master copy" of the :term:`Cluster Map`, which means a
+Ceph Monitors maintain a "master copy" of the :term:`cluster map`, which means a
 :term:`Ceph Client` can determine the location of all Ceph Monitors, Ceph OSD
 Daemons, and Ceph Metadata Servers just by connecting to one Ceph Monitor and
 retrieving a current cluster map. Before Ceph Clients can read from or write to
@@ -155,14 +156,14 @@ Bootstrapping Monitors
 
 In most configuration and deployment cases, tools that deploy Ceph may help
 bootstrap the Ceph Monitors by generating a monitor map for you (e.g.,
-``cephadm``, etc). A Ceph Monitor requires a few explicit
+``ceph-deploy``, etc). A Ceph Monitor requires a few explicit
 settings:
 
 - **Filesystem ID**: The ``fsid`` is the unique identifier for your
   object store. Since you can run multiple clusters on the same
   hardware, you must specify the unique ID of the object store when
   bootstrapping a monitor.  Deployment tools usually do this for you
-  (e.g., ``cephadm`` can call a tool like ``uuidgen``), but you
+  (e.g., ``ceph-deploy`` can call a tool like ``uuidgen``), but you
   may specify the ``fsid`` manually too.
   
 - **Monitor ID**: A monitor ID is a unique ID assigned to each monitor within 
@@ -172,7 +173,7 @@ settings:
   by a deployment tool, or using the ``ceph`` commandline.
 
 - **Keys**: The monitor must have secret keys. A deployment tool such as 
-  ``cephadm`` usually does this for you, but you may
+  ``ceph-deploy`` usually does this for you, but you may
   perform this step manually too. See `Monitor Keyrings`_ for details.
 
 For additional details on bootstrapping, see `Bootstrapping a Monitor`_.
@@ -1219,6 +1220,7 @@ Miscellaneous
 .. _Monitor lookup through DNS: ../mon-lookup-dns
 .. _ACID: https://en.wikipedia.org/wiki/ACID
 .. _Adding/Removing a Monitor: ../../operations/add-or-rm-mons
+.. _Add/Remove a Monitor (ceph-deploy): ../../deployment/ceph-deploy-mon
 .. _Monitoring a Cluster: ../../operations/monitoring
 .. _Monitoring OSDs and PGs: ../../operations/monitoring-osd-pg
 .. _Bootstrapping a Monitor: ../../../dev/mon-bootstrap

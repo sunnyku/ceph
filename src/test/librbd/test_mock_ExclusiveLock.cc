@@ -22,7 +22,7 @@ namespace librbd {
 namespace {
 
 struct MockExclusiveLockImageCtx : public MockImageCtx {
-  asio::ContextWQ *op_work_queue;
+  ContextWQ *op_work_queue;
 
   MockExclusiveLockImageCtx(ImageCtx &image_ctx) : MockImageCtx(image_ctx) {
     op_work_queue = image_ctx.op_work_queue;
@@ -40,10 +40,10 @@ struct Traits<MockExclusiveLockImageCtx> {
 
 template <>
 struct ManagedLock<MockExclusiveLockImageCtx> {
-  ManagedLock(librados::IoCtx& ioctx, AsioEngine& asio_engine,
+  ManagedLock(librados::IoCtx& ioctx, ContextWQ *work_queue,
               const std::string& oid, librbd::MockImageWatcher *watcher,
-              managed_lock::Mode  mode, bool blocklist_on_break_lock,
-              uint32_t blocklist_expire_seconds)
+              managed_lock::Mode  mode, bool blacklist_on_break_lock,
+              uint32_t blacklist_expire_seconds)
   {}
 
   virtual ~ManagedLock() = default;
@@ -262,8 +262,7 @@ public:
   void expect_set_require_lock(MockExclusiveLockImageCtx &mock_image_ctx,
                                MockImageDispatch &mock_image_dispatch) {
     if (mock_image_ctx.clone_copy_on_read ||
-        (mock_image_ctx.features & RBD_FEATURE_JOURNALING) != 0 ||
-        is_rbd_rwl_enabled(mock_image_ctx.cct)) {
+        (mock_image_ctx.features & RBD_FEATURE_JOURNALING) != 0) {
       expect_set_require_lock(mock_image_dispatch, io::DIRECTION_BOTH);
     } else {
       expect_set_require_lock(mock_image_dispatch, io::DIRECTION_WRITE);
@@ -342,7 +341,7 @@ public:
 
   void expect_shut_down(MockManagedLock *managed_lock) {
     EXPECT_CALL(*managed_lock, shut_down(_))
-      .WillOnce(CompleteContext(0, static_cast<asio::ContextWQ*>(nullptr)));
+      .WillOnce(CompleteContext(0, static_cast<ContextWQ*>(nullptr)));
   }
 
   void expect_accept_blocked_request(
@@ -663,8 +662,8 @@ TEST_F(TestMockExclusiveLock, AcquireLockError) {
   expect_is_state_acquiring(exclusive_lock, true);
   expect_prepare_lock_complete(mock_image_ctx);
   expect_is_action_acquire_lock(exclusive_lock, true);
-  ASSERT_EQ(-EBLOCKLISTED, when_post_acquire_lock_handler(exclusive_lock,
-                                                          -EBLOCKLISTED));
+  ASSERT_EQ(-EBLACKLISTED, when_post_acquire_lock_handler(exclusive_lock,
+                                                          -EBLACKLISTED));
 }
 
 TEST_F(TestMockExclusiveLock, PostAcquireLockError) {

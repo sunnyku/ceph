@@ -1,6 +1,7 @@
 import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
 
-import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 
 import { UserService } from '../../../shared/api/user.service';
 import { CriticalConfirmationModalComponent } from '../../../shared/components/critical-confirmation-modal/critical-confirmation-modal.component';
@@ -15,7 +16,6 @@ import { Permission } from '../../../shared/models/permissions';
 import { CdDatePipe } from '../../../shared/pipes/cd-date.pipe';
 import { EmptyPipe } from '../../../shared/pipes/empty.pipe';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../shared/services/modal.service';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { URLBuilderService } from '../../../shared/services/url-builder.service';
 
@@ -30,6 +30,8 @@ const BASE_URL = 'user-management/users';
 export class UserListComponent implements OnInit {
   @ViewChild('userRolesTpl', { static: true })
   userRolesTpl: TemplateRef<any>;
+  @ViewChild('userEnabledTpl', { static: true })
+  userEnabledTpl: TemplateRef<any>;
 
   permission: Permission;
   tableActions: CdTableAction[];
@@ -37,14 +39,15 @@ export class UserListComponent implements OnInit {
   users: Array<any>;
   selection = new CdTableSelection();
 
-  modalRef: NgbModalRef;
+  modalRef: BsModalRef;
 
   constructor(
     private userService: UserService,
     private emptyPipe: EmptyPipe,
-    private modalService: ModalService,
+    private modalService: BsModalService,
     private notificationService: NotificationService,
     private authStorageService: AuthStorageService,
+    private i18n: I18n,
     private urlBuilder: URLBuilderService,
     private cdDatePipe: CdDatePipe,
     public actionLabels: ActionLabelsI18n
@@ -75,36 +78,36 @@ export class UserListComponent implements OnInit {
   ngOnInit() {
     this.columns = [
       {
-        name: $localize`Username`,
+        name: this.i18n('Username'),
         prop: 'username',
         flexGrow: 1
       },
       {
-        name: $localize`Name`,
+        name: this.i18n('Name'),
         prop: 'name',
         flexGrow: 1,
         pipe: this.emptyPipe
       },
       {
-        name: $localize`Email`,
+        name: this.i18n('Email'),
         prop: 'email',
         flexGrow: 1,
         pipe: this.emptyPipe
       },
       {
-        name: $localize`Roles`,
+        name: this.i18n('Roles'),
         prop: 'roles',
         flexGrow: 1,
         cellTemplate: this.userRolesTpl
       },
       {
-        name: $localize`Enabled`,
+        name: this.i18n('Enabled'),
         prop: 'enabled',
         flexGrow: 1,
         cellTransformation: CellTemplate.checkIcon
       },
       {
-        name: $localize`Password expiration date`,
+        name: this.i18n('Password expiration date'),
         prop: 'pwdExpirationDate',
         flexGrow: 1,
         pipe: this.cdDatePipe
@@ -131,14 +134,14 @@ export class UserListComponent implements OnInit {
     this.userService.delete(username).subscribe(
       () => {
         this.getUsers();
-        this.modalRef.close();
+        this.modalRef.hide();
         this.notificationService.show(
           NotificationType.success,
-          $localize`Deleted user '${username}'`
+          this.i18n('Deleted user "{{username}}"', { username: username })
         );
       },
       () => {
-        this.modalRef.componentInstance.stopLoadingSpinner();
+        this.modalRef.content.stopLoadingSpinner();
       }
     );
   }
@@ -149,16 +152,17 @@ export class UserListComponent implements OnInit {
     if (sessionUsername === username) {
       this.notificationService.show(
         NotificationType.error,
-        $localize`Failed to delete user '${username}'`,
-        $localize`You are currently logged in as '${username}'.`
+        this.i18n('Failed to delete user "{{username}}"', { username: username }),
+        this.i18n('You are currently logged in as "{{username}}".', { username: username })
       );
       return;
     }
-
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      itemDescription: 'User',
-      itemNames: [username],
-      submitAction: () => this.deleteUser(username)
+      initialState: {
+        itemDescription: 'User',
+        itemNames: [username],
+        submitAction: () => this.deleteUser(username)
+      }
     });
   }
 }

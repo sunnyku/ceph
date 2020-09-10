@@ -118,7 +118,7 @@ template <>
 struct Threads<librbd::MockTestImageCtx> {
   ceph::mutex &timer_lock;
   SafeTimer *timer;
-  librbd::asio::ContextWQ *work_queue;
+  ContextWQ *work_queue;
 
   Threads(Threads<librbd::ImageCtx> *threads)
     : timer_lock(threads->timer_lock), timer(threads->timer),
@@ -230,11 +230,10 @@ public:
   }
 
   void snap_create(librbd::ImageCtx *image_ctx, const std::string &snap_name) {
-    librbd::NoOpProgressContext prog_ctx;
     ASSERT_EQ(0, image_ctx->operations->snap_create(cls::rbd::UserSnapshotNamespace(),
-					            snap_name, 0, prog_ctx));
+					            snap_name.c_str()));
     ASSERT_EQ(0, image_ctx->operations->snap_protect(cls::rbd::UserSnapshotNamespace(),
-						     snap_name));
+						     snap_name.c_str()));
     ASSERT_EQ(0, image_ctx->state->refresh());
   }
 
@@ -274,8 +273,7 @@ public:
     encode(mirror_image, bl);
 
     EXPECT_CALL(get_mock_io_ctx(io_ctx),
-                exec(RBD_MIRRORING, _, StrEq("rbd"), StrEq("mirror_image_get"),
-                     _, _, _, _))
+                exec(RBD_MIRRORING, _, StrEq("rbd"), StrEq("mirror_image_get"), _, _, _))
       .WillOnce(DoAll(WithArg<5>(Invoke([bl](bufferlist *out_bl) {
                                           *out_bl = bl;
                                         })),
@@ -288,8 +286,7 @@ public:
     encode(image_id, bl);
 
     EXPECT_CALL(get_mock_io_ctx(io_ctx),
-                exec(RBD_MIRRORING, _, StrEq("rbd"),
-                     StrEq("mirror_image_get_image_id"), _, _, _, _))
+                exec(RBD_MIRRORING, _, StrEq("rbd"), StrEq("mirror_image_get_image_id"), _, _, _))
       .WillOnce(DoAll(WithArg<5>(Invoke([bl](bufferlist *out_bl) {
                                           *out_bl = bl;
                                         })),

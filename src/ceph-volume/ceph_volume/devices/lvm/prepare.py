@@ -135,6 +135,21 @@ class Prepare(object):
             raise RuntimeError('unable to use device')
         return uuid
 
+    def get_lv(self, argument):
+        """
+        Perform some parsing of the command-line value so that the process
+        can determine correctly if it got a device path or an lv.
+
+        :param argument: The command-line value that will need to be split to
+                         retrieve the actual lv
+        """
+        #TODO is this efficient?
+        try:
+            vg_name, lv_name = argument.split('/')
+        except (ValueError, AttributeError):
+            return None
+        return api.get_lv(lv_name=lv_name, vg_name=vg_name)
+
     def setup_device(self, device_type, device_name, tags, size):
         """
         Check if ``device`` is an lv, if so, set the tags, making sure to
@@ -148,14 +163,7 @@ class Prepare(object):
             return '', '', tags
         tags['ceph.type'] = device_type
         tags['ceph.vdo'] = api.is_vdo(device_name)
-
-        try:
-            vg_name, lv_name = device_name.split('/')
-            lv = api.get_first_lv(filters={'lv_name': lv_name,
-                                           'vg_name': vg_name})
-        except ValueError:
-            lv = None
-
+        lv = self.get_lv(device_name)
         if lv:
             uuid = lv.lv_uuid
             path = lv.lv_path
@@ -235,15 +243,7 @@ class Prepare(object):
         """
         if args is not None:
             self.args = args
-
-        try:
-            vgname, lvname = self.args.data.split('/')
-            lv = api.get_first_lv(filters={'lv_name': lvname,
-                                           'vg_name': vgname})
-        except ValueError:
-            lv = None
-
-        if api.is_ceph_device(lv):
+        if api.is_ceph_device(self.get_lv(self.args.data)):
             logger.info("device {} is already used".format(self.args.data))
             raise RuntimeError("skipping {}, it is already prepared".format(self.args.data))
         try:
@@ -302,13 +302,7 @@ class Prepare(object):
             if not self.args.journal:
                 raise RuntimeError('--journal is required when using --filestore')
 
-            try:
-                vg_name, lv_name = self.args.data.split('/')
-                data_lv = api.get_first_lv(filters={'lv_name': lv_name,
-                                                    'vg_name': vg_name})
-            except ValueError:
-                data_lv = None
-
+            data_lv = self.get_lv(self.args.data)
             if not data_lv:
                 data_lv = self.prepare_data_device('data', osd_fsid)
 
@@ -333,13 +327,7 @@ class Prepare(object):
                 osd_fsid,
             )
         elif self.args.bluestore:
-            try:
-                vg_name, lv_name = self.args.data.split('/')
-                block_lv = api.get_first_lv(filters={'lv_name': lv_name,
-                                                 'vg_name': vg_name})
-            except ValueError:
-                block_lv = None
-
+            block_lv = self.get_lv(self.args.data)
             if not block_lv:
                 block_lv = self.prepare_data_device('block', osd_fsid)
 

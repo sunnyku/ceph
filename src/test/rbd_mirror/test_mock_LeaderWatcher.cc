@@ -1,7 +1,6 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
-#include "librbd/AsioEngine.h"
 #include "librbd/Utils.h"
 #include "test/librbd/mock/MockImageCtx.h"
 #include "test/rbd_mirror/test_mock_fixture.h"
@@ -61,11 +60,11 @@ MockManagedLock *MockManagedLock::s_instance = nullptr;
 
 template <>
 struct ManagedLock<MockTestImageCtx> {
-  ManagedLock(librados::IoCtx& ioctx, librbd::AsioEngine& asio_engine,
+  ManagedLock(librados::IoCtx& ioctx, ContextWQ *work_queue,
               const std::string& oid, librbd::Watcher *watcher,
-              managed_lock::Mode  mode, bool blocklist_on_break_lock,
-              uint32_t blocklist_expire_seconds)
-    : m_work_queue(asio_engine.get_work_queue()) {
+              managed_lock::Mode  mode, bool blacklist_on_break_lock,
+              uint32_t blacklist_expire_seconds)
+    : m_work_queue(work_queue) {
     MockManagedLock::get_instance().construct();
   }
 
@@ -73,7 +72,7 @@ struct ManagedLock<MockTestImageCtx> {
     MockManagedLock::get_instance().destroy();
   }
 
-  librbd::asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
 
   mutable ceph::mutex m_lock = ceph::make_mutex("ManagedLock::m_lock");
 
@@ -185,12 +184,11 @@ template <>
 struct Threads<librbd::MockTestImageCtx> {
   ceph::mutex &timer_lock;
   SafeTimer *timer;
-  librbd::asio::ContextWQ *work_queue;
-  librbd::AsioEngine* asio_engine;
+  ContextWQ *work_queue;
 
   Threads(Threads<librbd::ImageCtx> *threads)
     : timer_lock(threads->timer_lock), timer(threads->timer),
-      work_queue(threads->work_queue), asio_engine(threads->asio_engine) {
+      work_queue(threads->work_queue) {
   }
 };
 

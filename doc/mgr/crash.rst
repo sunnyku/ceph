@@ -29,7 +29,7 @@ and will read from stdin.
 
 ::
 
-  ceph crash rm <crashid>
+  ceph rm <crashid>
 
 Remove a specific crash dump.
 

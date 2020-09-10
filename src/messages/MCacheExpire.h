@@ -16,10 +16,12 @@
 #define CEPH_MCACHEEXPIRE_H
 
 #include <string_view>
-#include "mds/mdstypes.h"
-#include "messages/MMDSOp.h"
 
-class MCacheExpire : public MMDSOp {
+#include "msg/Message.h"
+
+#include "mds/mdstypes.h"
+
+class MCacheExpire : public SafeMessage {
 private:
   __s32 from;
 
@@ -64,9 +66,9 @@ public:
   int get_from() const { return from; }
 
 protected:
-  MCacheExpire() : MMDSOp{MSG_MDS_CACHEEXPIRE}, from(-1) {}
+  MCacheExpire() : SafeMessage{MSG_MDS_CACHEEXPIRE}, from(-1) {}
   MCacheExpire(int f) :
-    MMDSOp{MSG_MDS_CACHEEXPIRE},
+    SafeMessage{MSG_MDS_CACHEEXPIRE},
     from(f) { }
   ~MCacheExpire() override {}
 

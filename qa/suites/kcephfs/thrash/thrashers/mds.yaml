@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - Replacing daemon mds
 
 tasks:

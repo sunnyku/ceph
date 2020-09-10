@@ -3,11 +3,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
 import { ToastrModule } from 'ngx-toastr';
 import { of } from 'rxjs';
 
-import { configureTestBed, FormHelper } from '../../../../../testing/unit-test-helper';
+import {
+  configureTestBed,
+  FormHelper,
+  i18nProviders
+} from '../../../../../testing/unit-test-helper';
 import { RbdMirroringService } from '../../../../shared/api/rbd-mirroring.service';
 import { NotificationService } from '../../../../shared/services/notification.service';
 import { SharedModule } from '../../../../shared/shared.module';
@@ -29,7 +33,7 @@ describe('BootstrapImportModalComponent', () => {
       SharedModule,
       ToastrModule.forRoot()
     ],
-    providers: [NgbActiveModal]
+    providers: [BsModalRef, BsModalService, i18nProviders]
   });
 
   beforeEach(() => {
@@ -37,10 +41,10 @@ describe('BootstrapImportModalComponent', () => {
     component = fixture.componentInstance;
     component.siteName = 'site-A';
 
-    notificationService = TestBed.inject(NotificationService);
+    notificationService = TestBed.get(NotificationService);
     spyOn(notificationService, 'show').and.stub();
 
-    rbdMirroringService = TestBed.inject(RbdMirroringService);
+    rbdMirroringService = TestBed.get(RbdMirroringService);
 
     formHelper = new FormHelper(component.importBootstrapForm);
 
@@ -65,7 +69,7 @@ describe('BootstrapImportModalComponent', () => {
   describe('import token', () => {
     beforeEach(() => {
       spyOn(rbdMirroringService, 'refresh').and.stub();
-      spyOn(component.activeModal, 'close').and.callThrough();
+      spyOn(component.modalRef, 'hide').and.callThrough();
       fixture.detectChanges();
     });
 

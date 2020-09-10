@@ -22,23 +22,29 @@
 #include <netdb.h>
 
 #define BUF_SIZE 128
-#define ROUND_UP_128(x) (-(-(x) & -128))
 
-int safe_cat(char **pstr, int *plen, int pos, const char *src)
+int safe_cat(char **pstr, int *plen, int pos, const char *str2)
 {
-  size_t len2 = strlen(src);
-  size_t new_size = pos + len2 + 1;
-  if (*plen < new_size) {
-    size_t round_up = ROUND_UP_128(new_size);
-    void* p = realloc(*pstr, round_up);
-    if (!p) {
+  int len2 = strlen(str2);
+
+  //printf("safe_cat '%s' max %d pos %d '%s' len %d\n", *pstr, *plen, pos, str2, len2);
+  while (*plen < pos + len2 + 1) {
+    *plen += BUF_SIZE;
+
+    void *_realloc = realloc(*pstr, (size_t)*plen);
+
+    if (!_realloc) {
       printf("Out of memory\n");
       exit(1);
     } else {
-      *pstr = p;
+      *pstr = _realloc;
     }
+    //printf("safe_cat '%s' max %d pos %d '%s' len %d\n", *pstr, *plen, pos, str2, len2);
   }
-  memcpy(*pstr + pos, src, len2 + 1);
+
+  strncpy((*pstr)+pos, str2, len2);
+  (*pstr)[pos+len2] = '\0';
+
   return pos + len2;
 }
 

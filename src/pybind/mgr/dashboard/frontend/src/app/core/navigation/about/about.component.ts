@@ -1,9 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { detect } from 'detect-browser';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { Subscription } from 'rxjs';
-
 import { environment } from '../../../../environments/environment';
 import { UserService } from '../../../shared/api/user.service';
 import { AppConstants } from '../../../shared/constants/app.constants';
@@ -28,7 +27,7 @@ export class AboutComponent implements OnInit, OnDestroy {
   copyright: string;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public modalRef: BsModalRef,
     private summaryService: SummaryService,
     private userService: UserService,
     private authStorageService: AuthStorageService
@@ -41,7 +40,10 @@ export class AboutComponent implements OnInit, OnDestroy {
     this.projectConstants = AppConstants;
     this.hostAddr = window.location.hostname;
     this.modalVariables = this.setVariables();
-    this.subs = this.summaryService.subscribe((summary) => {
+    this.subs = this.summaryService.subscribe((summary: any) => {
+      if (!summary) {
+        return;
+      }
       const version = summary.version.replace('ceph version ', '').split(' ');
       this.hostAddr = summary.mgr_host.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
       this.versionNumber = version[0];

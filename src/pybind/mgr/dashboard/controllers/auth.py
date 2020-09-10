@@ -4,8 +4,7 @@ from __future__ import absolute_import
 import logging
 import cherrypy
 
-from . import ApiController, RESTController, \
-    allow_empty_body, ControllerDoc, EndpointDoc
+from . import ApiController, RESTController
 from .. import mgr
 from ..exceptions import DashboardException
 from ..services.auth import AuthManager, JwtManager
@@ -13,22 +12,13 @@ from ..services.auth import AuthManager, JwtManager
 
 logger = logging.getLogger('controllers.auth')
 
-AUTH_CHECK_SCHEMA = {
-    "username": (str, "Username"),
-    "permissions": ({
-        "cephfs": ([str], "")
-    }, "List of permissions acquired"),
-    "sso": (bool, "Uses single sign on?"),
-    "pwdUpdateRequired": (bool, "Is password update required?")
-}
-
 
 @ApiController('/auth', secure=False)
-@ControllerDoc("Initiate a session with Ceph", "Auth")
 class Auth(RESTController):
     """
     Provide authenticates and returns JWT token.
     """
+
     def create(self, username, password):
         user_data = AuthManager.authenticate(username, password)
         user_perms, pwd_expiration_date, pwd_update_required = None, None, None
@@ -57,11 +47,10 @@ class Auth(RESTController):
                                  component='auth')
 
     @RESTController.Collection('POST')
-    @allow_empty_body
     def logout(self):
         logger.debug('Logout successful')
         token = JwtManager.get_token_from_header()
-        JwtManager.blocklist_token(token)
+        JwtManager.blacklist_token(token)
         redirect_url = '#/login'
         if mgr.SSO_DB.protocol == 'saml2':
             redirect_url = 'auth/saml2/slo'
@@ -74,10 +63,7 @@ class Auth(RESTController):
             return 'auth/saml2/login'
         return '#/login'
 
-    @RESTController.Collection('POST', query_params=['token'])
-    @EndpointDoc("Check token Authentication",
-                 parameters={'token': (str, 'Authentication Token')},
-                 responses={201: AUTH_CHECK_SCHEMA})
+    @RESTController.Collection('POST')
     def check(self, token):
         if token:
             user = JwtManager.get_user(token)

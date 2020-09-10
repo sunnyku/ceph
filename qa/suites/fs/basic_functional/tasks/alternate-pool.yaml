@@ -1,7 +1,7 @@
 
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - bad backtrace
       - object missing on disk
       - error reading table object

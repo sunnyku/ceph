@@ -19,7 +19,7 @@ describe('TimerService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(TimerService);
+    service = TestBed.get(TimerService);
     receivedData = [];
   });
 

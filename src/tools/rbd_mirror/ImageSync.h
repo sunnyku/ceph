@@ -12,6 +12,7 @@
 #include "tools/rbd_mirror/image_sync/Types.h"
 
 class Context;
+class ContextWQ;
 namespace journal { class Journaler; }
 namespace librbd { template <typename> class DeepCopyRequest; }
 

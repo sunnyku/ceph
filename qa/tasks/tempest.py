@@ -1,9 +1,10 @@
 """
 Deploy and configure Tempest for Teuthology
 """
-import configparser
 import contextlib
 import logging
+
+from six.moves import configparser
 
 from teuthology import misc as teuthology
 from teuthology import contextutil
@@ -59,6 +60,15 @@ def download(ctx, config):
         sha1 = cconf.get('sha1')
         if sha1 is not None:
             run_in_tempest_dir(ctx, client, [ 'git', 'reset', '--hard', sha1 ])
+
+        # tox.ini contains a dead link, replace it with the new one
+        from_url = 'https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt'
+        to_url = 'https://opendev.org/openstack/requirements/raw/branch/stable/pike/upper-constraints.txt'
+        run_in_tempest_dir(ctx, client, [
+                'sed', '-i',
+                run.Raw('"s|{}|{}|"'.format(from_url, to_url)),
+                'tox.ini'
+            ])
     try:
         yield
     finally:
@@ -148,8 +158,8 @@ def run_tempest(ctx, config):
     log.info('Configuring Tempest')
 
     for (client, cconf) in config.items():
-        blocklist = cconf.get('blocklist', [])
-        assert isinstance(blocklist, list)
+        blacklist = cconf.get('blacklist', [])
+        assert isinstance(blacklist, list)
         run_in_tempest_venv(ctx, client,
             [
                 'tempest',
@@ -158,8 +168,10 @@ def run_tempest(ctx, config):
                 get_tempest_dir(ctx) + '/workspace.yaml',
                 '--workspace',
                 'rgw',
-                '--regex', '^tempest.api.object_storage',
-                '--black-regex', '|'.join(blocklist)
+                '--regex',
+                    '(tempest.api.object_storage)' +
+                    ''.join([ '(?!{blackitem})'.format(blackitem=blackitem)
+                        for blackitem in blacklist])
             ])
     try:
         yield
@@ -178,17 +190,13 @@ def task(ctx, config):
         ceph:
           conf:
             client:
-              rgw keystone api version: 3
+              rgw keystone admin token: ADMIN
               rgw keystone accepted roles: admin,Member
               rgw keystone implicit tenants: true
               rgw keystone accepted admin roles: admin
               rgw swift enforce content length: true
               rgw swift account in url: true
               rgw swift versioning enabled: true
-              rgw keystone admin domain: Default
-              rgw keystone admin user: admin
-              rgw keystone admin password: ADMIN
-              rgw keystone admin project: admin
       tasks:
       # typically, the task should be preceded with install, ceph, tox,
       # keystone and rgw. Tox and Keystone are specific requirements
@@ -219,7 +227,7 @@ def task(ctx, config):
             object-storage-feature-enabled:
               container_sync: false
               discoverability: false
-            blocklist:
+            blacklist:
               # please strip half of these items after merging PRs #15369
               # and #12704
               - .*test_list_containers_reverse_order.*

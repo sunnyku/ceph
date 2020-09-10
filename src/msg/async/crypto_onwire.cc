@@ -20,12 +20,8 @@ static constexpr const std::size_t AESGCM_TAG_LEN{16};
 static constexpr const std::size_t AESGCM_BLOCK_LEN{16};
 
 struct nonce_t {
-  ceph_le32 fixed;
-  ceph_le64 counter;
-
-  bool operator==(const nonce_t& rhs) const {
-    return !memcmp(this, &rhs, sizeof(*this));
-  }
+  std::uint32_t random_seq;
+  std::uint64_t random_rest;
 } __attribute__((packed));
 static_assert(sizeof(nonce_t) == AESGCM_IV_LEN);
 
@@ -39,20 +35,16 @@ class AES128GCM_OnWireTxHandler : public ceph::crypto::onwire::TxHandler {
   CephContext* const cct;
   std::unique_ptr<EVP_CIPHER_CTX, decltype(&::EVP_CIPHER_CTX_free)> ectx;
   ceph::bufferlist buffer;
-  nonce_t nonce, initial_nonce;
-  bool used_initial_nonce;
-  bool new_nonce_format;  // 64-bit counter?
+  nonce_t nonce;
   static_assert(sizeof(nonce) == AESGCM_IV_LEN);
 
 public:
   AES128GCM_OnWireTxHandler(CephContext* const cct,
 			    const key_t& key,
-			    const nonce_t& nonce,
-			    bool new_nonce_format)
+			    const nonce_t& nonce)
     : cct(cct),
       ectx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free),
-      nonce(nonce), initial_nonce(nonce), used_initial_nonce(false),
-      new_nonce_format(new_nonce_format) {
+      nonce(nonce) {
     ceph_assert_always(ectx);
     ceph_assert_always(key.size() * CHAR_BIT == 128);
 
@@ -68,48 +60,38 @@ public:
   }
 
   ~AES128GCM_OnWireTxHandler() override {
-    ::TOPNSPC::crypto::zeroize_for_security(&nonce, sizeof(nonce));
-    ::TOPNSPC::crypto::zeroize_for_security(&initial_nonce, sizeof(initial_nonce));
+    ::ceph::crypto::zeroize_for_security(&nonce, sizeof(nonce));
   }
 
-  void reset_tx_handler(const uint32_t* first, const uint32_t* last) override;
+  std::uint32_t calculate_segment_size(std::uint32_t size) override
+  {
+    return size;
+  }
+
+  void reset_tx_handler(
+    std::initializer_list<std::uint32_t> update_size_sequence) override;
 
   void authenticated_encrypt_update(const ceph::bufferlist& plaintext) override;
   ceph::bufferlist authenticated_encrypt_final() override;
 };
 
-void AES128GCM_OnWireTxHandler::reset_tx_handler(const uint32_t* first,
-                                                 const uint32_t* last)
+void AES128GCM_OnWireTxHandler::reset_tx_handler(
+  std::initializer_list<std::uint32_t> update_size_sequence)
 {
-  if (nonce == initial_nonce) {
-    if (used_initial_nonce) {
-      throw ceph::crypto::onwire::TxHandlerError("out of nonces");
-    }
-    used_initial_nonce = true;
-  }
-
   if(1 != EVP_EncryptInit_ex(ectx.get(), nullptr, nullptr, nullptr,
       reinterpret_cast<const unsigned char*>(&nonce))) {
     throw std::runtime_error("EVP_EncryptInit_ex failed");
   }
 
-  ceph_assert(buffer.get_append_buffer_unused_tail_length() == 0);
-  buffer.reserve(std::accumulate(first, last, AESGCM_TAG_LEN));
+  buffer.reserve(std::accumulate(std::begin(update_size_sequence),
+    std::end(update_size_sequence), AESGCM_TAG_LEN));
 
-  if (!new_nonce_format) {
-    // msgr2.0: 32-bit counter followed by 64-bit fixed field,
-    // susceptible to overflow!
-    nonce.fixed = nonce.fixed + 1;
-  } else {
-    nonce.counter = nonce.counter + 1;
-  }
+  ++nonce.random_seq;
 }
 
 void AES128GCM_OnWireTxHandler::authenticated_encrypt_update(
   const ceph::bufferlist& plaintext)
 {
-  ceph_assert(buffer.get_append_buffer_unused_tail_length() >=
-              plaintext.length());
   auto filler = buffer.append_hole(plaintext.length());
 
   for (const auto& plainbuf : plaintext.buffers()) {
@@ -136,8 +118,6 @@ void AES128GCM_OnWireTxHandler::authenticated_encrypt_update(
 ceph::bufferlist AES128GCM_OnWireTxHandler::authenticated_encrypt_final()
 {
   int final_len = 0;
-  ceph_assert(buffer.get_append_buffer_unused_tail_length() ==
-              AESGCM_BLOCK_LEN);
   auto filler = buffer.append_hole(AESGCM_BLOCK_LEN);
   if(1 != EVP_EncryptFinal_ex(ectx.get(),
 	reinterpret_cast<unsigned char*>(filler.c_str()),
@@ -162,18 +142,19 @@ ceph::bufferlist AES128GCM_OnWireTxHandler::authenticated_encrypt_final()
 
 // RX PART
 class AES128GCM_OnWireRxHandler : public ceph::crypto::onwire::RxHandler {
+  CephContext* const cct;
   std::unique_ptr<EVP_CIPHER_CTX, decltype(&::EVP_CIPHER_CTX_free)> ectx;
   nonce_t nonce;
-  bool new_nonce_format;  // 64-bit counter?
   static_assert(sizeof(nonce) == AESGCM_IV_LEN);
 
 public:
   AES128GCM_OnWireRxHandler(CephContext* const cct,
 			    const key_t& key,
-			    const nonce_t& nonce,
-			    bool new_nonce_format)
-    : ectx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free),
-      nonce(nonce), new_nonce_format(new_nonce_format) {
+			    const nonce_t& nonce)
+    : cct(cct),
+      ectx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free),
+      nonce(nonce)
+  {
     ceph_assert_always(ectx);
     ceph_assert_always(key.size() * CHAR_BIT == 128);
 
@@ -189,15 +170,19 @@ public:
   }
 
   ~AES128GCM_OnWireRxHandler() override {
-    ::TOPNSPC::crypto::zeroize_for_security(&nonce, sizeof(nonce));
+    ::ceph::crypto::zeroize_for_security(&nonce, sizeof(nonce));
   }
 
   std::uint32_t get_extra_size_at_final() override {
     return AESGCM_TAG_LEN;
   }
   void reset_rx_handler() override;
-  void authenticated_decrypt_update(ceph::bufferlist& bl) override;
-  void authenticated_decrypt_update_final(ceph::bufferlist& bl) override;
+  ceph::bufferlist authenticated_decrypt_update(
+    ceph::bufferlist&& ciphertext,
+    std::uint32_t alignment) override;
+  ceph::bufferlist authenticated_decrypt_update_final(
+    ceph::bufferlist&& ciphertext,
+    std::uint32_t alignment) override;
 };
 
 void AES128GCM_OnWireRxHandler::reset_rx_handler()
@@ -206,46 +191,68 @@ void AES128GCM_OnWireRxHandler::reset_rx_handler()
 	reinterpret_cast<const unsigned char*>(&nonce))) {
     throw std::runtime_error("EVP_DecryptInit_ex failed");
   }
-
-  if (!new_nonce_format) {
-    // msgr2.0: 32-bit counter followed by 64-bit fixed field,
-    // susceptible to overflow!
-    nonce.fixed = nonce.fixed + 1;
-  } else {
-    nonce.counter = nonce.counter + 1;
-  }
+  ++nonce.random_seq;
 }
 
-void AES128GCM_OnWireRxHandler::authenticated_decrypt_update(
-  ceph::bufferlist& bl)
+ceph::bufferlist AES128GCM_OnWireRxHandler::authenticated_decrypt_update(
+  ceph::bufferlist&& ciphertext,
+  std::uint32_t alignment)
 {
-  // discard cached crcs as we will be writing through c_str()
-  bl.invalidate_crc();
-  for (auto& buf : bl.buffers()) {
-    auto p = reinterpret_cast<unsigned char*>(const_cast<char*>(buf.c_str()));
+  ceph_assert(ciphertext.length() > 0);
+  //ceph_assert(ciphertext.length() % AESGCM_BLOCK_LEN == 0);
+
+  // NOTE: we might consider in-place transformations in the future. AFAIK
+  // OpenSSL's might sustain that but lack of clear confirmation postpones.
+  auto plainnode = ceph::buffer::ptr_node::create(buffer::create_aligned(
+    ciphertext.length(), alignment));
+  auto* plainbuf = reinterpret_cast<unsigned char*>(plainnode->c_str());
+
+  for (const auto& cipherbuf : ciphertext.buffers()) {
+    // XXX: Why int?
     int update_len = 0;
 
-    if (1 != EVP_DecryptUpdate(ectx.get(), p, &update_len, p, buf.length())) {
+    if (1 != EVP_DecryptUpdate(ectx.get(),
+	plainbuf,
+	&update_len,
+	reinterpret_cast<const unsigned char*>(cipherbuf.c_str()),
+	cipherbuf.length())) {
       throw std::runtime_error("EVP_DecryptUpdate failed");
     }
     ceph_assert_always(update_len >= 0);
-    ceph_assert(static_cast<unsigned>(update_len) == buf.length());
+    ceph_assert(cipherbuf.length() == static_cast<unsigned>(update_len));
+
+    plainbuf += update_len;
   }
+
+  ceph::bufferlist outbl;
+  outbl.push_back(std::move(plainnode));
+  return outbl;
 }
 
-void AES128GCM_OnWireRxHandler::authenticated_decrypt_update_final(
-  ceph::bufferlist& bl)
+
+ceph::bufferlist AES128GCM_OnWireRxHandler::authenticated_decrypt_update_final(
+  ceph::bufferlist&& ciphertext_and_tag,
+  std::uint32_t alignment)
 {
-  unsigned orig_len = bl.length();
-  ceph_assert(orig_len >= AESGCM_TAG_LEN);
+  const auto cnt_len = ciphertext_and_tag.length();
+  ceph_assert(cnt_len >= AESGCM_TAG_LEN);
 
   // decrypt optional data. Caller is obliged to provide only signature but it
   // may supply ciphertext as well. Combining the update + final is reflected
   // combined together.
+  ceph::bufferlist plainbl;
   ceph::bufferlist auth_tag;
-  bl.splice(orig_len - AESGCM_TAG_LEN, AESGCM_TAG_LEN, &auth_tag);
-  if (bl.length() > 0) {
-    authenticated_decrypt_update(bl);
+  {
+    const auto tag_off = cnt_len - AESGCM_TAG_LEN;
+    ceph::bufferlist ciphertext;
+    ciphertext_and_tag.splice(0, tag_off, &ciphertext);
+
+    // the rest is the signature (a.k.a auth tag)
+    auth_tag = std::move(ciphertext_and_tag);
+
+    if (ciphertext.length()) {
+      plainbl = authenticated_decrypt_update(std::move(ciphertext), alignment);
+    }
   }
 
   // we need to ensure the tag is stored in continuous memory.
@@ -259,17 +266,23 @@ void AES128GCM_OnWireRxHandler::authenticated_decrypt_update_final(
   {
     int final_len = 0;
     if (0 >= EVP_DecryptFinal_ex(ectx.get(), nullptr, &final_len)) {
+      ldout(cct, 15) << __func__
+		     << " plainbl.length()=" << plainbl.length()
+		     << " final_len=" << final_len
+		     << dendl;
       throw MsgAuthError();
+    } else {
+      ceph_assert_always(final_len == 0);
+      ceph_assert_always(plainbl.length() + final_len + AESGCM_TAG_LEN == cnt_len);
     }
-    ceph_assert_always(final_len == 0);
-    ceph_assert(bl.length() + AESGCM_TAG_LEN == orig_len);
   }
+
+  return plainbl;
 }
 
 ceph::crypto::onwire::rxtx_t ceph::crypto::onwire::rxtx_t::create_handler_pair(
   CephContext* cct,
   const AuthConnectionMeta& auth_meta,
-  bool new_nonce_format,
   bool crossed)
 {
   if (auth_meta.is_mode_secure()) {
@@ -297,9 +310,9 @@ ceph::crypto::onwire::rxtx_t ceph::crypto::onwire::rxtx_t::create_handler_pair(
 
     return {
       std::make_unique<AES128GCM_OnWireRxHandler>(
-	cct, key, crossed ? tx_nonce : rx_nonce, new_nonce_format),
+	cct, key, crossed ? tx_nonce : rx_nonce),
       std::make_unique<AES128GCM_OnWireTxHandler>(
-	cct, key, crossed ? rx_nonce : tx_nonce, new_nonce_format)
+	cct, key, crossed ? rx_nonce : tx_nonce)
     };
   } else {
     return { nullptr, nullptr };

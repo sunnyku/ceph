@@ -10,10 +10,11 @@ import {
   AlertmanagerNotification,
   PrometheusRuleGroup
 } from '../models/prometheus-alerts';
+import { ApiModule } from './api.module';
 import { SettingsService } from './settings.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: ApiModule
 })
 export class PrometheusService {
   private baseURL = 'api/prometheus';

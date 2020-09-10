@@ -4,7 +4,11 @@
 
 This guide describes installing Ceph packages manually. This procedure
 is only for users who are not installing with a deployment tool such as
-``cephadm``, ``chef``, ``juju``, etc. 
+``ceph-deploy``, ``chef``, ``juju``, etc. 
+
+.. tip:: You can also use ``ceph-deploy`` to install Ceph packages, which may
+   be more convenient since you can install ``ceph`` on multiple hosts with
+   a single command.
 
 
 Installing with APT

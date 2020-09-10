@@ -1,7 +1,7 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { ErasureCodeProfile } from '../models/erasure-code-profile';
 import { ErasureCodeProfileService } from './erasure-code-profile.service';
 
@@ -13,12 +13,12 @@ describe('ErasureCodeProfileService', () => {
 
   configureTestBed({
     imports: [HttpClientTestingModule],
-    providers: [ErasureCodeProfileService]
+    providers: [ErasureCodeProfileService, i18nProviders]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(ErasureCodeProfileService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(ErasureCodeProfileService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {

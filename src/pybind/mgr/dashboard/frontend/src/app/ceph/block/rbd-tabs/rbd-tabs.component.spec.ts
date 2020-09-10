@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 
 import { configureTestBed } from '../../../../testing/unit-test-helper';
 import { RbdTabsComponent } from './rbd-tabs.component';
@@ -11,7 +11,7 @@ describe('RbdTabsComponent', () => {
   let fixture: ComponentFixture<RbdTabsComponent>;
 
   configureTestBed({
-    imports: [RouterTestingModule, NgbNavModule],
+    imports: [TabsModule.forRoot(), RouterTestingModule],
     declarations: [RbdTabsComponent]
   });
 

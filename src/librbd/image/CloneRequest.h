@@ -14,9 +14,6 @@ class Context;
 using librados::IoCtx;
 
 namespace librbd {
-
-namespace asio { struct ContextWQ; }
-
 namespace image {
 
 template <typename ImageCtxT = ImageCtx>
@@ -33,7 +30,7 @@ public:
       cls::rbd::MirrorImageMode mirror_image_mode,
       const std::string &non_primary_global_image_id,
       const std::string &primary_mirror_uuid,
-      asio::ContextWQ *op_work_queue, Context *on_finish) {
+      ContextWQ *op_work_queue, Context *on_finish) {
     return new CloneRequest(config, parent_io_ctx, parent_image_id,
                             parent_snap_name, parent_snap_namespace,
                             parent_snap_id, c_ioctx, c_name, c_id, c_options,
@@ -51,7 +48,7 @@ public:
                cls::rbd::MirrorImageMode mirror_image_mode,
                const std::string &non_primary_global_image_id,
                const std::string &primary_mirror_uuid,
-               asio::ContextWQ *op_work_queue, Context *on_finish);
+               ContextWQ *op_work_queue, Context *on_finish);
 
   void send();
 
@@ -119,7 +116,7 @@ private:
   const std::string m_non_primary_global_image_id;
   const std::string m_primary_mirror_uuid;
   NoOpProgressContext m_no_op;
-  asio::ContextWQ *m_op_work_queue;
+  ContextWQ *m_op_work_queue;
   Context *m_on_finish;
 
   CephContext *m_cct;

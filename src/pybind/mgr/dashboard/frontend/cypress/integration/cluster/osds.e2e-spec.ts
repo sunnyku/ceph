@@ -42,8 +42,8 @@ describe('OSDs page', () => {
       });
 
       it('should show the correct text for the tab labels', () => {
-        cy.get('#tabset-osd-details > li > a').then(($tabs) => {
-          const tabHeadings = $tabs.map((_i, e) => e.textContent).get();
+        cy.get('#tabset-osd-details > div > tab').then(($tabs) => {
+          const tabHeadings = $tabs.map((_i, e) => e.getAttribute('heading')).get();
 
           expect(tabHeadings).to.eql([
             'Devices',
@@ -51,6 +51,7 @@ describe('OSDs page', () => {
             'Metadata',
             'Device health',
             'Performance counter',
+            'Histogram',
             'Performance Details'
           ]);
         });

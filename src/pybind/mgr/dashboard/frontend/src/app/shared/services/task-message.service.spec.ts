@@ -1,9 +1,9 @@
-import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import _ from 'lodash';
+import * as _ from 'lodash';
 
-import { configureTestBed } from '../../../testing/unit-test-helper';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { configureTestBed, i18nProviders } from '../../../testing/unit-test-helper';
 import { RbdService } from '../api/rbd.service';
 import { FinishedTask } from '../models/finished-task';
 import { TaskException } from '../models/task-exception';
@@ -14,12 +14,12 @@ describe('TaskManagerMessageService', () => {
   let finishedTask: FinishedTask;
 
   configureTestBed({
-    providers: [TaskMessageService, RbdService],
+    providers: [TaskMessageService, i18nProviders, RbdService],
     imports: [HttpClientTestingModule]
   });
 
   beforeEach(() => {
-    service = TestBed.inject(TaskMessageService);
+    service = TestBed.get(TaskMessageService);
     finishedTask = new FinishedTask();
     finishedTask.duration = 30;
   });
@@ -247,7 +247,7 @@ describe('TaskManagerMessageService', () => {
         finishedTask.name = 'rbd/trash/restore';
         testMessages(
           new TaskMessageOperation('Restoring', 'restore', 'Restored'),
-          `image '${metadata.image_id_spec}' into '${metadata.new_image_name}'`
+          `image '${metadata.image_id_spec}' ` + `into '${metadata.new_image_name}'`
         );
         testErrorCode(17, `Image name '${metadata.new_image_name}' is already in use.`);
       });

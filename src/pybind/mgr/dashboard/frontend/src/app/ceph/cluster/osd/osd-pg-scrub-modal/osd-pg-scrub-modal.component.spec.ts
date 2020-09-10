@@ -4,11 +4,11 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef, ModalModule } from 'ngx-bootstrap/modal';
 import { ToastrModule } from 'ngx-toastr';
 import { of as observableOf } from 'rxjs';
 
-import { configureTestBed } from '../../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../../testing/unit-test-helper';
 import { ConfigurationService } from '../../../../shared/api/configuration.service';
 import { NotificationType } from '../../../../shared/enum/notification-type.enum';
 import { NotificationService } from '../../../../shared/services/notification.service';
@@ -23,20 +23,21 @@ describe('OsdPgScrubModalComponent', () => {
   configureTestBed({
     imports: [
       HttpClientTestingModule,
+      ModalModule.forRoot(),
       ReactiveFormsModule,
       RouterTestingModule,
       SharedModule,
       ToastrModule.forRoot()
     ],
     declarations: [OsdPgScrubModalComponent],
-    providers: [NgbActiveModal]
+    providers: [BsModalRef, i18nProviders]
   });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(OsdPgScrubModalComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    configurationService = TestBed.inject(ConfigurationService);
+    configurationService = TestBed.get(ConfigurationService);
   });
 
   it('should create', () => {
@@ -47,8 +48,8 @@ describe('OsdPgScrubModalComponent', () => {
     let notificationService: NotificationService;
 
     beforeEach(() => {
-      spyOn(TestBed.inject(Router), 'navigate').and.stub();
-      notificationService = TestBed.inject(NotificationService);
+      spyOn(TestBed.get(Router), 'navigate').and.stub();
+      notificationService = TestBed.get(NotificationService);
       spyOn(notificationService, 'show');
     });
 

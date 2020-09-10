@@ -80,7 +80,7 @@ class Scan(object):
             device = os.readlink(path)
         else:
             device = path
-        lvm_device = lvm.get_first_lv(filters={'lv_path': device})
+        lvm_device = lvm.get_lv_from_argument(device)
         if lvm_device:
             device_uuid = lvm_device.lv_uuid
         else:
@@ -375,11 +375,8 @@ class Scan(object):
             self.encryption_metadata = encryption.legacy_encrypted(args.osd_path)
             self.is_encrypted = self.encryption_metadata['encrypted']
 
-            if self.encryption_metadata['device'] != "tmpfs":
-                device = Device(self.encryption_metadata['device'])
-                if not device.is_ceph_disk_member:
-                    terminal.warning("Ignoring %s because it's not a ceph-disk created osd." % path)
-                else:
-                    self.scan(args)
-            else:
+            device = Device(self.encryption_metadata['device'])
+            if not device.is_ceph_disk_member:
                 terminal.warning("Ignoring %s because it's not a ceph-disk created osd." % path)
+            else:
+                self.scan(args)

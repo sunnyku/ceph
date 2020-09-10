@@ -45,12 +45,7 @@ public:
    * Get future for pg with a bool indicating whether it's already being
    * created.
    */
-  std::pair<blocking_future<Ref<PG>>, bool> wait_for_pg(spg_t pgid);
-
-  /**
-   * get PG in non-blocking manner
-   */
-  Ref<PG> get_pg(spg_t pgid);
+  std::pair<blocking_future<Ref<PG>>, bool> get_pg(spg_t pgid, bool wait=true);
 
   /**
    * Set creating

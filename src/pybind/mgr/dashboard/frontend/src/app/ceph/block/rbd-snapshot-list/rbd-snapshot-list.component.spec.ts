@@ -3,29 +3,28 @@ import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testin
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { NgbModalModule, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
-import { NgBootstrapFormValidationModule } from 'ng-bootstrap-form-validation';
-import { MockComponent } from 'ng-mocks';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
+import { TabsModule } from 'ngx-bootstrap/tabs';
 import { ToastrModule } from 'ngx-toastr';
 import { Subject, throwError as observableThrowError } from 'rxjs';
 
 import {
   configureTestBed,
   expectItemTasks,
+  i18nProviders,
   PermissionHelper
 } from '../../../../testing/unit-test-helper';
+import { ApiModule } from '../../../shared/api/api.module';
 import { RbdService } from '../../../shared/api/rbd.service';
 import { ComponentsModule } from '../../../shared/components/components.module';
-import { CriticalConfirmationModalComponent } from '../../../shared/components/critical-confirmation-modal/critical-confirmation-modal.component';
 import { ActionLabelsI18n } from '../../../shared/constants/app.constants';
 import { DataTableModule } from '../../../shared/datatable/datatable.module';
 import { TableActionsComponent } from '../../../shared/datatable/table-actions/table-actions.component';
-import { CdTableSelection } from '../../../shared/models/cd-table-selection';
 import { ExecutingTask } from '../../../shared/models/executing-task';
 import { Permissions } from '../../../shared/models/permissions';
 import { PipesModule } from '../../../shared/pipes/pipes.module';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
-import { ModalService } from '../../../shared/services/modal.service';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { SummaryService } from '../../../shared/services/summary.service';
 import { TaskListService } from '../../../shared/services/task-list.service';
@@ -48,38 +47,31 @@ describe('RbdSnapshotListComponent', () => {
     }
   };
 
-  configureTestBed(
-    {
-      declarations: [
-        RbdSnapshotListComponent,
-        RbdTabsComponent,
-        MockComponent(RbdSnapshotFormModalComponent)
-      ],
-      imports: [
-        BrowserAnimationsModule,
-        ComponentsModule,
-        DataTableModule,
-        HttpClientTestingModule,
-        PipesModule,
-        RouterTestingModule,
-        NgbNavModule,
-        ToastrModule.forRoot(),
-        NgbModalModule,
-        NgBootstrapFormValidationModule.forRoot()
-      ],
-      providers: [
-        { provide: AuthStorageService, useValue: fakeAuthStorageService },
-        TaskListService
-      ]
-    },
-    [CriticalConfirmationModalComponent]
-  );
+  configureTestBed({
+    declarations: [RbdSnapshotListComponent, RbdTabsComponent],
+    imports: [
+      ApiModule,
+      BrowserAnimationsModule,
+      ComponentsModule,
+      DataTableModule,
+      HttpClientTestingModule,
+      PipesModule,
+      RouterTestingModule,
+      TabsModule.forRoot(),
+      ToastrModule.forRoot()
+    ],
+    providers: [
+      { provide: AuthStorageService, useValue: fakeAuthStorageService },
+      TaskListService,
+      i18nProviders
+    ]
+  });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(RbdSnapshotListComponent);
     component = fixture.componentInstance;
     component.ngOnChanges();
-    summaryService = TestBed.inject(SummaryService);
+    summaryService = TestBed.get(SummaryService);
   });
 
   it('should create', () => {
@@ -95,8 +87,8 @@ describe('RbdSnapshotListComponent', () => {
 
     beforeEach(() => {
       fixture.detectChanges();
-      const modalService = TestBed.inject(ModalService);
-      const actionLabelsI18n = TestBed.inject(ActionLabelsI18n);
+      const i18n = TestBed.get(I18n);
+      const actionLabelsI18n = TestBed.get(ActionLabelsI18n);
       called = false;
       rbdService = new RbdService(null, null);
       notificationService = new NotificationService(null, null, null);
@@ -104,7 +96,7 @@ describe('RbdSnapshotListComponent', () => {
       authStorageService.set('user', '', { 'rbd-image': ['create', 'read', 'update', 'delete'] });
       component = new RbdSnapshotListComponent(
         authStorageService,
-        modalService,
+        null,
         null,
         null,
         rbdService,
@@ -112,20 +104,20 @@ describe('RbdSnapshotListComponent', () => {
         notificationService,
         null,
         null,
+        i18n,
         actionLabelsI18n
       );
       spyOn(rbdService, 'deleteSnapshot').and.returnValue(observableThrowError({ status: 500 }));
       spyOn(notificationService, 'notifyTask').and.stub();
+      component.modalRef = new BsModalRef();
+      component.modalRef.content = {
+        stopLoadingSpinner: () => (called = true)
+      };
     });
 
     it('should call stopLoadingSpinner if the request fails', fakeAsync(() => {
-      component.updateSelection(new CdTableSelection([{ name: 'someName' }]));
       expect(called).toBe(false);
-      component.deleteSnapshotModal();
-      spyOn(component.modalRef.componentInstance, 'stopLoadingSpinner').and.callFake(() => {
-        called = true;
-      });
-      component.modalRef.componentInstance.submitAction();
+      component._asyncTask('deleteSnapshot', 'rbd/snap/delete', 'someName');
       tick(500);
       expect(called).toBe(true);
     }));
@@ -198,16 +190,17 @@ describe('RbdSnapshotListComponent', () => {
     beforeEach(() => {
       component.poolName = 'pool01';
       component.rbdName = 'image01';
-      spyOn(TestBed.inject(ModalService), 'show').and.callFake(() => {
-        const ref: any = {};
-        ref.componentInstance = new RbdSnapshotFormModalComponent(
+      spyOn(TestBed.get(BsModalService), 'show').and.callFake(() => {
+        const ref = new BsModalRef();
+        ref.content = new RbdSnapshotFormModalComponent(
           null,
           null,
           null,
           null,
-          TestBed.inject(ActionLabelsI18n)
+          TestBed.get(I18n),
+          TestBed.get(ActionLabelsI18n)
         );
-        ref.componentInstance.onSubmit = new Subject();
+        ref.content.onSubmit = new Subject();
         return ref;
       });
     });
@@ -215,13 +208,13 @@ describe('RbdSnapshotListComponent', () => {
     it('should display old snapshot name', () => {
       component.selection.selected = [{ name: 'oldname' }];
       component.openEditSnapshotModal();
-      expect(component.modalRef.componentInstance.snapName).toBe('oldname');
-      expect(component.modalRef.componentInstance.editing).toBeTruthy();
+      expect(component.modalRef.content.snapName).toBe('oldname');
+      expect(component.modalRef.content.editing).toBeTruthy();
     });
 
     it('should display suggested snapshot name', () => {
       component.openCreateSnapshotModal();
-      expect(component.modalRef.componentInstance.snapName).toMatch(
+      expect(component.modalRef.content.snapName).toMatch(
         RegExp(`^${component.rbdName}_[\\d-]+T[\\d.:]+[\\+-][\\d:]+$`)
       );
     });

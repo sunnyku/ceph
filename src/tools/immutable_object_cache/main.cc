@@ -14,7 +14,7 @@
 ceph::immutable_obj_cache::CacheController *cachectl = nullptr;
 
 void usage() {
-  std::cout << "usage: ceph-immutable-object-cache [options...]" << std::endl;
+  std::cout << "usage: cache controller [options...]" << std::endl;
   std::cout << "options:\n";
   std::cout << "  -m monaddress[:port]      connect to specified monitor\n";
   std::cout << "  --keyring=<path>          path to keyring for local "
@@ -67,10 +67,7 @@ int main(int argc, const char **argv) {
     goto cleanup;
   }
 
-  r = cachectl->run();
-  if (r < 0) {
-    goto cleanup;
-  }
+  cachectl->run();
 
  cleanup:
   unregister_async_signal_handler(SIGHUP, sighup_handler);

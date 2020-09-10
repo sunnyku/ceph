@@ -1,23 +1,25 @@
 import { Component, NgModule, NO_ERRORS_SCHEMA, TemplateRef, ViewChild } from '@angular/core';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { NgForm, ReactiveFormsModule } from '@angular/forms';
+import { By } from '@angular/platform-browser';
 
-import { NgbActiveModal, NgbModalModule, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef, BsModalService, ModalModule } from 'ngx-bootstrap/modal';
 import { Observable, Subscriber, timer as observableTimer } from 'rxjs';
 
 import { configureTestBed, modalServiceShow } from '../../../../testing/unit-test-helper';
 import { DirectivesModule } from '../../directives/directives.module';
-import { ModalService } from '../../services/modal.service';
 import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
 import { LoadingPanelComponent } from '../loading-panel/loading-panel.component';
 import { CriticalConfirmationModalComponent } from './critical-confirmation-modal.component';
 
-@NgModule({})
+@NgModule({
+  entryComponents: [CriticalConfirmationModalComponent]
+})
 export class MockModule {}
 
 @Component({
   template: `
-    <button type="button" class="btn btn-danger" (click)="openCtrlDriven()">
+    <button type="button" class="btn btn-secondary" (click)="openCtrlDriven()">
       <i class="fa fa-times"></i>Deletion Ctrl-Test
       <ng-template #ctrlDescription>
         The spinner is handled by the controller if you have use the modal as ViewChild in order to
@@ -25,7 +27,7 @@ export class MockModule {}
       </ng-template>
     </button>
 
-    <button type="button" class="btn btn-danger" (click)="openModalDriven()">
+    <button type="button" class="btn btn-secondary" (click)="openModalDriven()">
       <i class="fa fa-times"></i>Deletion Modal-Test
       <ng-template #modalDescription>
         The spinner is handled by the modal if your given deletion function returns a Observable.
@@ -40,23 +42,27 @@ class MockComponent {
   modalDescription: TemplateRef<any>;
   someData = [1, 2, 3, 4, 5];
   finished: number[];
-  ctrlRef: NgbModalRef;
-  modalRef: NgbModalRef;
+  ctrlRef: BsModalRef;
+  modalRef: BsModalRef;
 
   // Normally private - public was needed for the tests
-  constructor(public modalService: ModalService) {}
+  constructor(public modalService: BsModalService) {}
 
   openCtrlDriven() {
     this.ctrlRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      submitAction: this.fakeDeleteController.bind(this),
-      bodyTemplate: this.ctrlDescription
+      initialState: {
+        submitAction: this.fakeDeleteController.bind(this),
+        bodyTemplate: this.ctrlDescription
+      }
     });
   }
 
   openModalDriven() {
     this.modalRef = this.modalService.show(CriticalConfirmationModalComponent, {
-      submitActionObservable: this.fakeDelete(),
-      bodyTemplate: this.modalDescription
+      initialState: {
+        submitActionObservable: this.fakeDelete(),
+        bodyTemplate: this.modalDescription
+      }
     });
   }
 
@@ -78,7 +84,7 @@ class MockComponent {
   fakeDeleteController() {
     observableTimer(100).subscribe(() => {
       this.finish();
-      this.ctrlRef.close();
+      this.ctrlRef.hide();
     });
   }
 }
@@ -87,29 +93,28 @@ describe('CriticalConfirmationModalComponent', () => {
   let mockComponent: MockComponent;
   let component: CriticalConfirmationModalComponent;
   let mockFixture: ComponentFixture<MockComponent>;
+  let fixture: ComponentFixture<CriticalConfirmationModalComponent>;
 
-  configureTestBed(
-    {
-      declarations: [
-        MockComponent,
-        CriticalConfirmationModalComponent,
-        LoadingPanelComponent,
-        AlertPanelComponent
-      ],
-      schemas: [NO_ERRORS_SCHEMA],
-      imports: [ReactiveFormsModule, MockModule, DirectivesModule, NgbModalModule],
-      providers: [NgbActiveModal]
-    },
-    [CriticalConfirmationModalComponent]
-  );
+  configureTestBed({
+    declarations: [
+      MockComponent,
+      CriticalConfirmationModalComponent,
+      LoadingPanelComponent,
+      AlertPanelComponent
+    ],
+    schemas: [NO_ERRORS_SCHEMA],
+    imports: [ModalModule.forRoot(), ReactiveFormsModule, MockModule, DirectivesModule],
+    providers: [BsModalRef]
+  });
 
   beforeEach(() => {
     mockFixture = TestBed.createComponent(MockComponent);
     mockComponent = mockFixture.componentInstance;
     spyOn(mockComponent.modalService, 'show').and.callFake((_modalComp, config) => {
       const data = modalServiceShow(CriticalConfirmationModalComponent, config);
-      component = data.componentInstance;
-      return data;
+      fixture = data.fixture;
+      component = data.component;
+      return data.ref;
     });
     mockComponent.openCtrlDriven();
     mockFixture.detectChanges();
@@ -117,6 +122,18 @@ describe('CriticalConfirmationModalComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should focus the checkbox form field', (done) => {
+    fixture.detectChanges();
+    fixture.whenStable().then(() => {
+      const focused = fixture.debugElement.query(By.css(':focus'));
+      expect(focused.attributes.id).toBe('confirmation');
+      expect(focused.attributes.type).toBe('checkbox');
+      const element = document.getElementById('confirmation');
+      expect(element === document.activeElement).toBeTruthy();
+      done();
+    });
   });
 
   it('should throw an error if no action is defined', () => {
@@ -146,16 +163,16 @@ describe('CriticalConfirmationModalComponent', () => {
       ctrl.setValue(value);
       ctrl.markAsDirty();
       ctrl.updateValueAndValidity();
-      mockFixture.detectChanges();
+      fixture.detectChanges();
     };
 
     it('should test hideModal', () => {
-      expect(component.activeModal).toBeTruthy();
+      expect(component.modalRef).toBeTruthy();
       expect(component.hideModal).toBeTruthy();
-      spyOn(component.activeModal, 'close').and.callThrough();
-      expect(component.activeModal.close).not.toHaveBeenCalled();
+      spyOn(component.modalRef, 'hide').and.callThrough();
+      expect(component.modalRef.hide).not.toHaveBeenCalled();
       component.hideModal();
-      expect(component.activeModal.close).toHaveBeenCalled();
+      expect(component.modalRef.hide).toHaveBeenCalled();
     });
 
     describe('validate confirmation', () => {
@@ -189,7 +206,7 @@ describe('CriticalConfirmationModalComponent', () => {
       describe('Controller driven', () => {
         beforeEach(() => {
           spyOn(component, 'submitAction').and.callThrough();
-          spyOn(mockComponent.ctrlRef, 'close').and.callThrough();
+          spyOn(mockComponent.ctrlRef, 'hide').and.callThrough();
         });
 
         it('should test fake deletion that closes modal', fakeAsync(() => {
@@ -199,13 +216,13 @@ describe('CriticalConfirmationModalComponent', () => {
           component.callSubmitAction();
           expect(component.stopLoadingSpinner).not.toHaveBeenCalled();
           expect(component.hideModal).not.toHaveBeenCalled();
-          expect(mockComponent.ctrlRef.close).not.toHaveBeenCalled();
+          expect(mockComponent.ctrlRef.hide).not.toHaveBeenCalled();
           expect(component.submitAction).toHaveBeenCalled();
           expect(mockComponent.finished).toBe(undefined);
           // After deletionCall
           tick(2000);
           expect(component.hideModal).not.toHaveBeenCalled();
-          expect(mockComponent.ctrlRef.close).toHaveBeenCalled();
+          expect(mockComponent.ctrlRef.hide).toHaveBeenCalled();
           expect(mockComponent.finished).toEqual([6, 7, 8, 9]);
         }));
       });

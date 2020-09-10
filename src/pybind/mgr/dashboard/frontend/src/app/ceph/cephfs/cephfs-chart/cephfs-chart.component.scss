@@ -1,8 +1,8 @@
-@use './src/styles/chart-tooltip';
+@import 'chart-tooltip.scss';
 
 .chart-container {
-  height: 500px;
-  margin-bottom: 20px;
   position: relative;
+  height: 500px;
   width: 100%;
+  margin-bottom: 20px;
 }

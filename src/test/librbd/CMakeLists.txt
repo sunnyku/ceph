@@ -43,7 +43,6 @@ target_link_libraries(rbd_test_mock PUBLIC
 set(unittest_librbd_srcs
   test_main.cc
   test_mock_fixture.cc
-  test_mock_ConfigWatcher.cc
   test_mock_DeepCopyRequest.cc
   test_mock_ExclusiveLock.cc
   test_mock_Journal.cc
@@ -52,8 +51,7 @@ set(unittest_librbd_srcs
   test_mock_TrashWatcher.cc
   test_mock_Watcher.cc
   cache/test_mock_WriteAroundObjectDispatch.cc
-  cache/test_mock_ParentCacheObjectDispatch.cc
-  crypto/test_mock_CryptoObjectDispatch.cc
+  cache/test_mock_ParentImageCache.cc
   deep_copy/test_mock_ImageCopyRequest.cc
   deep_copy/test_mock_MetadataCopyRequest.cc
   deep_copy/test_mock_ObjectCopyRequest.cc
@@ -128,24 +126,22 @@ add_executable(unittest_librbd
   ${unittest_librbd_srcs}
   $<TARGET_OBJECTS:common_texttable_obj>)
 target_compile_definitions(unittest_librbd PRIVATE "TEST_LIBRBD_INTERNALS")
-add_dependencies(unittest_librbd
-  cls_journal
-  cls_lock
-  cls_rbd)
 target_link_libraries(unittest_librbd
-  rbd_test
-  rbd_api
-  rbd_internal
-  rbd_test_mock
+  cls_rbd
+  cls_rbd_client
+  cls_lock
+  cls_lock_client
   journal
   journal_test_mock
-  cls_rbd_client
-  cls_lock_client
+  cls_journal
   cls_journal_client
-  rbd_types
   rados_test_stub
   librados
-  ceph_immutable_object_cache_lib
+  rbd_test
+  rbd_test_mock
+  rbd_api
+  rbd_internal
+  rbd_types
   osdc
   ceph-common
   global
@@ -162,7 +158,6 @@ target_link_libraries(ceph_test_librbd
   journal
   cls_journal_client
   cls_rbd_client
-  libneorados
   librados
   ${UNITTEST_LIBS}
   radostest)

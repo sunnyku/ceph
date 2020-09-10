@@ -1,6 +1,8 @@
 /*
  * rbd-fuse
  */
+#define FUSE_USE_VERSION 30
+
 #include "include/int_types.h"
 
 #include <stdio.h>
@@ -9,6 +11,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fuse.h>
 #include <pthread.h>
 #include <string.h>
 #include <sys/types.h>

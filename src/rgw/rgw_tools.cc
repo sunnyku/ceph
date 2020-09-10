@@ -12,6 +12,7 @@
 #include "include/stringify.h"
 
 #include "rgw_common.h"
+#include "rgw_rados.h"
 #include "rgw_tools.h"
 #include "rgw_acl_s3.h"
 #include "rgw_op.h"
@@ -19,7 +20,6 @@
 #include "rgw_aio_throttle.h"
 #include "rgw_compression.h"
 #include "rgw_zone.h"
-#include "rgw_sal_rados.h"
 #include "osd/osd_types.h"
 
 #include "services/svc_sys_obj.h"
@@ -248,7 +248,7 @@ thread_local bool is_asio_thread = false;
 
 int rgw_rados_operate(librados::IoCtx& ioctx, const std::string& oid,
                       librados::ObjectReadOperation *op, bufferlist* pbl,
-                      optional_yield y, int flags)
+                      optional_yield y)
 {
 #ifdef HAVE_BOOST_CONTEXT
   // given a yield_context, call async_operate() to yield the coroutine instead
@@ -257,8 +257,7 @@ int rgw_rados_operate(librados::IoCtx& ioctx, const std::string& oid,
     auto& context = y.get_io_context();
     auto& yield = y.get_yield_context();
     boost::system::error_code ec;
-    auto bl = librados::async_operate(
-      context, ioctx, oid, op, flags, yield[ec]);
+    auto bl = librados::async_operate(context, ioctx, oid, op, 0, yield[ec]);
     if (pbl) {
       *pbl = std::move(bl);
     }
@@ -269,26 +268,25 @@ int rgw_rados_operate(librados::IoCtx& ioctx, const std::string& oid,
     dout(20) << "WARNING: blocking librados call" << dendl;
   }
 #endif
-  return ioctx.operate(oid, op, nullptr, flags);
+  return ioctx.operate(oid, op, nullptr);
 }
 
 int rgw_rados_operate(librados::IoCtx& ioctx, const std::string& oid,
-                      librados::ObjectWriteOperation *op, optional_yield y,
-		      int flags)
+                      librados::ObjectWriteOperation *op, optional_yield y)
 {
 #ifdef HAVE_BOOST_CONTEXT
   if (y) {
     auto& context = y.get_io_context();
     auto& yield = y.get_yield_context();
     boost::system::error_code ec;
-    librados::async_operate(context, ioctx, oid, op, flags, yield[ec]);
+    librados::async_operate(context, ioctx, oid, op, 0, yield[ec]);
     return -ec.value();
   }
   if (is_asio_thread) {
     dout(20) << "WARNING: blocking librados call" << dendl;
   }
 #endif
-  return ioctx.operate(oid, op, flags);
+  return ioctx.operate(oid, op);
 }
 
 int rgw_rados_notify(librados::IoCtx& ioctx, const std::string& oid,
@@ -489,17 +487,15 @@ int RGWDataAccess::Object::put(bufferlist& data,
   rgw::BlockingAioThrottle aio(store->ctx()->_conf->rgw_put_obj_min_window_size);
 
   RGWObjectCtx obj_ctx(store);
-  std::unique_ptr<rgw::sal::RGWBucket> b;
-  store->get_bucket(NULL, bucket_info, &b);
-  std::unique_ptr<rgw::sal::RGWObject> obj = b->get_object(key);
+  rgw_obj obj(bucket_info.bucket, key);
 
   auto& owner = bucket->policy.get_owner();
 
   string req_id = store->svc()->zone_utils->unique_id(store->getRados()->get_new_req_id());
 
   using namespace rgw::putobj;
-  AtomicObjectProcessor processor(&aio, store, b.get(), nullptr,
-                                  owner.get_id(), obj_ctx, obj->get_obj(), olh_epoch,
+  AtomicObjectProcessor processor(&aio, store, bucket_info, nullptr,
+                                  owner.get_id(), obj_ctx, obj, olh_epoch,
                                   req_id, dpp, y);
 
   int ret = processor.prepare(y);

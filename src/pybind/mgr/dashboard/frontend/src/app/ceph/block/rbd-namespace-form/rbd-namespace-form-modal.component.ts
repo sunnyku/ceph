@@ -7,7 +7,8 @@ import {
   ValidatorFn
 } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { Subject } from 'rxjs';
 
 import { PoolService } from '../../../shared/api/pool.service';
@@ -38,11 +39,12 @@ export class RbdNamespaceFormModalComponent implements OnInit {
   public onSubmit: Subject<void>;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public modalRef: BsModalRef,
     private authStorageService: AuthStorageService,
     private notificationService: NotificationService,
     private poolService: PoolService,
-    private rbdService: RbdService
+    private rbdService: RbdService,
+    private i18n: I18n
   ) {
     this.poolPermission = this.authStorageService.getPermissions().pool;
     this.createForm();
@@ -130,9 +132,12 @@ export class RbdNamespaceFormModalComponent implements OnInit {
       .then(() => {
         this.notificationService.show(
           NotificationType.success,
-          $localize`Created namespace '${pool}/${namespace}'`
+          this.i18n(`Created namespace '{{pool}}/{{namespace}}'`, {
+            pool: pool,
+            namespace: namespace
+          })
         );
-        this.activeModal.close();
+        this.modalRef.hide();
         this.onSubmit.next();
       })
       .catch(() => {

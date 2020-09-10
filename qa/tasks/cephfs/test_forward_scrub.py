@@ -7,8 +7,10 @@ This is *not* the real testing for forward scrub, which will need to test
 how the functionality responds to damaged metadata.
 
 """
-import logging
 import json
+
+import logging
+import six
 
 from collections import namedtuple
 from io import BytesIO
@@ -35,7 +37,7 @@ class TestForwardScrub(CephFSTestCase):
         output = self.fs.rados(["getxattr", obj, attr], pool=pool,
                                stdout_data=BytesIO())
         strlen = struct.unpack('i', output[0:4])[0]
-        return output[4:(4 + strlen)].decode(encoding='ascii')
+        return six.ensure_str(output[4:(4 + strlen)], encoding='ascii')
 
     def _get_paths_to_ino(self):
         inos = {}

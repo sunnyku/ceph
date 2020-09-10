@@ -19,7 +19,6 @@ class Context;
 namespace librbd {
 
 class ImageCtx;
-namespace asio { struct ContextWQ; }
 
 namespace deep_copy {
 
@@ -39,7 +38,7 @@ public:
                                  librados::snap_t dst_snap_id_start,
                                  bool flatten,
                                  const deep_copy::ObjectNumber &object_number,
-                                 asio::ContextWQ *work_queue,
+                                 ContextWQ *work_queue,
                                  SnapSeqs *snap_seqs,
                                  deep_copy::Handler *handler,
                                  Context *on_finish) {
@@ -54,7 +53,7 @@ public:
                   librados::snap_t src_snap_id_end,
                   librados::snap_t dst_snap_id_start,
                   bool flatten, const deep_copy::ObjectNumber &object_number,
-                  asio::ContextWQ *work_queue, SnapSeqs *snap_seqs,
+                  ContextWQ *work_queue, SnapSeqs *snap_seqs,
                   deep_copy::Handler *handler, Context *on_finish);
   ~DeepCopyRequest();
 
@@ -98,7 +97,7 @@ private:
   librados::snap_t m_dst_snap_id_start;
   bool m_flatten;
   deep_copy::ObjectNumber m_object_number;
-  asio::ContextWQ *m_work_queue;
+  ContextWQ *m_work_queue;
   SnapSeqs *m_snap_seqs;
   deep_copy::Handler *m_handler;
   Context *m_on_finish;

@@ -4,7 +4,7 @@
 
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - MDS cache is too large
       - \(MDS_CACHE_OVERSIZED\)
 tasks:

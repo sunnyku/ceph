@@ -79,7 +79,7 @@ To modify a sync policy group:
                                         --status=<enabled | allowed | forbidden> \
 
 
-Show Sync Policy Group
+Modify Sync Policy Group
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 To show a sync policy group:

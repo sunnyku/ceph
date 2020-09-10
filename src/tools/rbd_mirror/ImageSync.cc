@@ -12,7 +12,6 @@
 #include "librbd/ImageState.h"
 #include "librbd/Utils.h"
 #include "librbd/internal.h"
-#include "librbd/asio/ContextWQ.h"
 #include "librbd/deep_copy/Handler.h"
 #include "tools/rbd_mirror/Threads.h"
 #include "tools/rbd_mirror/image_sync/SyncPointCreateRequest.h"

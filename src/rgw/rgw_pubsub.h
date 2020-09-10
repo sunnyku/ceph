@@ -8,6 +8,7 @@
 #include "services/svc_sys_obj.h"
 #include "rgw_tools.h"
 #include "rgw_zone.h"
+#include "rgw_rados.h"
 #include "rgw_notify_event_type.h"
 #include <boost/container/flat_map.hpp>
 
@@ -367,22 +368,20 @@ struct rgw_pubsub_sub_dest {
   std::string push_endpoint_args;
   std::string arn_topic;
   bool stored_secret = false;
-  bool persistent = false;
 
   void encode(bufferlist& bl) const {
-    ENCODE_START(5, 1, bl);
+    ENCODE_START(4, 1, bl);
     encode(bucket_name, bl);
     encode(oid_prefix, bl);
     encode(push_endpoint, bl);
     encode(push_endpoint_args, bl);
     encode(arn_topic, bl);
     encode(stored_secret, bl);
-    encode(persistent, bl);
     ENCODE_FINISH(bl);
   }
 
   void decode(bufferlist::const_iterator& bl) {
-    DECODE_START(5, bl);
+    DECODE_START(4, bl);
     decode(bucket_name, bl);
     decode(oid_prefix, bl);
     decode(push_endpoint, bl);
@@ -394,9 +393,6 @@ struct rgw_pubsub_sub_dest {
     }
     if (struct_v >= 4) {
         decode(stored_secret, bl);
-    }
-    if (struct_v >= 5) {
-        decode(persistent, bl);
     }
     DECODE_FINISH(bl);
   }

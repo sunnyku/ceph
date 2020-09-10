@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormGroup } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import * as _ from 'lodash';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { OsdService } from '../../../../shared/api/osd.service';
 import { NotificationType } from '../../../../shared/enum/notification-type.enum';
@@ -23,90 +24,96 @@ export class OsdFlagsModalComponent implements OnInit {
   allFlags = {
     noin: {
       code: 'noin',
-      name: $localize`No In`,
+      name: this.i18n('No In'),
       value: false,
-      description: $localize`OSDs that were previously marked out will not be marked back in when they start`
+      description: this.i18n(
+        'OSDs that were previously marked out will not be marked back in when they start'
+      )
     },
     noout: {
       code: 'noout',
-      name: $localize`No Out`,
+      name: this.i18n('No Out'),
       value: false,
-      description: $localize`OSDs will not automatically be marked out after the configured interval`
+      description: this.i18n(
+        'OSDs will not automatically be marked out after the configured interval'
+      )
     },
     noup: {
       code: 'noup',
-      name: $localize`No Up`,
+      name: this.i18n('No Up'),
       value: false,
-      description: $localize`OSDs are not allowed to start`
+      description: this.i18n('OSDs are not allowed to start')
     },
     nodown: {
       code: 'nodown',
-      name: $localize`No Down`,
+      name: this.i18n('No Down'),
       value: false,
-      description: $localize`OSD failure reports are being ignored, such that the monitors will not mark OSDs down`
+      description: this.i18n(
+        'OSD failure reports are being ignored, such that the monitors will not mark OSDs down'
+      )
     },
     pause: {
       code: 'pause',
-      name: $localize`Pause`,
+      name: this.i18n('Pause'),
       value: false,
-      description: $localize`Pauses reads and writes`
+      description: this.i18n('Pauses reads and writes')
     },
     noscrub: {
       code: 'noscrub',
-      name: $localize`No Scrub`,
+      name: this.i18n('No Scrub'),
       value: false,
-      description: $localize`Scrubbing is disabled`
+      description: this.i18n('Scrubbing is disabled')
     },
     'nodeep-scrub': {
       code: 'nodeep-scrub',
-      name: $localize`No Deep Scrub`,
+      name: this.i18n('No Deep Scrub'),
       value: false,
-      description: $localize`Deep Scrubbing is disabled`
+      description: this.i18n('Deep Scrubbing is disabled')
     },
     nobackfill: {
       code: 'nobackfill',
-      name: $localize`No Backfill`,
+      name: this.i18n('No Backfill'),
       value: false,
-      description: $localize`Backfilling of PGs is suspended`
+      description: this.i18n('Backfilling of PGs is suspended')
     },
     norebalance: {
       code: 'norebalance',
-      name: $localize`No Rebalance`,
+      name: this.i18n('No Rebalance'),
       value: false,
-      description: $localize`OSD will choose not to backfill unless PG is also degraded`
+      description: this.i18n('OSD will choose not to backfill unless PG is also degraded')
     },
     norecover: {
       code: 'norecover',
-      name: $localize`No Recover`,
+      name: this.i18n('No Recover'),
       value: false,
-      description: $localize`Recovery of PGs is suspended`
+      description: this.i18n('Recovery of PGs is suspended')
     },
     sortbitwise: {
       code: 'sortbitwise',
-      name: $localize`Bitwise Sort`,
+      name: this.i18n('Bitwise Sort'),
       value: false,
-      description: $localize`Use bitwise sort`,
+      description: this.i18n('Use bitwise sort'),
       disabled: true
     },
     purged_snapdirs: {
       code: 'purged_snapdirs',
-      name: $localize`Purged Snapdirs`,
+      name: this.i18n('Purged Snapdirs'),
       value: false,
-      description: $localize`OSDs have converted snapsets`,
+      description: this.i18n('OSDs have converted snapsets'),
       disabled: true
     },
     recovery_deletes: {
       code: 'recovery_deletes',
-      name: $localize`Recovery Deletes`,
+      name: this.i18n('Recovery Deletes'),
       value: false,
-      description: $localize`Deletes performed during recovery instead of peering`,
+      description: this.i18n('Deletes performed during recovery instead of peering'),
       disabled: true
     },
     pglog_hardlimit: {
       code: 'pglog_hardlimit',
-      name: $localize`PG Log Hard Limit`,
+      name: this.i18n('PG Log Hard Limit'),
       value: false,
-      description: $localize`Puts a hard limit on pg log length`,
+      description: this.i18n('Puts a hard limit on pg log length'),
       disabled: true
     }
   };
@@ -114,10 +121,11 @@ export class OsdFlagsModalComponent implements OnInit {
   unknownFlags: string[] = [];
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     private authStorageService: AuthStorageService,
     private osdService: OsdService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private i18n: I18n
   ) {
     this.permissions = this.authStorageService.getPermissions();
   }
@@ -143,11 +151,11 @@ export class OsdFlagsModalComponent implements OnInit {
 
     this.osdService.updateFlags(newFlags).subscribe(
       () => {
-        this.notificationService.show(NotificationType.success, $localize`Updated OSD Flags`);
-        this.activeModal.close();
+        this.notificationService.show(NotificationType.success, this.i18n('Updated OSD Flags'));
+        this.bsModalRef.hide();
       },
       () => {
-        this.activeModal.close();
+        this.bsModalRef.hide();
       }
     );
   }

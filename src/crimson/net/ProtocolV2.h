@@ -13,13 +13,12 @@ namespace crimson::net {
 
 class ProtocolV2 final : public Protocol {
  public:
-  ProtocolV2(ChainedDispatchersRef& dispatcher,
+  ProtocolV2(Dispatcher& dispatcher,
              SocketConnection& conn,
              SocketMessenger& messenger);
   ~ProtocolV2() override;
-  void print(std::ostream&) const final;
+
  private:
-  void on_closed() override;
   bool is_connected() const override;
 
   void start_connect(const entity_addr_t& peer_addr,
@@ -85,7 +84,7 @@ class ProtocolV2 final : public Protocol {
 
   template <typename Func>
   void gated_execute(const char* what, Func&& func) {
-    gate.dispatch_in_background(what, *this, [this, &func] {
+    gated_dispatch(what, [this, &func] {
       execution_done = seastar::futurize_invoke(std::forward<Func>(func));
       return execution_done.get_future();
     });
@@ -122,10 +121,10 @@ class ProtocolV2 final : public Protocol {
   seastar::future<> write_flush(bufferlist&& buf);
 
   ceph::crypto::onwire::rxtx_t session_stream_handlers;
-  ceph::msgr::v2::FrameAssembler tx_frame_asm{&session_stream_handlers, false};
-  ceph::msgr::v2::FrameAssembler rx_frame_asm{&session_stream_handlers, false};
-  ceph::bufferlist rx_preamble;
-  ceph::msgr::v2::segment_bls_t rx_segments_data;
+  boost::container::static_vector<ceph::msgr::v2::segment_t,
+				  ceph::msgr::v2::MAX_NUM_SEGMENTS> rx_segments_desc;
+  boost::container::static_vector<ceph::bufferlist,
+				  ceph::msgr::v2::MAX_NUM_SEGMENTS> rx_segments_data;
 
   size_t get_current_msg_size() const;
   seastar::future<ceph::msgr::v2::Tag> read_main_preamble();
@@ -202,8 +201,6 @@ class ProtocolV2 final : public Protocol {
                          uint64_t new_client_cookie,
                          entity_name_t new_peer_name,
                          uint64_t new_conn_features,
-                         bool tx_is_rev1,
-                         bool rx_is_rev1,
                          // reconnect
                          uint64_t new_connect_seq,
                          uint64_t new_msg_seq);

@@ -1,5 +1,5 @@
 add_executable(crimson-osd
-  backfill_state.cc
+  chained_dispatchers.cc
   ec_backend.cc
   heartbeat.cc
   main.cc
@@ -31,13 +31,11 @@ add_executable(crimson-osd
   ${PROJECT_SOURCE_DIR}/src/objclass/class_api.cc
   ${PROJECT_SOURCE_DIR}/src/osd/ClassHandler.cc
   ${PROJECT_SOURCE_DIR}/src/osd/osd_op_util.cc
-  ${PROJECT_SOURCE_DIR}/src/osd/OSDCap.cc
   ${PROJECT_SOURCE_DIR}/src/osd/PeeringState.cc
   ${PROJECT_SOURCE_DIR}/src/osd/PGPeeringEvent.cc
   ${PROJECT_SOURCE_DIR}/src/osd/PGStateUtils.cc
   ${PROJECT_SOURCE_DIR}/src/osd/MissingLoc.cc
   ${PROJECT_SOURCE_DIR}/src/osd/PGLog.cc
-  ${PROJECT_SOURCE_DIR}/src/osd/recovery_types.cc
   ${PROJECT_SOURCE_DIR}/src/osd/osd_perf_counters.cc
   watch.cc
   )

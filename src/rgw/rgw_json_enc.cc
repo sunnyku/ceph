@@ -2,13 +2,13 @@
 // vim: ts=8 sw=2 smarttab ft=cpp
 
 #include "rgw_common.h"
+#include "rgw_rados.h"
 #include "rgw_zone.h"
 #include "rgw_log.h"
 #include "rgw_acl.h"
 #include "rgw_acl_s3.h"
 #include "rgw_cache.h"
 #include "rgw_bucket.h"
-#include "rgw_datalog.h"
 #include "rgw_keystone.h"
 #include "rgw_basic_types.h"
 #include "rgw_op.h"
@@ -1260,7 +1260,6 @@ void RGWZoneParams::dump(Formatter *f) const
   encode_json("placement_pools", placement_pools, f);
   encode_json("tier_config", tier_config, f);
   encode_json("realm_id", realm_id, f);
-  encode_json("notif_pool", notif_pool, f);
 }
 
 void RGWZoneStorageClass::dump(Formatter *f) const
@@ -1357,7 +1356,6 @@ void RGWZoneParams::decode_json(JSONObj *obj)
   JSONDecoder::decode_json("placement_pools", placement_pools, obj);
   JSONDecoder::decode_json("tier_config", tier_config, obj);
   JSONDecoder::decode_json("realm_id", realm_id, obj);
-  JSONDecoder::decode_json("notif_pool", notif_pool, obj);
 
 }
 
@@ -1825,7 +1823,7 @@ void rgw_bucket_shard_sync_info::dump(Formatter *f) const
  * provided by string_ref since Boost 1.54 as it's defined outside of the std
  * namespace. I hope we'll remove it soon - just after merging the Matt's PR
  * for bundled Boost. It would allow us to forget that CentOS 7 has Boost 1.53. */
-static inline std::string to_string(const std::string_view& s)
+static inline std::string to_string(const boost::string_ref& s)
 {
   return std::string(s.data(), s.length());
 }
@@ -1996,17 +1994,6 @@ void lc_op::dump(Formatter *f) const
   if (obj_tags) {
     f->dump_object("obj_tags", *obj_tags);
   }
-  f->open_object_section("transitions");  
-  for(auto& [storage_class, transition] : transitions) {
-    f->dump_object(storage_class, transition);
-  }
-  f->close_section();
-
-  f->open_object_section("noncur_transitions");  
-  for (auto& [storage_class, transition] : noncur_transitions) {
-    f->dump_object(storage_class, transition);
-  }
-  f->close_section();
 }
 
 void LCFilter::dump(Formatter *f) const
@@ -2030,17 +2017,6 @@ void LCRule::dump(Formatter *f) const
   f->dump_object("noncur_expiration", noncur_expiration);
   f->dump_object("mp_expiration", mp_expiration);
   f->dump_object("filter", filter);
-  f->open_object_section("transitions");  
-  for (auto& [storage_class, transition] : transitions) {
-    f->dump_object(storage_class, transition);
-  }
-  f->close_section();
-
-  f->open_object_section("noncur_transitions");  
-  for (auto& [storage_class, transition] : noncur_transitions) {
-    f->dump_object(storage_class, transition);
-  }
-  f->close_section();
   f->dump_bool("dm_expiration", dm_expiration);
 }
 
@@ -2097,3 +2073,4 @@ void rgw_user::dump(Formatter *f) const
 {
   ::encode_json("user", *this, f);
 }
+

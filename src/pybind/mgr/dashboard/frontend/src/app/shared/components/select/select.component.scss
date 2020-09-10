@@ -1,22 +1,19 @@
-@use './src/styles/defaults/bootstrap-defaults' as bd;
+@import 'defaults.scss';
 
 .select-menu-item {
-  border-bottom: 1px solid bd.$datatable-divider-color;
-  cursor: pointer;
   display: block;
-  font-size: 1rem;
-
+  cursor: pointer;
+  border-bottom: 1px solid $color-transparent;
+  font-size: 12px;
   &:hover {
-    background-color: bd.$gray-200;
+    background-color: $color-whitesmoke-gray;
   }
 }
-
 .select-menu-item-icon {
   float: left;
   padding: 0.5em;
   width: 3em;
 }
-
 .select-menu-item-content {
   padding: 0.5em;
 }

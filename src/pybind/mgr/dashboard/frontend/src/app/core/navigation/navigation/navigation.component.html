@@ -1,5 +1,4 @@
 <cd-pwd-expiration-notification></cd-pwd-expiration-notification>
-<cd-telemetry-notification></cd-telemetry-notification>
 <cd-notifications-sidebar></cd-notifications-sidebar>
 
 <div class="cd-navbar-top">
@@ -12,7 +11,7 @@
 
     <a class="navbar-brand ml-2"
        href="#">
-      <img src="assets/Ceph_Ceph_Logo_with_text_white.svg"
+      <img src="assets/Ceph_Logo_Standard_RGB_White_120411_fa.png"
            alt="Ceph" />
     </a>
 
@@ -26,7 +25,8 @@
       </span>
     </button>
 
-    <div class="collapse navbar-collapse">
+    <div class="collapse navbar-collapse"
+         [collapse]="isCollapsed">
       <ul class="nav navbar-nav cd-navbar-utility my-2 my-md-0">
         <ng-container *ngTemplateOutlet="cd_utilities"> </ng-container>
       </ul>
@@ -70,7 +70,7 @@
   </li>
 </ng-template>
 
-<ng-template #cd_menu>
+<ng-template #cd_menu >
   <ng-container *ngIf="enabledFeature$ | async as enabledFeature">
     <!-- Dashboard -->
     <li routerLinkActive="active"
@@ -96,7 +96,8 @@
         <ng-container i18n>Cluster</ng-container>
       </a>
       <ul class="list-unstyled"
-          [ngbCollapse]="displayedSubMenu !== 'cluster'">
+          [collapse]="displayedSubMenu !== 'cluster'"
+          [isAnimated]="true">
         <li routerLinkActive="active"
             class="tc_submenuitem tc_submenuitem_hosts"
             *ngIf="permissions.hosts.read">
@@ -186,7 +187,8 @@
       </a>
 
       <ul class="list-unstyled"
-          [ngbCollapse]="displayedSubMenu !== 'block'">
+          [collapse]="displayedSubMenu !== 'block'"
+          [isAnimated]="true">
         <li routerLinkActive="active"
             class="tc_submenuitem tc_submenuitem_block_images"
             *ngIf="permissions.rbdImage.read && enabledFeature.rbd">
@@ -244,7 +246,8 @@
         <ng-container i18n>Object Gateway</ng-container>
       </a>
       <ul class="list-unstyled"
-          [ngbCollapse]="displayedSubMenu !== 'rgw'">
+          [collapse]="displayedSubMenu !== 'rgw'"
+          [isAnimated]="true">
         <li routerLinkActive="active"
             class="tc_submenuitem tc_submenuitem_rgw_daemons">
           <a i18n

@@ -16,8 +16,8 @@ describe('PrometheusService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(PrometheusService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(PrometheusService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {
@@ -175,7 +175,7 @@ describe('PrometheusService', () => {
 
     beforeEach(() => {
       x = false;
-      TestBed.inject(SettingsService)['settings'] = {};
+      TestBed.get(SettingsService)['settings'] = {};
       service.ifAlertmanagerConfigured(
         (v) => (x = v),
         () => (x = [])
@@ -216,7 +216,7 @@ describe('PrometheusService', () => {
 
     beforeEach(() => {
       x = false;
-      TestBed.inject(SettingsService)['settings'] = {};
+      TestBed.get(SettingsService)['settings'] = {};
       service.ifPrometheusConfigured(
         (v) => (x = v),
         () => (x = [])

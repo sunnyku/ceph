@@ -14,8 +14,8 @@ describe('RgwSiteService', () => {
   });
 
   beforeEach(() => {
-    service = TestBed.inject(RgwSiteService);
-    httpTesting = TestBed.inject(HttpTestingController);
+    service = TestBed.get(RgwSiteService);
+    httpTesting = TestBed.get(HttpTestingController);
   });
 
   afterEach(() => {
@@ -26,15 +26,9 @@ describe('RgwSiteService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should contain site endpoint in GET request', () => {
-    service.get().subscribe();
-    const req = httpTesting.expectOne(service['url']);
+  it('should call getPlacementTargets', () => {
+    service.getPlacementTargets().subscribe();
+    const req = httpTesting.expectOne('api/rgw/site?query=placement-targets');
     expect(req.request.method).toBe('GET');
-  });
-
-  it('should add query param in GET request', () => {
-    const query = 'placement-targets';
-    service.get(query).subscribe();
-    httpTesting.expectOne(`${service['url']}?query=placement-targets`);
   });
 });

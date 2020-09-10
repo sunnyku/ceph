@@ -11,6 +11,8 @@ export class AuthStorageService {
   isPwdDisplayedSource = new BehaviorSubject(false);
   isPwdDisplayed$ = this.isPwdDisplayedSource.asObservable();
 
+  constructor() {}
+
   set(
     username: string,
     token: string,

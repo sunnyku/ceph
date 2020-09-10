@@ -19,46 +19,23 @@ if(APPLE)
   list(APPEND fuse_suffixes osxfuse)
 endif()
 
-find_package(PkgConfig QUIET)
-if(PKG_CONFIG_FOUND)
-  pkg_search_module(PKG_FUSE QUIET ${fuse_names})
+find_path(
+  FUSE_INCLUDE_DIR
+  NAMES fuse_common.h fuse_lowlevel.h fuse.h
+  PATH_SUFFIXES ${fuse_suffixes})
 
-  string(REGEX REPLACE "([0-9]+)\.([0-9]+)\.([0-9]+)"
-    "\\1" FUSE_MAJOR_VERSION "${PKG_FUSE_VERSION}")
-  string(REGEX REPLACE "([0-9]+)\.([0-9]+)\.([0-9]+)"
-    "\\2" FUSE_MINOR_VERSION "${PKG_FUSE_VERSION}")
+find_library(FUSE_LIBRARIES
+  NAMES ${fuse_names}
+  PATHS /usr/local/lib64 /usr/local/lib)
 
-  find_path(
-    FUSE_INCLUDE_DIR
-    NAMES fuse_common.h fuse_lowlevel.h fuse.h
-    HINTS ${PKG_FUSE_INCLUDE_DIRS}
-    PATH_SUFFIXES ${fuse_suffixes}
-    NO_DEFAULT_PATH)
-
-  find_library(FUSE_LIBRARIES
-    NAMES ${fuse_names}
-    HINTS ${PKG_FUSE_LIBDIR}
-    NO_DEFAULT_PATH)
-else()
-  find_path(
-    FUSE_INCLUDE_DIR
-    NAMES fuse_common.h fuse_lowlevel.h fuse.h
-    PATH_SUFFIXES ${fuse_suffixes})
-
-  find_library(FUSE_LIBRARIES
-    NAMES ${fuse_names}
-    PATHS /usr/local/lib64 /usr/local/lib)
-
-  foreach(ver "MAJOR" "MINOR")
-    file(STRINGS "${FUSE_INCLUDE_DIR}/fuse_common.h" fuse_ver_${ver}_line
-      REGEX "^#define[\t ]+FUSE_${ver}_VERSION[\t ]+[0-9]+$")
-    string(REGEX REPLACE ".*#define[\t ]+FUSE_${ver}_VERSION[\t ]+([0-9]+)$"
-      "\\1" FUSE_${ver}_VERSION "${fuse_ver_${ver}_line}")
-  endforeach()
-endif()
-
+foreach(ver "MAJOR" "MINOR")
+  file(STRINGS "${FUSE_INCLUDE_DIR}/fuse_common.h" fuse_ver_${ver}_line
+    REGEX "^#define[\t ]+FUSE_${ver}_VERSION[\t ]+[0-9]+$")
+  string(REGEX REPLACE ".*#define[\t ]+FUSE_${ver}_VERSION[\t ]+([0-9]+)$"
+    "\\1" FUSE_VERSION_${ver} "${fuse_ver_${ver}_line}")
+endforeach()
 set(FUSE_VERSION
-  "${FUSE_MAJOR_VERSION}.${FUSE_MINOR_VERSION}")
+  "${FUSE_VERSION_MAJOR}.${FUSE_VERSION_MINOR}")
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(FUSE

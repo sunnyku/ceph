@@ -40,6 +40,7 @@ you may write data with one API and retrieve it with the other.
 .. toctree::
    :maxdepth: 1
 
+   Manual Install w/Civetweb <../../install/ceph-deploy/install-ceph-gateway>
    HTTP Frontends <frontends>
    Pool Placement and Storage Classes <placement>
    Multisite Configuration <multisite>
@@ -48,7 +49,6 @@ you may write data with one API and retrieve it with the other.
    Config Reference <config-ref>
    Admin Guide <admin>
    S3 API <s3>
-   Data caching and CDN <rgw-cache.rst>
    Swift API <swift>
    Admin Ops API <adminops>
    Python binding <api>
@@ -72,10 +72,8 @@ you may write data with one API and retrieve it with the other.
    Keycloak <keycloak>
    Role <role>
    Orphan List and Associated Tooliing <orphans>
-   OpenID Connect Provider <oidc>
    troubleshooting
    Manpage radosgw <../../man/8/radosgw>
    Manpage radosgw-admin <../../man/8/radosgw-admin>
    QAT Acceleration for Encryption and Compression <qat-accel>
-   S3-select <s3select>
 

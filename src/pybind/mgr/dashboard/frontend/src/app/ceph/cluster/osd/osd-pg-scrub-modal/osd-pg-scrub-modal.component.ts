@@ -1,6 +1,7 @@
 import { Component, ViewChild } from '@angular/core';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { I18n } from '@ngx-translate/i18n-polyfill';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { forkJoin as observableForkJoin } from 'rxjs';
 
 import { ConfigOptionComponent } from '../../../../shared/components/config-option/config-option.component';
@@ -34,13 +35,14 @@ export class OsdPgScrubModalComponent {
   advancedEnabled = false;
 
   constructor(
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
     private authStorageService: AuthStorageService,
     private notificationService: NotificationService,
+    private i18n: I18n,
     public actionLabels: ActionLabelsI18n
   ) {
     this.osdPgScrubForm = new CdFormGroup({});
-    this.resource = $localize`PG scrub options`;
+    this.resource = this.i18n('PG scrub options');
     this.action = this.actionLabels.EDIT;
     this.permissions = this.authStorageService.getPermissions();
   }
@@ -56,12 +58,12 @@ export class OsdPgScrubModalComponent {
       () => {
         this.notificationService.show(
           NotificationType.success,
-          $localize`Updated PG scrub options`
+          this.i18n('Updated PG scrub options')
         );
-        this.activeModal.close();
+        this.bsModalRef.hide();
       },
       () => {
-        this.activeModal.close();
+        this.bsModalRef.hide();
       }
     );
   }

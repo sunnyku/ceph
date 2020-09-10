@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
 import { PoolService } from '../../../shared/api/pool.service';
 import { RbdService } from '../../../shared/api/rbd.service';
@@ -25,7 +25,7 @@ export class RbdTrashPurgeModalComponent implements OnInit {
   constructor(
     private authStorageService: AuthStorageService,
     private rbdService: RbdService,
-    public activeModal: NgbActiveModal,
+    public modalRef: BsModalRef,
     private fb: CdFormBuilder,
     private poolService: PoolService,
     private taskWrapper: TaskWrapperService
@@ -60,13 +60,14 @@ export class RbdTrashPurgeModalComponent implements OnInit {
         }),
         call: this.rbdService.purgeTrash(poolName)
       })
-      .subscribe({
-        error: () => {
+      .subscribe(
+        undefined,
+        () => {
           this.purgeForm.setErrors({ cdSubmitButton: true });
         },
-        complete: () => {
-          this.activeModal.close();
+        () => {
+          this.modalRef.hide();
         }
-      });
+      );
   }
 }

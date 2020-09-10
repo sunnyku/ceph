@@ -7,6 +7,7 @@ import contextlib
 import json
 import logging
 import os
+import six
 import sys
 import tempfile
 import time
@@ -486,8 +487,8 @@ def test_objectstore(ctx, config, cli_remote, REP_POOL, REP_NAME, ec=False):
                                 log.error("failed with " +
                                           str(proc.exitstatus))
                                 log.error(" ".join([
-                                    proc.stdout.getvalue().decode(),
-                                    proc.stderr.getvalue().decode(),
+                                    six.ensure_str(proc.stdout.getvalue()),
+                                    six.ensure_str(proc.stderr.getvalue()),
                                     ]))
                                 ERRORS += 1
 
@@ -510,12 +511,12 @@ def test_objectstore(ctx, config, cli_remote, REP_POOL, REP_NAME, ec=False):
                 try:
                     info = remote.sh(cmd, wait=True)
                 except CommandFailedError as e:
-                    log.error("Failure of --op info command with %s",
-                              e.exitstatus)
+                    log.error("Failure of --op info command with {ret}".
+                              format(e.exitstatus))
                     ERRORS += 1
                     continue
                 if not str(pg) in info:
-                    log.error("Bad data from info: %s", info)
+                    log.error("Bad data from info: {info}".format(info=info))
                     ERRORS += 1
 
     log.info("Test pg logging")

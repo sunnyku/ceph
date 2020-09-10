@@ -6,7 +6,6 @@
 
 #include "mgr/MetricCollector.h"
 #include "mgr/OSDPerfMetricTypes.h"
-#include "mgr/MDSPerfMetricTypes.h"
 
 #define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_mgr
@@ -182,5 +181,3 @@ void MetricCollector<Query, Limit, Key, Report>::process_reports_generic(
 
 template class
 MetricCollector<OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey, OSDPerfMetricReport>;
-template class
-MetricCollector<MDSPerfMetricQuery, MDSPerfMetricLimit, MDSPerfMetricKey, MDSPerfMetrics>;

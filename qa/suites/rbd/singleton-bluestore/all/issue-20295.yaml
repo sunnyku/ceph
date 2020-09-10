@@ -6,7 +6,7 @@ roles:
 tasks:
 - install:
 - ceph:
-    log-ignorelist:
+    log-whitelist:
       - 'application not enabled'
 - workunit:
     timeout: 30m

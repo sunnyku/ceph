@@ -19,7 +19,7 @@
 
 // Write a pidfile with the current pid, using the configuration in the
 // provided conf structure.
-[[nodiscard]] int pidfile_write(std::string_view pid_file);
+int pidfile_write(std::string_view pid_file);
 
 // Remove the pid file that was previously written by pidfile_write.
 // This is safe to call in a signal handler context.

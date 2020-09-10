@@ -1,4 +1,5 @@
 import json
+import six
 from collections import defaultdict
 import datetime
 
@@ -43,7 +44,7 @@ class HealthCheckAccumulator(object):
         """
         changed = False
 
-        for check, info in checks.items():
+        for check, info in six.iteritems(checks):
 
             # only keep the icky stuff
             severity = info["severity"]

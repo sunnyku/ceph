@@ -17,7 +17,6 @@
 
 #include <list> // XXX
 #include <sstream>
-#include "xxhash.h"
 
 #define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_rgw
@@ -61,7 +60,7 @@ void RGWGC::finalize()
 
 int RGWGC::tag_index(const string& tag)
 {
-  return rgw_shards_mod(XXH64(tag.c_str(), tag.size(), seed), max_objs);
+  return rgw_shard_id(tag, max_objs);
 }
 
 int RGWGC::send_chain(cls_rgw_obj_chain& chain, const string& tag)

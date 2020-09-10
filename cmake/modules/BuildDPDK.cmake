@@ -118,14 +118,15 @@ function(do_export_dpdk dpdk_dir)
 
   list(APPEND dpdk_components
     bus_pci
+    cmdline
     eal
+    ethdev
     kvargs
     mbuf
     mempool
     mempool_ring
     pci
-    ring
-    telemetry)
+    ring)
   if(Seastar_DPDK)
     list(APPEND dpdk_components
       bus_vdev

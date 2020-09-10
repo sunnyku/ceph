@@ -7,13 +7,11 @@
 #include "cls/rbd/cls_rbd_client.h"
 #include "librbd/Operations.h"
 #include "librbd/internal.h"
-#include "librbd/Journal.h"
 #include "librbd/image/SetFlagsRequest.h"
 #include "librbd/io/AioCompletion.h"
 #include "librbd/mirror/EnableRequest.h"
 #include "librbd/journal/CreateRequest.h"
 #include "librbd/journal/Types.h"
-#include "librbd/journal/TypeTraits.h"
 #include "librbd/object_map/CreateRequest.h"
 #include "librbd/operation/EnableFeaturesRequest.h"
 #include "gmock/gmock.h"
@@ -30,12 +28,6 @@ struct MockOperationImageCtx : public MockImageCtx {
 };
 
 } // anonymous namespace
-
-template<>
-struct Journal<MockOperationImageCtx> {
-  static void get_work_queue(CephContext*, MockContextWQ**) {
-  }
-};
 
 namespace image {
 
@@ -91,11 +83,6 @@ public:
 };
 
 CreateRequest<MockOperationImageCtx> *CreateRequest<MockOperationImageCtx>::s_instance = nullptr;
-
-template <>
-struct TypeTraits<MockOperationImageCtx> {
-  typedef librbd::MockContextWQ ContextWQ;
-};
 
 } // namespace journal
 

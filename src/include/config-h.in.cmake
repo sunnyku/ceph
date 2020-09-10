@@ -75,9 +75,6 @@
 /* Defined if you have libaio */
 #cmakedefine HAVE_LIBAIO
 
-/* Defined if you have libzbd */
-#cmakedefine HAVE_LIBZBD
-
 /* Defined if you have liburing */
 #cmakedefine HAVE_LIBURING
 
@@ -89,12 +86,6 @@
 
 /* Define if you have fuse */
 #cmakedefine HAVE_LIBFUSE
-
-/* Define version major */
-#define CEPH_FUSE_MAJOR_VERSION @FUSE_MAJOR_VERSION@
-
-/* Define version minor */
-#define CEPH_FUSE_MINOR_VERSION @FUSE_MINOR_VERSION@
 
 /* Define to 1 if you have libxfs */
 #cmakedefine HAVE_LIBXFS 1
@@ -205,6 +196,9 @@
 /* Define to 1 if you have fdatasync. */
 #cmakedefine HAVE_FDATASYNC 1
 
+/* Defined if you have librocksdb enabled */
+#cmakedefine HAVE_LIBROCKSDB
+
 /* Define to 1 if you have the <valgrind/helgrind.h> header file. */
 #cmakedefine HAVE_VALGRIND_HELGRIND_H 1
 
@@ -219,9 +213,6 @@
 
 /* Define to 1 if you have sched.h. */
 #cmakedefine HAVE_SCHED 1
-
-/* Define to 1 if you have sigdescr_np. */
-#cmakedefine HAVE_SIGDESCR_NP 1
 
 /* Support SSE (Streaming SIMD Extensions) instructions */
 #cmakedefine HAVE_SSE

@@ -1,6 +1,6 @@
 overrides:
   ceph:
-    log-ignorelist:
+    log-whitelist:
       - must scrub before tier agent can activate
 tasks:
 - exec:

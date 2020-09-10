@@ -80,9 +80,9 @@ struct ImportDiffContext {
 class C_ImportDiff : public Context {
 public:
   C_ImportDiff(ImportDiffContext *idiffctx, bufferlist data, uint64_t offset,
-               uint64_t length, bool write_zeroes)
+               uint64_t length, bool discard)
     : m_idiffctx(idiffctx), m_data(data), m_offset(offset), m_length(length),
-      m_write_zeroes(write_zeroes) {
+      m_discard(discard) {
     // use block offset (stdin) or import file position to report
     // progress.
     if (m_idiffctx->fd == STDIN_FILENO) {
@@ -103,14 +103,11 @@ public:
       new librbd::RBD::AioCompletion(ctx, &utils::aio_context_callback);
 
     int r;
-    if (m_write_zeroes) {
-      r = m_idiffctx->image->aio_write_zeroes(m_offset, m_length,
-                                              aio_completion, 0U,
-                                              LIBRADOS_OP_FLAG_FADVISE_NOCACHE);
+    if (m_discard) {
+      r = m_idiffctx->image->aio_discard(m_offset, m_length, aio_completion);
     } else {
       r = m_idiffctx->image->aio_write2(m_offset, m_length, m_data,
-                                        aio_completion,
-                                        LIBRADOS_OP_FLAG_FADVISE_NOCACHE);
+                                        aio_completion, LIBRADOS_OP_FLAG_FADVISE_NOCACHE);
     }
 
     if (r < 0) {
@@ -132,7 +129,7 @@ private:
   bufferlist m_data;
   uint64_t m_offset;
   uint64_t m_length;
-  bool m_write_zeroes;
+  bool m_discard;
   uint64_t m_prog_offset;
 };
 
@@ -236,8 +233,7 @@ static int do_image_resize(ImportDiffContext *idiffctx)
   return 0;
 }
 
-static int do_image_io(ImportDiffContext *idiffctx, bool write_zeroes,
-                       size_t sparse_size)
+static int do_image_io(ImportDiffContext *idiffctx, bool discard, size_t sparse_size)
 {
   int r;
   char buf[16];
@@ -255,7 +251,7 @@ static int do_image_io(ImportDiffContext *idiffctx, bool write_zeroes,
   decode(image_offset, p);
   decode(buffer_length, p);
 
-  if (!write_zeroes) {
+  if (!discard) {
     bufferptr bp = buffer::create(buffer_length);
     r = safe_read_exact(idiffctx->fd, bp.c_str(), buffer_length);
     if (r < 0) {
@@ -395,6 +391,14 @@ int do_import_diff_fd(librados::Rados &rados, librbd::Image &image, int fd,
                            utils::RBD_DIFF_BANNER_V2));
   if (r < 0) {
     return r;
+  }
+
+  std::string skip_partial_discard;
+  r = rados.conf_get("rbd_skip_partial_discard", skip_partial_discard);
+  if (r < 0 || skip_partial_discard != "false") {
+    dout(1) << "disabling sparse import" << dendl;
+    sparse_size = 0;
+    r = 0;
   }
 
   // begin image import

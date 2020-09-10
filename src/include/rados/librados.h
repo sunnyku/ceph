@@ -49,7 +49,6 @@ extern "C" {
 
 #define LIBRADOS_SUPPORTS_WATCH 1
 #define LIBRADOS_SUPPORTS_SERVICES 1
-#define LIBRADOS_SUPPORTS_GETADDRS 1
 #define LIBRADOS_SUPPORTS_APP_METADATA 1
 
 /* RADOS lock flags
@@ -173,7 +172,7 @@ typedef enum {
  *
  * A handle for interacting with a RADOS cluster. It encapsulates all
  * RADOS client configuration, including username, key for
- * authentication, logging, and debugging. Talking to different clusters
+ * authentication, logging, and debugging. Talking different clusters
  * -- or to the same cluster with different users -- requires
  * different cluster handles.
  */
@@ -241,7 +240,7 @@ typedef void * rados_object_list_cursor;
  * The item populated by rados_object_list in
  * the results array.
  */
-typedef struct {
+typedef struct rados_object_list_item {
 
   /// oid length
   size_t oid_length;
@@ -3656,23 +3655,19 @@ CEPH_RADOS_API int rados_break_lock(rados_ioctx_t io, const char *o,
                                     const char *cookie);
 
 /**
- * Blocklists the specified client from the OSDs
+ * Blacklists the specified client from the OSDs
  *
  * @param cluster cluster handle
  * @param client_address client address
- * @param expire_seconds number of seconds to blocklist (0 for default)
+ * @param expire_seconds number of seconds to blacklist (0 for default)
  * @returns 0 on success, negative error code on failure
  */
-CEPH_RADOS_API int rados_blocklist_add(rados_t cluster,
-				       char *client_address,
-				       uint32_t expire_seconds);
 CEPH_RADOS_API int rados_blacklist_add(rados_t cluster,
 				       char *client_address,
-				       uint32_t expire_seconds)
-  __attribute__((deprecated));
+				       uint32_t expire_seconds);
 
 /**
- * Gets addresses of the RADOS session, suitable for blocklisting.
+ * Gets addresses of the RADOS session, suitable for blacklisting.
  *
  * @param cluster cluster handle
  * @param addrs the output string.

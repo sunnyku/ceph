@@ -2,6 +2,7 @@
 // vim: ts=8 sw=2 smarttab
 
 #include "PoolReplayer.h"
+#include <boost/bind.hpp>
 #include "common/Cond.h"
 #include "common/Formatter.h"
 #include "common/admin_socket.h"
@@ -248,9 +249,9 @@ PoolReplayer<I>::~PoolReplayer()
 }
 
 template <typename I>
-bool PoolReplayer<I>::is_blocklisted() const {
+bool PoolReplayer<I>::is_blacklisted() const {
   std::lock_guard locker{m_lock};
-  return m_blocklisted;
+  return m_blacklisted;
 }
 
 template <typename I>
@@ -272,7 +273,7 @@ void PoolReplayer<I>::init(const std::string& site_name) {
 
   // reset state
   m_stopping = false;
-  m_blocklisted = false;
+  m_blacklisted = false;
   m_site_name = site_name;
 
   dout(10) << "replaying for " << m_peer << dendl;
@@ -589,15 +590,15 @@ void PoolReplayer<I>::run() {
 
     std::unique_lock locker{m_lock};
 
-    if (m_leader_watcher->is_blocklisted() ||
-        m_default_namespace_replayer->is_blocklisted()) {
-      m_blocklisted = true;
+    if (m_leader_watcher->is_blacklisted() ||
+        m_default_namespace_replayer->is_blacklisted()) {
+      m_blacklisted = true;
       m_stopping = true;
     }
 
     for (auto &it : m_namespace_replayers) {
-      if (it.second->is_blocklisted()) {
-        m_blocklisted = true;
+      if (it.second->is_blacklisted()) {
+        m_blacklisted = true;
         m_stopping = true;
         break;
       }

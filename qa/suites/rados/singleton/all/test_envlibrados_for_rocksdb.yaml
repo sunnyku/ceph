@@ -12,7 +12,7 @@ tasks:
 - ceph:
     pre-mgr-commands:
       - sudo ceph config set mgr mgr/devicehealth/enable_monitoring false --force
-    log-ignorelist:
+    log-whitelist:
       - overall HEALTH_
       - \(POOL_APP_NOT_ENABLED\)
 - workunit:

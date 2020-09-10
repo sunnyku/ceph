@@ -13,23 +13,23 @@
 #define LOCK_FLAG_MAY_RENEW 0x1    /* idempotent lock acquire */
 #define LOCK_FLAG_MUST_RENEW 0x2   /* lock must already be acquired */
 
-enum class ClsLockType {
-  NONE                = 0,
-  EXCLUSIVE           = 1,
-  SHARED              = 2,
-  EXCLUSIVE_EPHEMERAL = 3, /* lock object is removed @ unlock */
+enum ClsLockType {
+  LOCK_NONE                = 0,
+  LOCK_EXCLUSIVE           = 1,
+  LOCK_SHARED              = 2,
+  LOCK_EXCLUSIVE_EPHEMERAL = 3, /* lock object is removed @ unlock */
 };
 
 inline const char *cls_lock_type_str(ClsLockType type)
 {
     switch (type) {
-      case ClsLockType::NONE:
+      case LOCK_NONE:
 	return "none";
-      case ClsLockType::EXCLUSIVE:
+      case LOCK_EXCLUSIVE:
 	return "exclusive";
-      case ClsLockType::SHARED:
+      case LOCK_SHARED:
 	return "shared";
-      case ClsLockType::EXCLUSIVE_EPHEMERAL:
+      case LOCK_EXCLUSIVE_EPHEMERAL:
 	return "exclusive-ephemeral";
       default:
 	return "<unknown>";
@@ -37,17 +37,17 @@ inline const char *cls_lock_type_str(ClsLockType type)
 }
 
 inline bool cls_lock_is_exclusive(ClsLockType type) {
-  return ClsLockType::EXCLUSIVE == type || ClsLockType::EXCLUSIVE_EPHEMERAL == type;
+  return LOCK_EXCLUSIVE == type || LOCK_EXCLUSIVE_EPHEMERAL == type;
 }
 
 inline bool cls_lock_is_ephemeral(ClsLockType type) {
-  return ClsLockType::EXCLUSIVE_EPHEMERAL == type;
+  return LOCK_EXCLUSIVE_EPHEMERAL == type;
 }
 
 inline bool cls_lock_is_valid(ClsLockType type) {
-  return ClsLockType::SHARED == type ||
-    ClsLockType::EXCLUSIVE == type ||
-    ClsLockType::EXCLUSIVE_EPHEMERAL == type;
+  return LOCK_SHARED == type ||
+    LOCK_EXCLUSIVE == type ||
+    LOCK_EXCLUSIVE_EPHEMERAL == type;
 }
 
 namespace rados {
@@ -161,8 +161,7 @@ namespace rados {
           decode(tag, bl);
           DECODE_FINISH(bl);
         }
-
-        lock_info_t() : lock_type(ClsLockType::NONE) {}
+        lock_info_t() : lock_type(LOCK_NONE) {}
         void dump(ceph::Formatter *f) const;
         static void generate_test_instances(std::list<lock_info_t *>& o);
       };

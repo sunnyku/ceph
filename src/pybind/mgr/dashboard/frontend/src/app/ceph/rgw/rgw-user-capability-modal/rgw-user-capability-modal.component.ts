@@ -1,9 +1,10 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { Validators } from '@angular/forms';
 
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import _ from 'lodash';
+import * as _ from 'lodash';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 
+import { I18n } from '@ngx-translate/i18n-polyfill';
 import { ActionLabelsI18n } from '../../../shared/constants/app.constants';
 import { CdFormBuilder } from '../../../shared/forms/cd-form-builder';
 import { CdFormGroup } from '../../../shared/forms/cd-form-group';
@@ -31,10 +32,11 @@ export class RgwUserCapabilityModalComponent {
 
   constructor(
     private formBuilder: CdFormBuilder,
-    public activeModal: NgbActiveModal,
+    public bsModalRef: BsModalRef,
+    private i18n: I18n,
     public actionLabels: ActionLabelsI18n
   ) {
-    this.resource = $localize`capability`;
+    this.resource = this.i18n('capability');
     this.createForm();
   }
 
@@ -87,6 +89,6 @@ export class RgwUserCapabilityModalComponent {
   onSubmit() {
     const capability: RgwUserCapability = this.formGroup.value;
     this.submitAction.emit(capability);
-    this.activeModal.close();
+    this.bsModalRef.hide();
   }
 }

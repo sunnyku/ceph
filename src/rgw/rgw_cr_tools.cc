@@ -20,8 +20,7 @@ int RGWUserCreateCR::Request::_send_request()
 {
   CephContext *cct = store->ctx();
 
-  const int32_t default_max_buckets =
-    cct->_conf.get_val<int64_t>("rgw_user_max_buckets");
+  int32_t default_max_buckets = cct->_conf->rgw_user_max_buckets;
 
   RGWUserAdminOpState op_state;
 

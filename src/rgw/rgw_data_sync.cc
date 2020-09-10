@@ -1,6 +1,8 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab ft=cpp
 
+#include <boost/utility/string_ref.hpp>
+
 #include "common/ceph_json.h"
 #include "common/RWLock.h"
 #include "common/RefCountedObj.h"
@@ -9,6 +11,7 @@
 #include "common/errno.h"
 
 #include "rgw_common.h"
+#include "rgw_rados.h"
 #include "rgw_zone.h"
 #include "rgw_sync.h"
 #include "rgw_data_sync.h"
@@ -20,7 +23,6 @@
 #include "rgw_bucket.h"
 #include "rgw_bucket_sync.h"
 #include "rgw_bucket_sync_cache.h"
-#include "rgw_datalog.h"
 #include "rgw_metadata.h"
 #include "rgw_sync_counters.h"
 #include "rgw_sync_error_repo.h"
@@ -31,13 +33,12 @@
 
 #include "services/svc_zone.h"
 #include "services/svc_sync_modules.h"
-#include "rgw_bucket.h"
+#include "services/svc_datalog_rados.h"
 
 #include "include/common_fwd.h"
 #include "include/random.h"
 
 #include <boost/asio/yield.hpp>
-#include <string_view>
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -4935,14 +4936,14 @@ string RGWBucketPipeSyncStatusManager::status_oid(const rgw_zone_id& source_zone
 
 string RGWBucketPipeSyncStatusManager::obj_status_oid(const rgw_bucket_sync_pipe& sync_pipe,
                                                       const rgw_zone_id& source_zone,
-                                                      const rgw::sal::RGWObject* obj)
+                                                      const rgw_obj& obj)
 {
-  string prefix = object_status_oid_prefix + "." + source_zone.id + ":" + obj->get_bucket()->get_key().get_key();
+  string prefix = object_status_oid_prefix + "." + source_zone.id + ":" + obj.bucket.get_key();
   if (sync_pipe.source_bucket_info.bucket !=
       sync_pipe.dest_bucket_info.bucket) {
     prefix += string("/") + sync_pipe.dest_bucket_info.bucket.get_key();
   }
-  return prefix + ":" + obj->get_name() + ":" + obj->get_instance();
+  return prefix + ":" + obj.key.name + ":" + obj.key.instance;
 }
 
 class RGWCollectBucketSyncStatusCR : public RGWShardCollectCR {

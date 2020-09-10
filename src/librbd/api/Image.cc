@@ -7,7 +7,6 @@
 #include "common/errno.h"
 #include "common/Cond.h"
 #include "cls/rbd/cls_rbd_client.h"
-#include "librbd/AsioEngine.h"
 #include "librbd/DeepCopyRequest.h"
 #include "librbd/ExclusiveLock.h"
 #include "librbd/ImageCtx.h"
@@ -667,6 +666,7 @@ int Image<I>::deep_copy(I *src, librados::IoCtx& dest_md_ctx,
 template <typename I>
 int Image<I>::deep_copy(I *src, I *dest, bool flatten,
                         ProgressContext &prog_ctx) {
+  CephContext *cct = src->cct;
   librados::snap_t snap_id_start = 0;
   librados::snap_t snap_id_end;
   {
@@ -674,14 +674,16 @@ int Image<I>::deep_copy(I *src, I *dest, bool flatten,
     snap_id_end = src->snap_id;
   }
 
-  AsioEngine asio_engine(src->md_ctx);
+  ThreadPool *thread_pool;
+  ContextWQ *op_work_queue;
+  ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
   C_SaferCond cond;
   SnapSeqs snap_seqs;
   deep_copy::ProgressHandler progress_handler{&prog_ctx};
   auto req = DeepCopyRequest<I>::create(
-    src, dest, snap_id_start, snap_id_end, 0U, flatten, boost::none,
-    asio_engine.get_work_queue(), &snap_seqs, &progress_handler, &cond);
+    src, dest, snap_id_start, snap_id_end, 0U, flatten, boost::none, op_work_queue,
+    &snap_seqs, &progress_handler, &cond);
   req->send();
   int r = cond.wait();
   if (r < 0) {
@@ -823,15 +825,16 @@ int Image<I>::remove(IoCtx& io_ctx, const std::string &image_name,
     // fall-through if trash isn't supported
   }
 
-  AsioEngine asio_engine(io_ctx);
+  ThreadPool *thread_pool;
+  ContextWQ *op_work_queue;
+  ImageCtx::get_thread_pool_instance(cct, &thread_pool, &op_work_queue);
 
   // might be a V1 image format that cannot be moved to the trash
   // and would not have been listed in the V2 directory -- or the OSDs
   // are too old and don't support the trash feature
   C_SaferCond cond;
   auto req = librbd::image::RemoveRequest<I>::create(
-    io_ctx, image_name, "", false, false, prog_ctx,
-    asio_engine.get_work_queue(), &cond);
+    io_ctx, image_name, "", false, false, prog_ctx, op_work_queue, &cond);
   req->send();
 
   return cond.wait();

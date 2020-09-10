@@ -6,10 +6,7 @@
 
 #include "librbd/Watcher.h"
 
-namespace librbd {
-class ImageCtx;
-namespace asio { struct ContextWQ; }
-} // namespace librbd
+namespace librbd { class ImageCtx; }
 
 namespace rbd {
 namespace mirror {
@@ -18,15 +15,14 @@ template <typename ImageCtxT = librbd::ImageCtx>
 class MirrorStatusWatcher : protected librbd::Watcher {
 public:
   static MirrorStatusWatcher *create(librados::IoCtx &io_ctx,
-                                     librbd::asio::ContextWQ *work_queue) {
+                                     ContextWQ *work_queue) {
     return new MirrorStatusWatcher(io_ctx, work_queue);
   }
   void destroy() {
     delete this;
   }
 
-  MirrorStatusWatcher(librados::IoCtx &io_ctx,
-                      librbd::asio::ContextWQ *work_queue);
+  MirrorStatusWatcher(librados::IoCtx &io_ctx, ContextWQ *work_queue);
   ~MirrorStatusWatcher() override;
 
   void init(Context *on_finish);

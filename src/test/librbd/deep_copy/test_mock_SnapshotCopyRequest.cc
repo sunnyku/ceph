@@ -3,7 +3,6 @@
 
 #include "test/librbd/test_mock_fixture.h"
 #include "include/rbd/librbd.hpp"
-#include "librbd/AsioEngine.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
 #include "librbd/Operations.h"
@@ -107,9 +106,8 @@ public:
 
   librbd::ImageCtx *m_src_image_ctx;
   librbd::ImageCtx *m_dst_image_ctx;
-
-  std::shared_ptr<librbd::AsioEngine> m_asio_engine;
-  asio::ContextWQ *m_work_queue;
+  ThreadPool *m_thread_pool;
+  ContextWQ *m_work_queue;
 
   librbd::SnapSeqs m_snap_seqs;
 
@@ -123,9 +121,8 @@ public:
     ASSERT_EQ(0, create_image_pp(rbd, m_ioctx, dst_image_name, m_image_size));
     ASSERT_EQ(0, open_image(dst_image_name, &m_dst_image_ctx));
 
-    m_asio_engine = std::make_shared<librbd::AsioEngine>(
-      m_src_image_ctx->md_ctx);
-    m_work_queue = m_asio_engine->get_work_queue();
+    librbd::ImageCtx::get_thread_pool_instance(m_src_image_ctx->cct,
+                                               &m_thread_pool, &m_work_queue);
   }
 
   void prepare_exclusive_lock(librbd::MockImageCtx &mock_image_ctx,
@@ -244,9 +241,7 @@ public:
   int create_snap(librbd::ImageCtx *image_ctx,
                   const cls::rbd::SnapshotNamespace& snap_ns,
                   const std::string &snap_name, bool protect) {
-    NoOpProgressContext prog_ctx;
-    int r = image_ctx->operations->snap_create(snap_ns, snap_name.c_str(), 0,
-                                               prog_ctx);
+    int r = image_ctx->operations->snap_create(snap_ns, snap_name.c_str());
     if (r < 0) {
       return r;
     }

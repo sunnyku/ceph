@@ -25,10 +25,10 @@ MDSUtility::MDSUtility() :
   waiting_for_mds_map(NULL),
   inited(false)
 {
-  monc = new MonClient(g_ceph_context, poolctx);
+  monc = new MonClient(g_ceph_context);
   messenger = Messenger::create_client_messenger(g_ceph_context, "mds");
   fsmap = new FSMap();
-  objecter = new Objecter(g_ceph_context, messenger, monc, poolctx, 0, 0);
+  objecter = new Objecter(g_ceph_context, messenger, monc, NULL, 0, 0);
 }
 
 
@@ -48,7 +48,10 @@ MDSUtility::~MDSUtility()
 int MDSUtility::init()
 {
   // Initialize Messenger
-  poolctx.start(1);
+  int r = messenger->bind(g_conf()->public_addr);
+  if (r < 0)
+    return r;
+
   messenger->start();
 
   objecter->set_client_incarnation(0);
@@ -69,7 +72,7 @@ int MDSUtility::init()
   monc->set_want_keys(CEPH_ENTITY_TYPE_MON|CEPH_ENTITY_TYPE_OSD|CEPH_ENTITY_TYPE_MDS);
   monc->set_messenger(messenger);
   monc->init();
-  int r = monc->authenticate();
+  r = monc->authenticate();
   if (r < 0) {
     derr << "Authentication failed, did you specify an MDS ID with a valid keyring?" << dendl;
     monc->shutdown();
@@ -122,7 +125,6 @@ void MDSUtility::shutdown()
   monc->shutdown();
   messenger->shutdown();
   messenger->wait();
-  poolctx.finish();
 }
 
 

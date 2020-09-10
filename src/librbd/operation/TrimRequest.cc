@@ -15,6 +15,7 @@
 #include "common/errno.h"
 #include "osdc/Striper.h"
 
+#include <boost/bind.hpp>
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/construct.hpp>
 #include <boost/scope_exit.hpp>

@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { AlertComponent, AlertConfig } from 'ngx-bootstrap/alert';
 
-import { NgbAlertModule } from '@ng-bootstrap/ng-bootstrap';
-
-import { configureTestBed } from '../../../../testing/unit-test-helper';
+import { configureTestBed, i18nProviders } from '../../../../testing/unit-test-helper';
 import { AlertPanelComponent } from './alert-panel.component';
 
 describe('AlertPanelComponent', () => {
@@ -10,8 +9,8 @@ describe('AlertPanelComponent', () => {
   let fixture: ComponentFixture<AlertPanelComponent>;
 
   configureTestBed({
-    declarations: [AlertPanelComponent],
-    imports: [NgbAlertModule]
+    declarations: [AlertPanelComponent, AlertComponent],
+    providers: [AlertConfig, i18nProviders]
   });
 
   beforeEach(() => {

@@ -10,7 +10,8 @@ import { BehaviorSubject, of } from 'rxjs';
 import {
   configureTestBed,
   FixtureHelper,
-  FormHelper
+  FormHelper,
+  i18nProviders
 } from '../../../../../testing/unit-test-helper';
 import { OrchestratorService } from '../../../../shared/api/orchestrator.service';
 import { CdFormGroup } from '../../../../shared/forms/cd-form-group';
@@ -103,6 +104,7 @@ describe('OsdFormComponent', () => {
       ReactiveFormsModule,
       ToastrModule.forRoot()
     ],
+    providers: [i18nProviders],
     declarations: [OsdFormComponent, OsdDevicesSelectionGroupsComponent, InventoryDevicesComponent]
   });
 
@@ -112,8 +114,8 @@ describe('OsdFormComponent', () => {
     component = fixture.componentInstance;
     form = component.form;
     formHelper = new FormHelper(form);
-    orchService = TestBed.inject(OrchestratorService);
-    summaryService = TestBed.inject(SummaryService);
+    orchService = TestBed.get(OrchestratorService);
+    summaryService = TestBed.get(SummaryService);
     summaryService['summaryDataSource'] = new BehaviorSubject(null);
     summaryService['summaryData$'] = summaryService['summaryDataSource'].asObservable();
     summaryService['summaryDataSource'].next({ version: 'master' });
